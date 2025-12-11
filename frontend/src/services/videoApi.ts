@@ -1,0 +1,459 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000/api';
+
+// Helper function to get locale from localStorage or default to 'en'
+const getLocale = (): string => {
+  return localStorage.getItem('i18nextLng') || 'en';
+};
+
+// Helper function to get auth headers
+const getAuthHeaders = (localeOverride?: string): HeadersInit => {
+  const token = localStorage.getItem('auth_token');
+  const locale = localeOverride || getLocale();
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Accept-Language': locale,
+    'Authorization': token ? `Bearer ${token}` : '',
+  };
+};
+
+// Handle API response
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      const error = await response.json();
+      errorMessage = error.message || errorMessage;
+    } catch {
+      // If response is not JSON, use status text
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  }
+  
+  return {} as T;
+}
+
+// Types
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  short_description?: string | null;
+  color: string;
+  icon: string;
+  image?: string | null;
+  image_url?: string | null; // Full URL from backend accessor
+  is_active: boolean;
+  sort_order: number;
+  // Series fields (merged from series table)
+  visibility?: 'freemium' | 'basic' | 'premium';
+  status?: 'draft' | 'published' | 'archived';
+  instructor_id?: number | null;
+  thumbnail?: string | null;
+  thumbnail_url?: string | null; // Full URL from backend accessor
+  cover_image?: string | null;
+  cover_image_url?: string | null; // Full URL from backend accessor
+  trailer_url?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  video_count?: number;
+  total_duration?: number;
+  total_views?: number;
+  rating?: string;
+  rating_count?: number;
+  price?: string;
+  is_free?: boolean;
+  published_at?: string | null;
+  featured_until?: string | null;
+  is_featured?: boolean;
+  tags?: string[] | null;
+  series_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Series interface (keeping for backward compatibility, used for content management)
+// Note: In the backend, series = category, so this includes category fields
+export interface Series {
+  id: number;
+  name: string; // Category name (since series = category)
+  title: string;
+  slug: string;
+  description: string;
+  short_description?: string | null;
+  visibility: 'freemium' | 'basic' | 'premium';
+  status: 'draft' | 'published' | 'archived';
+  category_id: number;
+  instructor_id?: number | null;
+  thumbnail?: string | null;
+  cover_image?: string | null;
+  image?: string | null;
+  trailer_url?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  video_count: number;
+  total_duration: number;
+  total_views?: number;
+  rating?: string;
+  rating_count?: number;
+  price?: string;
+  is_free?: boolean;
+  published_at?: string | null;
+  featured_until?: string | null;
+  is_featured?: boolean;
+  sort_order?: number;
+  tags?: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Video {
+  id: number;
+  title: string;
+  slug: string;
+  description: string | null;
+  short_description: string | null;
+  series_id: number;
+  category_id?: number; // Legacy field, kept for backward compatibility
+  instructor_id: number | null;
+  video_url: string | null;
+  video_file_path: string | null;
+  video_url_full?: string | null;
+  // Bunny.net fields
+  bunny_video_id?: string | null;
+  bunny_video_url?: string | null;
+  bunny_embed_url?: string | null;
+  bunny_thumbnail_url?: string | null;
+  bunny_player_url?: string | null;
+  thumbnail: string | null;
+  thumbnail_url?: string | null;
+  intro_image: string | null;
+  intro_image_url?: string | null;
+  intro_description: string | null;
+  duration: number;
+  file_size: number | null;
+  video_format: string | null;
+  video_quality: string | null;
+  streaming_urls: any | null;
+  hls_url: string | null;
+  dash_url: string | null;
+  visibility: 'freemium' | 'basic' | 'premium';
+  status: 'draft' | 'published' | 'archived';
+  is_free: boolean;
+  price: string | null;
+  episode_number: number | null;
+  sort_order: number;
+  tags: string[] | null;
+  views: number;
+  unique_views: number;
+  rating: string;
+  rating_count: number;
+  completion_rate: number;
+  published_at: string | null;
+  scheduled_at: string | null;
+  downloadable_resources: any | null;
+  allow_download: boolean;
+  meta_title: string | null;
+  meta_description: string | null;
+  meta_keywords: string | null;
+  processing_status: 'pending' | 'processing' | 'completed' | 'failed';
+  processing_error: string | null;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  category?: Category;
+  instructor?: any;
+}
+
+// Category API
+export const categoryApi = {
+  async getAll(params?: { search?: string; with_counts?: boolean }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.with_counts) queryParams.append('with_counts', 'true');
+    
+    const response = await fetch(`${API_BASE_URL}/admin/categories?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { data: Category[] } }>(response);
+  },
+
+  async getPublic(locale?: string) {
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': locale || getLocale(),
+    };
+    
+    const response = await fetch(`${API_BASE_URL}/categories/public`, {
+      headers,
+    });
+    return handleResponse<{ success: boolean; data: Category[] }>(response);
+  },
+
+  async create(data: Partial<Category> | FormData) {
+    const isFormData = data instanceof FormData;
+    const baseHeaders = getAuthHeaders() as Record<string, string>;
+    
+    // Remove Content-Type for FormData to let browser set it with boundary
+    let headers: HeadersInit;
+    if (isFormData) {
+      const { 'Content-Type': _, ...headersWithoutContentType } = baseHeaders;
+      headers = headersWithoutContentType;
+    } else {
+      headers = baseHeaders;
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/admin/categories`, {
+      method: 'POST',
+      headers: headers,
+      body: isFormData ? data : JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: Category; message: string }>(response);
+  },
+
+  async update(id: number, data: Partial<Category> | FormData) {
+    const isFormData = data instanceof FormData;
+    const baseHeaders = getAuthHeaders() as Record<string, string>;
+    
+    // Remove Content-Type for FormData to let browser set it with boundary
+    let headers: HeadersInit;
+    let method: string;
+    let body: BodyInit;
+    
+    if (isFormData) {
+      const { 'Content-Type': _, ...headersWithoutContentType } = baseHeaders;
+      headers = headersWithoutContentType;
+      // Laravel needs POST with _method=PUT for FormData to parse correctly
+      method = 'POST';
+      // Append _method for Laravel method spoofing
+      if (!(data as FormData).has('_method')) {
+        (data as FormData).append('_method', 'PUT');
+      }
+      body = data;
+    } else {
+      headers = baseHeaders;
+      method = 'PUT';
+      body = JSON.stringify(data);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/admin/categories/${id}`, {
+      method: method as any,
+      headers: headers,
+      body: body,
+    });
+    return handleResponse<{ success: boolean; data: Category; message: string }>(response);
+  },
+
+  async delete(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/categories/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+};
+
+// Series API
+export const seriesApi = {
+  async getAll(params?: { 
+    search?: string; 
+    category_id?: number; 
+    status?: string;
+    visibility?: string;
+    sort_by?: string;
+    sort_order?: string;
+    per_page?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.category_id) queryParams.append('category_id', params.category_id.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.visibility) queryParams.append('visibility', params.visibility);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/admin/series?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { data: Series[]; total: number } }>(response);
+  },
+
+  async getFeatured(limit?: number) {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', limit.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/series/featured?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Series[] }>(response);
+  },
+
+  async getPopular(limit?: number) {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', limit.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/series/popular?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Series[] }>(response);
+  },
+
+  async getNewReleases(limit?: number) {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', limit.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/series/new-releases?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Series[] }>(response);
+  },
+
+  async getById(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/series/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { series: Series; user_progress?: any } }>(response);
+  },
+
+  async create(data: Partial<Series>) {
+    const response = await fetch(`${API_BASE_URL}/admin/series`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: Series; message: string }>(response);
+  },
+
+  async update(id: number, data: Partial<Series>) {
+    const response = await fetch(`${API_BASE_URL}/admin/series/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: Series; message: string }>(response);
+  },
+
+  async delete(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/series/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+};
+
+// Video API
+export const videoApi = {
+  async getAll(params?: { 
+    search?: string; 
+    category_id?: number; 
+    status?: string;
+    visibility?: string;
+    sort_by?: string;
+    sort_order?: string;
+    per_page?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.category_id) queryParams.append('category_id', params.category_id.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.visibility) queryParams.append('visibility', params.visibility);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/admin/videos?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { data: Video[]; total: number } }>(response);
+  },
+
+  async getById(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { video: Video; user_progress?: any; next_video?: Video; previous_video?: Video } }>(response);
+  },
+
+  async get(id: number) {
+    const response = await fetch(`${API_BASE_URL}/videos/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { video: Video; user_progress?: any; next_video?: Video; previous_video?: Video } }>(response);
+  },
+
+  async create(data: Partial<Video>) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: Video; message: string }>(response);
+  },
+
+  async update(id: number, data: Partial<Video>) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: Video; message: string }>(response);
+  },
+
+  async delete(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+
+  async getCategoryVideos(categoryId: number) {
+    const response = await fetch(`${API_BASE_URL}/categories/${categoryId}/videos`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { videos: Video[]; user_progress?: any; category: Category } }>(response);
+  },
+
+  // Public endpoint for normal users (applies visibility filters)
+  async getPublic(params?: { 
+    search?: string; 
+    category_id?: number; 
+    status?: string;
+    visibility?: string;
+    sort_by?: string;
+    sort_order?: string;
+    per_page?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.category_id) queryParams.append('category_id', params.category_id.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.visibility) queryParams.append('visibility', params.visibility);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/videos?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { data: Video[]; total: number; current_page?: number; last_page?: number } }>(response);
+  },
+};
+
+export default {
+  category: categoryApi,
+  series: seriesApi,
+  video: videoApi,
+};
+
