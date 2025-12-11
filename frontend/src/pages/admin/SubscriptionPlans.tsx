@@ -334,7 +334,11 @@ const SubscriptionPlans = () => {
                       setNewPlan({...newPlan, description: e.target.value});
                     }
                   }}
+                  className="min-h-[120px]"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('admin.plans_description_help')}
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

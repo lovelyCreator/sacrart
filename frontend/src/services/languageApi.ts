@@ -129,11 +129,66 @@ export const languageApi = {
 
   // Admin: Get all translations
   getAllTranslations: async (): Promise<any> => {
-    const response = await fetch(`${API_BASE_URL}/admin/translations`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
-    return handleResponse<any>(response);
+    const headers = getAuthHeaders();
+    const url = `${API_BASE_URL}/admin/translations`;
+    
+    // Check if Authorization header exists (handle different HeadersInit types)
+    const authToken = typeof headers === 'object' && !Array.isArray(headers) 
+      ? (headers as Record<string, string>).Authorization || ''
+      : '';
+    const hasAuth = authToken.length > 0;
+    
+    console.log('🔍 Fetching all translations from:', url);
+    console.log('🔑 Auth token present:', hasAuth);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: headers,
+      });
+      
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.error('❌ API Error:', errorData);
+        } catch (e) {
+          const text = await response.text();
+          console.error('❌ API Error (text):', text);
+          errorMessage = text || errorMessage;
+        }
+        
+        // Provide more specific error messages
+        if (response.status === 401) {
+          errorMessage = 'Unauthorized: Please log in again.';
+        } else if (response.status === 403) {
+          errorMessage = 'Forbidden: You do not have admin permissions.';
+        } else if (response.status === 404) {
+          errorMessage = 'Not Found: The translations endpoint was not found.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server Error: The server encountered an error.';
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      const data = await response.json();
+      console.log('✅ Translations fetched successfully');
+      return data;
+    } catch (error: any) {
+      console.error('❌ Error in getAllTranslations:', error);
+      
+      // Handle network errors
+      if (error.name === 'TypeError' && error.message?.includes('fetch')) {
+        throw new Error('Network error: Could not connect to server. Please check your internet connection and server status.');
+      }
+      
+      throw error;
+    }
   },
 
   // Admin: Update translation

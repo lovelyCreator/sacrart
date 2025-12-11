@@ -182,8 +182,41 @@ export const loadAndSetTranslations = async (locale: string, skipI18nChange = fa
       // The third parameter (true) means deep merge, fourth parameter (true) means overwrite existing
       i18n.addResourceBundle(validLocale, 'translation', backendTranslations, true, true);
       console.log(`✓ Added backend resource bundle for ${validLocale} with ${keysCount} top-level keys`);
+      
+      // Verify support translations specifically
+      const backendTranslationsAny = backendTranslations as any;
+      if (backendTranslationsAny.support) {
+        const supportCount = Object.keys(backendTranslationsAny.support).length;
+        console.log(`✓ Support translations found in backend: ${supportCount} keys`);
+        
+        // Test a support translation key
+        const testSupportKey = 'support.center';
+        const testSupportTranslation = i18n.t(testSupportKey, { lng: validLocale });
+        if (testSupportTranslation && testSupportTranslation !== testSupportKey) {
+          console.log(`✓ Support translation test passed: "${testSupportKey}" = "${testSupportTranslation}"`);
+        } else {
+          console.warn(`⚠ Support translation test failed: "${testSupportKey}" returned "${testSupportTranslation}"`);
+        }
+      } else {
+        console.warn(`⚠ No 'support' key found in backend translations for ${validLocale}`);
+        console.log(`Available top-level keys:`, Object.keys(backendTranslations).slice(0, 10));
+      }
     } else {
       console.log(`No backend translations for ${validLocale}, using file-based translations only`);
+      
+      // Verify file-based support translations
+      const localeResource = resources[validLocale as keyof typeof resources];
+      if (localeResource?.translation && typeof localeResource.translation === 'object' && 'support' in localeResource.translation) {
+        const supportObj = (localeResource.translation as any).support;
+        if (supportObj && typeof supportObj === 'object') {
+          const fileSupportCount = Object.keys(supportObj).length;
+          console.log(`✓ File-based support translations available: ${fileSupportCount} keys`);
+        } else {
+          console.warn(`⚠ File-based support translations found but invalid for ${validLocale}`);
+        }
+      } else {
+        console.warn(`⚠ No file-based support translations found for ${validLocale}`);
+      }
     }
     
     // Final verification
@@ -192,6 +225,15 @@ export const loadAndSetTranslations = async (locale: string, skipI18nChange = fa
       console.error(`❌ CRITICAL: No resource bundle available for ${validLocale} after loading!`);
     } else {
       console.log(`✓ Resource bundle verified for ${validLocale}`);
+      
+      // Final test of support translations
+      const finalTestKey = 'support.center';
+      const finalTest = i18n.t(finalTestKey, { lng: validLocale });
+      if (finalTest && finalTest !== finalTestKey) {
+        console.log(`✓ Final support translation test passed: "${finalTestKey}" = "${finalTest}"`);
+      } else {
+        console.error(`❌ Final support translation test FAILED: "${finalTestKey}" = "${finalTest}"`);
+      }
     }
     
     // Only change i18n language if explicitly requested (not during automatic syncing)
@@ -293,7 +335,9 @@ const initializeBackendTranslations = () => {
   
   // Load backend translations after a delay to ensure i18n is fully initialized
   // Use longer delay on VPS to account for network latency
-  const delay = typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 500 : 100;
+  const isVPS = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const delay = isVPS ? 1000 : 100; // Increased delay for VPS to ensure backend is ready
+  console.log(`Environment: ${isVPS ? 'VPS' : 'Local'}, delay: ${delay}ms`);
   
   setTimeout(() => {
     loadAndSetTranslations(validLocale, false).catch(err => {
