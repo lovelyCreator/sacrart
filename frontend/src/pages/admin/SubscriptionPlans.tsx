@@ -37,7 +37,6 @@ import {
   Crown,
   Star,
   Zap,
-  DollarSign,
   Users,
   CheckCircle,
   X,
@@ -45,6 +44,7 @@ import {
   Copy,
   Settings
 } from 'lucide-react';
+import { EuroIcon } from '@/components/icons/EuroIcon';
 import { subscriptionPlanApi, SubscriptionPlan, SubscriptionPlanCreateRequest } from '@/services/subscriptionPlanApi';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -102,7 +102,7 @@ const SubscriptionPlans = () => {
       case 'freemium':
         return <Zap className="h-6 w-6 text-gray-500" />;
       default:
-        return <DollarSign className="h-6 w-6 text-primary" />;
+        return <EuroIcon className="h-6 w-6 text-primary" />;
     }
   };
 
@@ -151,7 +151,10 @@ const SubscriptionPlans = () => {
         ));
         toast.success(t('admin.plans_updated'));
       } else {
-        const response = await subscriptionPlanApi.create(newPlan as SubscriptionPlanCreateRequest);
+        const response = await subscriptionPlanApi.create({
+          ...newPlan,
+          stripe_price_id: (newPlan as any)?.stripe_price_id || null,
+        } as SubscriptionPlanCreateRequest);
         const createdPlan = response.data;
         setPlans(prev => [...prev, createdPlan]);
         toast.success(t('admin.plans_created'));
@@ -172,7 +175,8 @@ const SubscriptionPlans = () => {
         priority_support: false,
         ad_free: false,
         is_active: true,
-        sort_order: 1
+        sort_order: 1,
+        stripe_price_id: null
       });
     } catch (error: any) {
       console.error('Failed to save plan:', error);
@@ -497,19 +501,24 @@ const SubscriptionPlans = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="stripe_price_id">Stripe Price ID</Label>
+                <Label htmlFor="stripe_price_id">Stripe Price ID {!editingPlan && (newPlan.name?.toLowerCase() !== 'freemium') && <span className="text-red-500">*</span>}</Label>
                 <Input 
                   id="stripe_price_id" 
                   placeholder="price_xxxxxxxxxxxxx"
-                  value={(editingPlan as any)?.stripe_price_id || ''}
+                  value={(editingPlan as any)?.stripe_price_id || (newPlan as any)?.stripe_price_id || ''}
                   onChange={(e) => {
                     if (editingPlan) {
                       setEditingPlan({...editingPlan, stripe_price_id: e.target.value} as any);
+                    } else {
+                      setNewPlan({...newPlan, stripe_price_id: e.target.value} as any);
                     }
                   }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Enter the Stripe Price ID from your Stripe Dashboard (Products → Prices). This is required for paid plans.
+                  Enter the Stripe Price ID from your Stripe Dashboard (Products → Prices). This is required for paid plans (not needed for freemium).
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  💡 <strong>How to get it:</strong> Go to Stripe Dashboard → Products → Create/Select Product → Add Price → Copy the Price ID (starts with "price_")
                 </p>
               </div>
             </div>
@@ -539,7 +548,24 @@ const SubscriptionPlans = () => {
               <div className="flex items-center space-x-2">
                 {getPlanIcon(plan.name)}
                 <div>
-                  <h3 className="text-lg font-semibold">{plan.display_name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold">{plan.display_name}</h3>
+                    {plan.name?.toLowerCase() !== 'freemium' && (
+                      <Badge variant={plan.stripe_price_id ? "default" : "destructive"} className="text-xs">
+                        {plan.stripe_price_id ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Stripe Ready
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-3 w-3 mr-1" />
+                            No Stripe
+                          </>
+                        )}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">{plan.description}</p>
                 </div>
               </div>
@@ -653,6 +679,26 @@ const SubscriptionPlans = () => {
 
             <div className="mt-auto pt-4">
               <div className="border-t mb-4"></div>
+              {plan.name?.toLowerCase() !== 'freemium' && !plan.stripe_price_id && (
+                <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
+                  <p className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    ⚠️ Stripe Price ID not configured
+                  </p>
+                  <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                    Edit this plan to add the Stripe Price ID from your Stripe Dashboard.
+                  </p>
+                </div>
+              )}
+              {plan.stripe_price_id && (
+                <div className="mb-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-xs">
+                  <p className="text-green-800 dark:text-green-200 font-medium">
+                    ✓ Stripe configured
+                  </p>
+                  <p className="text-green-700 dark:text-green-300 mt-1 font-mono text-xs">
+                    {plan.stripe_price_id}
+                  </p>
+                </div>
+              )}
               <h4 className="font-medium text-sm mb-2">{t('admin.plans_features_label')}</h4>
               <ul className="space-y-1">
                 {plan.features && plan.features.length > 0 ? (
@@ -679,7 +725,7 @@ const SubscriptionPlans = () => {
               <p className="text-sm text-muted-foreground">{t('admin.plans_total_plans')}</p>
               <p className="text-2xl font-bold">{plans.length}</p>
             </div>
-            <DollarSign className="h-8 w-8 text-primary" />
+            <EuroIcon className="h-8 w-8 text-primary" />
           </div>
         </Card>
         <Card className="p-4">
@@ -699,7 +745,7 @@ const SubscriptionPlans = () => {
                 {formatCurrency((plans.reduce((sum, plan) => sum + plan.price, 0) / plans.length))}
               </p>
             </div>
-            <DollarSign className="h-8 w-8 text-blue-500" />
+            <EuroIcon className="h-8 w-8 text-blue-500" />
           </div>
         </Card>
         <Card className="p-4">

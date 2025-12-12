@@ -350,7 +350,6 @@ const ContentManagement = () => {
       created_at: '',
       updated_at: '',
     });
-    setSelectedCategoryImageFile(null);
     setIsSeriesDialogOpen(true);
   };
 
@@ -413,13 +412,15 @@ const ContentManagement = () => {
   };
 
   const handleAddVideo = () => {
+    const defaultSeries = series.length > 0 ? series[0] : null;
     setSelectedVideo({
       id: 0,
       title: '',
       slug: '',
       description: '',
       short_description: null,
-      series_id: series.length > 0 ? series[0].id : null,
+      series_id: defaultSeries?.id || null,
+      category_id: defaultSeries?.id || defaultSeries?.category_id || null,
       instructor_id: null,
       video_url: null,
       video_file_path: null,
@@ -479,6 +480,13 @@ const ContentManagement = () => {
       return;
     }
 
+    // Ensure category_id is set (required by backend)
+    // In this system, series = category, so category_id should match series_id
+    if (!selectedVideo.category_id && selectedVideo.series_id) {
+      const selectedSeries = series.find(s => s.id === selectedVideo.series_id);
+      selectedVideo.category_id = selectedSeries?.id || selectedSeries?.category_id || selectedVideo.series_id;
+    }
+
     // For Bunny.net-only integration, require at least an embed URL
     if (!selectedVideo.bunny_embed_url?.trim()) {
       toast.error('Bunny.net embed URL is required');
@@ -488,8 +496,12 @@ const ContentManagement = () => {
     try {
       setIsSubmitting(true);
 
+      // Create payload without series_id (database only has category_id)
+      // series_id is kept in frontend state for UI purposes, but backend expects category_id
+      const { series_id, ...videoData } = selectedVideo;
       const payload: Partial<Video> = {
-        ...selectedVideo,
+        ...videoData,
+        category_id: selectedVideo.category_id || series_id, // Ensure category_id is always set
       };
 
       let response;
@@ -585,7 +597,7 @@ const ContentManagement = () => {
         const categoryData = response.data;
         const seriesData: Series = {
           ...categoryData,
-          title: categoryData.title || categoryData.name || '',
+          title: (categoryData as any).title || categoryData.name || '',
           status: (categoryData as any).status || newStatus,
           visibility: (categoryData as any).visibility || serie.visibility || 'freemium',
           video_count: (categoryData as any).video_count || serie.video_count || 0,
@@ -633,6 +645,12 @@ const ContentManagement = () => {
     } catch (error: any) {
       toast.error(error.message || "Failed to update video status");
     }
+  };
+
+  const formatPrice = (price: string | number | null | undefined): string => {
+    if (price === null || price === undefined) return '0.00';
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
   };
 
   const formatDate = (dateString: string) => {
@@ -1472,7 +1490,15 @@ const ContentManagement = () => {
                 </Label>
                 <Select
                   value={selectedVideo.series_id?.toString() || ''}
-                  onValueChange={(value) => setSelectedVideo({...selectedVideo, series_id: parseInt(value)})}
+                  onValueChange={(value) => {
+                    const seriesId = parseInt(value);
+                    const selectedSeries = series.find(s => s.id === seriesId);
+                    setSelectedVideo({
+                      ...selectedVideo,
+                      series_id: seriesId,
+                      category_id: selectedSeries?.id || selectedSeries?.category_id || seriesId
+                    });
+                  }}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder={t('admin.content_label_select_series')} />

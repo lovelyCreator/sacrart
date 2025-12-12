@@ -47,12 +47,12 @@ import {
   Crown,
   Star,
   Zap,
-  DollarSign,
   Users,
   Calendar,
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
+import { EuroIcon } from '@/components/icons/EuroIcon';
 import { userApi, User, UserStatistics } from '@/services/userApi';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -540,9 +540,9 @@ const UsersManagement = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Revenue</p>
-              <p className="text-2xl font-bold">${statistics?.total_revenue.toFixed(2) || '0.00'}</p>
+              <p className="text-2xl font-bold">€{Number(statistics?.total_revenue || 0).toFixed(2)}</p>
             </div>
-            <DollarSign className="h-8 w-8 text-green-500" />
+            <EuroIcon className="h-8 w-8 text-green-500" />
           </div>
         </Card>
       </div>

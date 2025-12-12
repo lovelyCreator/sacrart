@@ -1,11 +1,11 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 interface ApiError {
   message: string;
   errors?: Record<string, string[]>;
 }
 
-interface User {
+export interface User {
   id: number;
   name: string;
   email: string;
@@ -60,11 +60,23 @@ class ApiClient {
     return headers;
   }
 
-  private async handleResponse<T>(response: Response): Promise<T> {
+  private async handleResponse<T>(response: Response, clearTokenOn401: boolean = false): Promise<T> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - only clear token if explicitly requested (e.g., for getUser endpoint)
+      if (response.status === 401) {
+        if (clearTokenOn401) {
+          localStorage.removeItem('auth_token');
+        }
+        if (isJson) {
+          const error: ApiError = await response.json();
+          throw new Error(error.message || 'Unauthenticated. Please login again.');
+        }
+        throw new Error('Unauthenticated. Please login again.');
+      }
+      
       if (isJson) {
         const error: ApiError = await response.json();
         throw new Error(error.message || 'An error occurred');
@@ -126,7 +138,8 @@ class ApiClient {
       headers: this.getHeaders(),
     });
 
-    return this.handleResponse<{ user: User }>(response);
+    // Clear token on 401 for getUser since it means the token is invalid
+    return this.handleResponse<{ user: User }>(response, true);
   }
 
   async updateSubscription(subscriptionType: 'freemium' | 'basic' | 'premium' | 'admin'): Promise<{ user: User; message: string }> {
@@ -171,13 +184,9 @@ class ApiClient {
       throw new Error(errorData.message || `Failed to create checkout session: ${response.status}`);
     }
 
-    const result = await this.handleResponse<{ success: boolean; url: string; id: string; message?: string }>(response);
-    console.log('✅ Stripe checkout API success:', result);
-    return result;
+    return this.handleResponse<{ success: boolean; url: string; id: string; message?: string }>(response);
   }
 }
 
+// Export a singleton instance
 export const api = new ApiClient(API_BASE_URL);
-
-export type { User, AuthResponse, LoginData, RegisterData };
-

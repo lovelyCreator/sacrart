@@ -39,10 +39,10 @@ import {
   Calendar,
   Users,
   Percent,
-  DollarSign,
   Clock,
   Target
 } from 'lucide-react';
+import { EuroIcon } from '@/components/icons/EuroIcon';
 import { couponApi, Coupon, CouponCreateRequest } from '@/services/couponApi';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -105,7 +105,7 @@ const CouponsDiscounts = () => {
       case 'percentage':
         return <Percent className="h-4 w-4" />;
       case 'fixed':
-        return <DollarSign className="h-4 w-4" />;
+        return <EuroIcon className="h-4 w-4" />;
       default:
         return <Gift className="h-4 w-4" />;
     }
@@ -325,9 +325,9 @@ const CouponsDiscounts = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('admin.coupons_total_savings')}</p>
-              <p className="text-2xl font-bold">${stats.totalSavings.toFixed(2)}</p>
+              <p className="text-2xl font-bold">€{Number(stats.totalSavings || 0).toFixed(2)}</p>
             </div>
-            <DollarSign className="h-8 w-8 text-green-500" />
+            <EuroIcon className="h-8 w-8 text-green-500" />
           </div>
         </Card>
       </div>

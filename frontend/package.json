@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "vite preview"
+    "start": "vite preview",
+    "test:pwa": "npm run build && vite preview --port 3000"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

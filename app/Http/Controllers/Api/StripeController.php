@@ -7,6 +7,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\PaymentTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -727,6 +728,72 @@ class StripeController extends Controller
             ]),
             'gateway_response' => json_encode($paymentIntent),
             'notes' => 'Payment intent failed: ' . ($paymentIntent->last_payment_error->message ?? 'Unknown error'),
+        ]);
+    }
+
+    /**
+     * Check Stripe connection status.
+     */
+    public function checkStatus(Request $request): JsonResponse
+    {
+        $secret = Config::get('stripe.secret');
+        $key = Config::get('stripe.key');
+        $webhookSecret = Config::get('stripe.webhook_secret');
+        $currency = Config::get('stripe.currency', 'eur');
+        
+        $isConfigured = !empty($secret) && !empty($key);
+        $webhookConfigured = !empty($webhookSecret);
+        $isConnected = false;
+        $accountInfo = null;
+        $error = null;
+
+        if ($isConfigured) {
+            try {
+                $client = new StripeClient($secret);
+                $account = $client->accounts->retrieve();
+                $isConnected = true;
+                $accountInfo = [
+                    'id' => $account->id,
+                    'country' => $account->country ?? null,
+                    'default_currency' => $account->default_currency ?? $currency,
+                    'charges_enabled' => $account->charges_enabled ?? false,
+                    'payouts_enabled' => $account->payouts_enabled ?? false,
+                ];
+            } catch (\Exception $e) {
+                $error = $e->getMessage();
+                Log::error('Stripe connection check failed', ['error' => $error]);
+            }
+        }
+
+        // Check subscription plans with Stripe configuration
+        $plansStatus = [];
+        try {
+            $plans = SubscriptionPlan::where('is_active', true)->get();
+            foreach ($plans as $plan) {
+                $plansStatus[] = [
+                    'id' => $plan->id,
+                    'name' => $plan->name,
+                    'display_name' => $plan->display_name,
+                    'price' => $plan->price,
+                    'has_stripe_price_id' => !empty($plan->stripe_price_id),
+                    'stripe_price_id' => $plan->stripe_price_id,
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to check subscription plans', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'is_configured' => $isConfigured,
+                'is_connected' => $isConnected,
+                'webhook_configured' => $webhookConfigured,
+                'currency' => strtoupper($currency),
+                'account' => $accountInfo,
+                'plans' => $plansStatus,
+                'error' => $error,
+            ],
         ]);
     }
 }

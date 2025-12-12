@@ -44,7 +44,6 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  DollarSign,
   CreditCard,
   User,
   Calendar,
@@ -55,6 +54,7 @@ import {
   FileText,
   Receipt
 } from 'lucide-react';
+import { EuroIcon } from '@/components/icons/EuroIcon';
 import { paymentTransactionApi, PaymentTransaction } from '@/services/paymentTransactionApi';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -467,13 +467,13 @@ const PaymentsTransactions = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('admin.payments_total_revenue')}</p>
-              <p className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</p>
+              <p className="text-2xl font-bold">€{Number(stats.totalRevenue || 0).toFixed(2)}</p>
               <p className="text-xs text-green-600 flex items-center">
                 <TrendingUp className="h-3 w-3 mr-1" />
                 +12% {t('admin.payments_from_last_month')}
               </p>
             </div>
-            <DollarSign className="h-8 w-8 text-green-500" />
+            <EuroIcon className="h-8 w-8 text-green-500" />
           </div>
         </Card>
         <Card className="p-4">
@@ -509,7 +509,7 @@ const PaymentsTransactions = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('admin.payments_avg_transaction')}</p>
-              <p className="text-2xl font-bold">${stats.averageTransaction.toFixed(2)}</p>
+              <p className="text-2xl font-bold">€{Number(stats.averageTransaction || 0).toFixed(2)}</p>
               <p className="text-xs text-muted-foreground">
                 {t('admin.payments_per_transaction')}
               </p>
@@ -595,7 +595,7 @@ const PaymentsTransactions = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center text-sm font-medium">
-                    <DollarSign className="h-4 w-4 mr-1 text-muted-foreground" />
+                    <EuroIcon className="h-4 w-4 mr-1 text-muted-foreground" />
                     {formatCurrency(transaction.amount, transaction.currency)}
                   </div>
                 </TableCell>

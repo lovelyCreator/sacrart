@@ -106,16 +106,6 @@ export const settingsApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify({ settings: settingsWithLocale }),
     });
-    
-    // Handle 422 validation errors specifically
-    if (!response.ok && response.status === 422) {
-      const errorData = await response.json();
-      const error = new Error(errorData.message || 'Validation failed');
-      (error as any).errors = errorData.errors;
-      (error as any).response = response;
-      throw error;
-    }
-    
     return handleResponse(response);
   },
 

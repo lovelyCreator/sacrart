@@ -17,9 +17,7 @@ import {
   ChevronRight,
   Check,
   Plus,
-  X,
-  Search,
-  ChevronDown
+  X
 } from 'lucide-react';
 import { generateMockSeries, generateMockVideos, MockSeries } from '@/services/mockData';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -54,9 +52,6 @@ const Home = () => {
   const [activeTab, setActiveTab] = useState(0); // Start at first category tab
   const [faqs, setFaqs] = useState<Record<string, Faq[]>>({});
   const [faqLoading, setFaqLoading] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [faqSearchQuery, setFaqSearchQuery] = useState('');
-  const INITIAL_FAQS_PER_CATEGORY = 3; // Show only 3 FAQs initially per category
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -235,34 +230,6 @@ const Home = () => {
     setExpandedFaq(expandedFaq === faqId ? null : faqId);
   };
 
-  const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
-  };
-
-  // Filter FAQs based on search query
-  const filteredFaqs = useMemo(() => {
-    if (!faqSearchQuery.trim()) {
-      return faqs;
-    }
-    
-    const query = faqSearchQuery.toLowerCase();
-    const filtered: Record<string, Faq[]> = {};
-    
-    Object.entries(faqs).forEach(([category, categoryFaqs]) => {
-      const matchingFaqs = categoryFaqs.filter(faq => 
-        faq.question.toLowerCase().includes(query) || 
-        faq.answer.toLowerCase().includes(query)
-      );
-      if (matchingFaqs.length > 0) {
-        filtered[category] = matchingFaqs;
-      }
-    });
-    
-    return filtered;
-  }, [faqs, faqSearchQuery]);
 
   // Featured hero content
   const heroContent = {
@@ -1689,7 +1656,7 @@ const Home = () => {
                           t('subscription.free')
                         ) : (
                           <>
-                            €{plan.price.toFixed(0)}
+                            €{Number(plan.price || 0).toFixed(2)}
                             <span className="text-lg text-gray-400">{t('subscription.per_month')}</span>
                           </>
                         )}
@@ -1753,93 +1720,45 @@ const Home = () => {
           </div>
 
           <div className="max-w-4xl mx-auto">
-            {/* Search Bar */}
-            <div className="mb-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder={t('faq.search_placeholder') || 'Search FAQs...'}
-                  value={faqSearchQuery}
-                  onChange={(e) => setFaqSearchQuery(e.target.value)}
-                  className="pl-10 bg-gray-900/50 border-white/10 text-white placeholder:text-gray-500 focus:border-primary"
-                />
-              </div>
-            </div>
-
             {faqLoading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-gray-400">{t('faq.loading')}</p>
               </div>
-            ) : Object.keys(filteredFaqs).length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-400 text-lg font-montserrat">
-                  {t('faq.no_results') || 'No FAQs found matching your search.'}
-                </p>
-              </div>
             ) : (
-              Object.entries(filteredFaqs).map(([category, categoryFaqs]) => {
-                const isExpanded = expandedCategories[category] || false;
-                const visibleFaqs = isExpanded ? categoryFaqs : categoryFaqs.slice(0, INITIAL_FAQS_PER_CATEGORY);
-                const hasMore = categoryFaqs.length > INITIAL_FAQS_PER_CATEGORY;
-
-                return (
-                  <div key={category} className="mb-12">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-2xl font-bold text-white font-playfair capitalize">
-                        {category.replace('_', ' ')} {t('faq.faqs')}
-                      </h3>
-                      {hasMore && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleCategory(category)}
-                          className="text-primary hover:text-primary/80 font-montserrat"
+              Object.entries(faqs).map(([category, categoryFaqs]) => (
+                <div key={category} className="mb-12">
+                  <h3 className="text-2xl font-bold text-white mb-6 font-playfair capitalize">
+                    {category.replace('_', ' ')} {t('faq.faqs')}
+                  </h3>
+                  <div className="space-y-4">
+                    {categoryFaqs.map((faq: Faq) => (
+                      <div key={faq.id} className="bg-gray-900/50 rounded-xl border border-white/10 transform hover:border-primary/50 transition-all duration-300 backdrop-blur-sm">
+                        <button
+                          onClick={() => toggleFaq(faq.id)}
+                          className="w-full text-left px-6 py-4 flex justify-between items-center hover:bg-white/5 transition-colors duration-200 rounded-xl"
                         >
-                          {isExpanded ? (
-                            <>
-                              {t('faq.show_less') || 'Show Less'}
-                              <ChevronDown className="ml-2 h-4 w-4 rotate-180" />
-                            </>
+                          <span className="text-lg font-semibold text-white font-montserrat">
+                            {faq.question}
+                          </span>
+                          {expandedFaq === faq.id ? (
+                            <X className="h-5 w-5 text-primary" />
                           ) : (
-                            <>
-                              {t('faq.show_more') || `Show More (${categoryFaqs.length - INITIAL_FAQS_PER_CATEGORY} more)`}
-                              <ChevronDown className="ml-2 h-4 w-4" />
-                            </>
+                            <Plus className="h-5 w-5 text-gray-400" />
                           )}
-                        </Button>
-                      )}
-                    </div>
-                    <div className="space-y-4">
-                      {visibleFaqs.map((faq: Faq) => (
-                        <div key={faq.id} className="bg-gray-900/50 rounded-xl border border-white/10 transform hover:border-primary/50 transition-all duration-300 backdrop-blur-sm">
-                          <button
-                            onClick={() => toggleFaq(faq.id)}
-                            className="w-full text-left px-6 py-4 flex justify-between items-center hover:bg-white/5 transition-colors duration-200 rounded-xl"
-                          >
-                            <span className="text-lg font-semibold text-white font-montserrat">
-                              {faq.question}
-                            </span>
-                            {expandedFaq === faq.id ? (
-                              <X className="h-5 w-5 text-primary" />
-                            ) : (
-                              <Plus className="h-5 w-5 text-gray-400" />
-                            )}
-                          </button>
-                          {expandedFaq === faq.id && (
-                            <div className="px-6 pb-4">
-                              <div className="text-gray-400 py-2 font-montserrat leading-relaxed">
-                                {faq.answer}
-                              </div>
+                        </button>
+                        {expandedFaq === faq.id && (
+                          <div className="px-6 pb-4">
+                            <div className="text-gray-400 py-2 font-montserrat leading-relaxed">
+                              {faq.answer}
                             </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
           </div>
         </div>

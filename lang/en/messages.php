@@ -600,7 +600,7 @@ return [
     'admin_plans_display_name_placeholder' => 'e.g., Premium Plan',
     'admin_plans_description' => 'Description',
     'admin_plans_description_placeholder' => 'Plan description...',
-    'admin_plans_price' => 'Price ($)',
+    'admin_plans_price' => 'Price (€)',
     'admin_plans_price_placeholder' => '19.99',
     'admin_plans_billing_cycle' => 'Billing Cycle',
     'admin_plans_duration' => 'Duration (days)',

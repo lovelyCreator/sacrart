@@ -73,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Video Comments (require authentication to read)
     Route::get('/videos/{video}/comments', [\App\Http\Controllers\Api\VideoCommentController::class, 'index']);
     // Payments (Stripe)
+    Route::get('/payments/stripe/status', [StripeController::class, 'checkStatus']);
     Route::post('/payments/checkout', [StripeController::class, 'createCheckoutSession']);
     // Auth routes
     Route::get('/user', [AuthController::class, 'user']);

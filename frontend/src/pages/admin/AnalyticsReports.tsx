@@ -8,7 +8,6 @@ import {
   TrendingDown,
   Users,
   Eye,
-  DollarSign,
   Video,
   Clock,
   Download,
@@ -16,6 +15,7 @@ import {
   Filter,
   RefreshCw
 } from 'lucide-react';
+import { EuroIcon } from '@/components/icons/EuroIcon';
 import { analyticsApi } from '@/services/analyticsApi';
 import { toast } from 'sonner';
 
@@ -260,7 +260,7 @@ const AnalyticsReports = () => {
                 +15% from last month
               </p>
             </div>
-            <DollarSign className="h-8 w-8 text-green-500" />
+            <EuroIcon className="h-8 w-8 text-green-500" />
           </div>
         </Card>
 
@@ -342,7 +342,7 @@ const AnalyticsReports = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Monthly Revenue</h3>
-            <DollarSign className="h-5 w-5 text-muted-foreground" />
+            <EuroIcon className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="space-y-3">
             {analytics.revenue.map((data) => (
@@ -399,24 +399,27 @@ const AnalyticsReports = () => {
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Subscription Distribution</h3>
           <div className="space-y-3">
-            {Object.entries(analytics.subscriptionStats).map(([plan, stats]) => (
-              <div key={plan} className="flex items-center justify-between">
-                <span className="text-sm font-medium capitalize">{plan}</span>
-                <div className="flex items-center space-x-3">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        plan === 'premium' ? 'bg-yellow-500' : 
-                        plan === 'basic' ? 'bg-blue-500' : 'bg-gray-500'
-                      }`}
-                      style={{ width: `${stats.percentage}%` }}
-                    ></div>
+            {Object.entries(analytics.subscriptionStats).map(([plan, stats]) => {
+              const statsData = stats as { count: number; percentage: number };
+              return (
+                <div key={plan} className="flex items-center justify-between">
+                  <span className="text-sm font-medium capitalize">{plan}</span>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          plan === 'premium' ? 'bg-yellow-500' : 
+                          plan === 'basic' ? 'bg-blue-500' : 'bg-gray-500'
+                        }`}
+                        style={{ width: `${statsData.percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium w-12 text-right">{statsData.count}</span>
+                    <span className="text-xs text-muted-foreground w-8">{statsData.percentage}%</span>
                   </div>
-                  <span className="text-sm font-medium w-12 text-right">{stats.count}</span>
-                  <span className="text-xs text-muted-foreground w-8">{stats.percentage}%</span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
 
@@ -424,24 +427,27 @@ const AnalyticsReports = () => {
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Device Distribution</h3>
           <div className="space-y-3">
-            {Object.entries(analytics.deviceStats).map(([device, stats]) => (
-              <div key={device} className="flex items-center justify-between">
-                <span className="text-sm font-medium capitalize">{device}</span>
-                <div className="flex items-center space-x-3">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        device === 'desktop' ? 'bg-blue-500' : 
-                        device === 'mobile' ? 'bg-green-500' : 'bg-purple-500'
-                      }`}
-                      style={{ width: `${stats.percentage}%` }}
-                    ></div>
+            {Object.entries(analytics.deviceStats).map(([device, stats]) => {
+              const statsData = stats as { count: number; percentage: number };
+              return (
+                <div key={device} className="flex items-center justify-between">
+                  <span className="text-sm font-medium capitalize">{device}</span>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          device === 'desktop' ? 'bg-blue-500' : 
+                          device === 'mobile' ? 'bg-green-500' : 'bg-purple-500'
+                        }`}
+                        style={{ width: `${statsData.percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium w-12 text-right">{statsData.count}</span>
+                    <span className="text-xs text-muted-foreground w-8">{statsData.percentage}%</span>
                   </div>
-                  <span className="text-sm font-medium w-12 text-right">{stats.count}</span>
-                  <span className="text-xs text-muted-foreground w-8">{stats.percentage}%</span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </div>

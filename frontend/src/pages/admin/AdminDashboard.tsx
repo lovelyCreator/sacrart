@@ -6,7 +6,6 @@ import {
   CreditCard, 
   TrendingUp, 
   Eye,
-  DollarSign,
   UserCheck,
   Video,
   Star,
@@ -15,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
+import { EuroIcon } from '@/components/icons/EuroIcon';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { analyticsApi } from '@/services/analyticsApi';
@@ -143,7 +143,7 @@ const AdminDashboard = () => {
       value: formatCurrency(overview.total_revenue || 0),
       change: overview.revenue_growth_percentage ? `${overview.revenue_growth_percentage > 0 ? '+' : ''}${overview.revenue_growth_percentage}%` : 'N/A',
       changeType: (overview.revenue_growth_percentage || 0) >= 0 ? 'positive' as const : 'negative' as const,
-      icon: DollarSign,
+      icon: EuroIcon,
       description: t('admin.this_month')
     },
     {

@@ -76,7 +76,8 @@
     "title": "Perguntas Frequentes",
     "subtitle": "Tudo o que você precisa saber sobre o SACRART e nosso conteúdo.",
     "loading": "Carregando perguntas frequentes...",
-    "faqs": "Perguntas Frequentes"
+    "faqs": "Perguntas Frequentes",
+    "no_results": "Nenhuma pergunta frequente encontrada"
   },
   "auth": {
     "welcome_back": "Bem-vindo de Volta",
@@ -445,6 +446,7 @@
     "choose_plan": "Escolha Seu Plano",
     "plan": "Plano",
     "select_plan_complete": "Selecione um plano para completar seu registro",
+    "no_features_listed": "Características pronto",
     "upgrade_learning": "Melhore sua experiência de aprendizado",
     "most_popular": "Mais Popular",
     "freemium": "Freemium",

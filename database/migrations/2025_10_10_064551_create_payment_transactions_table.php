@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('transaction_id')->unique(); // Payment gateway transaction ID
             $table->string('payment_gateway')->nullable(); // stripe, paypal, etc.
             $table->decimal('amount', 10, 2);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('EUR');
             $table->enum('status', ['pending', 'completed', 'failed', 'refunded', 'cancelled'])->default('pending');
             $table->enum('type', ['subscription', 'renewal', 'upgrade', 'downgrade', 'refund'])->default('subscription');
             $table->string('payment_method')->nullable(); // card, bank_transfer, etc.

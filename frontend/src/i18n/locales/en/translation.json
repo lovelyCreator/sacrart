@@ -76,7 +76,8 @@
     "title": "Frequently Asked Questions",
     "subtitle": "Everything you need to know about SACRART and our content.",
     "loading": "Loading FAQs...",
-    "faqs": "FAQs"
+    "faqs": "FAQs",
+    "no_results": "No FAQs found"
   },
   "auth": {
     "welcome_back": "Welcome Back",
@@ -478,6 +479,7 @@
     "choose_plan": "Choose Your Plan",
     "plan": "Plan",
     "select_plan_complete": "Select a plan to complete your registration",
+    "no_features_listed": "Features coming soon",
     "upgrade_learning": "Upgrade your learning experience",
     "most_popular": "Most Popular",
     "freemium": "Freemium",
@@ -872,7 +874,7 @@
     "plans_description": "Description",
     "plans_description_placeholder": "Enter plan features, one per line (e.g., Access to basic content\nCommunity support\nMobile app access)",
     "plans_description_help": "Each line will be displayed as a feature on the homepage. One feature per line.",
-    "plans_price": "Price ($)",
+    "plans_price": "Price (€)",
     "plans_price_placeholder": "19.99",
     "plans_billing_cycle": "Billing Cycle",
     "plans_duration": "Duration (days)",

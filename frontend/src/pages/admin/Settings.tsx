@@ -236,120 +236,6 @@ const Settings = () => {
     }
   };
 
-  // Initialize default settings for About, General, and Footer if they don't exist
-  const initializeDefaultSettings = async (groupName: 'about' | 'general' | 'footer') => {
-    const defaultSettings: SettingsUpdateRequest[] = [];
-    
-    if (groupName === 'about') {
-      // About section defaults
-      const aboutKeys = settings.about?.map(s => s.key) || [];
-      if (!aboutKeys.includes('about_title')) {
-        defaultSettings.push({ 
-          key: 'about_title', 
-          value: 'About SACRART', 
-          type: 'text', 
-          group: 'about', 
-          label: 'About Title', 
-          description: 'Title for the about section' 
-        });
-      }
-      if (!aboutKeys.includes('about_description')) {
-        defaultSettings.push({ 
-          key: 'about_description', 
-          value: 'SACRART is the premier platform for classical and contemporary sculpting education. Our mission is to preserve and teach traditional art techniques while embracing modern innovations in the field of sculpture and restoration.', 
-          type: 'text', 
-          group: 'about', 
-          label: 'About Description', 
-          description: 'Description for the about section' 
-        });
-      }
-    } else if (groupName === 'general') {
-      // General section defaults
-      const generalKeys = settings.general?.map(s => s.key) || [];
-      if (!generalKeys.includes('site_name')) {
-        defaultSettings.push({ key: 'site_name', value: 'SACRART', type: 'text', group: 'general', label: 'Site Name', description: 'Name of the website' });
-      }
-      if (!generalKeys.includes('site_tagline')) {
-        defaultSettings.push({ key: 'site_tagline', value: 'Premier Sculpting Education Platform', type: 'text', group: 'general', label: 'Site Tagline', description: 'Tagline for the website' });
-      }
-      if (!generalKeys.includes('contact_email')) {
-        defaultSettings.push({ key: 'contact_email', value: 'info@sacrart.com', type: 'text', group: 'general', label: 'Contact Email', description: 'Contact email address' });
-      }
-      if (!generalKeys.includes('contact_phone')) {
-        defaultSettings.push({ key: 'contact_phone', value: '+34 639 374 077', type: 'text', group: 'general', label: 'Contact Phone', description: 'Contact phone number' });
-      }
-    } else if (groupName === 'footer') {
-      // Footer section defaults
-      const footerKeys = settings.footer?.map(s => s.key) || [];
-      if (!footerKeys.includes('footer_copyright')) {
-        defaultSettings.push({ key: 'footer_copyright', value: '© 2024 SACRART. All rights reserved.', type: 'text', group: 'footer', label: 'Footer Copyright', description: 'Copyright text for footer' });
-      }
-      if (!footerKeys.includes('footer_description')) {
-        defaultSettings.push({ key: 'footer_description', value: 'SACRART - Premier platform for sculpting education and restoration techniques.', type: 'text', group: 'footer', label: 'Footer Description', description: 'Description text for footer' });
-      }
-      if (!footerKeys.includes('footer_address')) {
-        defaultSettings.push({ key: 'footer_address', value: 'Carretera del marquesado. Calle gaviota 1B', type: 'text', group: 'footer', label: 'Footer Address', description: 'Address for footer' });
-      }
-      if (!footerKeys.includes('footer_social_facebook')) {
-        defaultSettings.push({ key: 'footer_social_facebook', value: 'https://', type: 'text', group: 'footer', label: 'Facebook URL', description: 'Facebook page URL' });
-      }
-      if (!footerKeys.includes('footer_social_instagram')) {
-        defaultSettings.push({ key: 'footer_social_instagram', value: 'https://', type: 'text', group: 'footer', label: 'Instagram URL', description: 'Instagram page URL' });
-      }
-      if (!footerKeys.includes('footer_social_twitter')) {
-        defaultSettings.push({ key: 'footer_social_twitter', value: 'https://', type: 'text', group: 'footer', label: 'Twitter URL', description: 'Twitter page URL' });
-      }
-    }
-    
-    // Create default settings if any are needed
-    if (defaultSettings.length > 0) {
-      try {
-        // Ensure all required fields are present and properly formatted
-        const validatedSettings = defaultSettings.map(setting => {
-          // Ensure value is always a non-empty string
-          let value = String(setting.value ?? '');
-          // If value is empty or only whitespace, use a default placeholder
-          if (!value || value.trim() === '') {
-            // Use a meaningful default based on the field type
-            if (setting.key.includes('social') || setting.key.includes('url')) {
-              value = 'https://';
-            } else {
-              value = '-'; // Default placeholder for other fields
-            }
-          }
-          
-          return {
-            key: String(setting.key || ''),
-            value: value,
-            type: (setting.type || 'text') as 'text' | 'number' | 'boolean' | 'json',
-            group: String(setting.group || groupName),
-            label: setting.label ? String(setting.label) : undefined,
-            description: setting.description ? String(setting.description) : undefined,
-          };
-        });
-        
-        await settingsApi.bulkUpdate(validatedSettings, contentLocale);
-        toast.success(`Initialized ${validatedSettings.length} default ${groupName} settings`);
-        await fetchSettings(); // Refresh to show the new settings
-      } catch (error: any) {
-        console.error('Error initializing default settings:', error);
-        let errorMessage = error.message || `Failed to initialize ${groupName} settings`;
-        if (error.errors) {
-          const validationErrors = Object.entries(error.errors)
-            .map(([field, messages]: [string, any]) => {
-              const fieldName = field.replace(/settings\.\d+\./, '');
-              return `${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
-            })
-            .join('; ');
-          errorMessage = `Validation errors: ${validationErrors}`;
-        }
-        toast.error(errorMessage);
-      }
-    } else {
-      toast.info(`${groupName.charAt(0).toUpperCase() + groupName.slice(1)} settings already exist`);
-    }
-  };
-
   const handleSaveSettings = async (groupName: string) => {
     try {
       setSaving(true);
@@ -366,25 +252,15 @@ const Settings = () => {
         'about_description',
         'testimonial_title',
         'testimonial_subtitle',
-        'site_name',
-        'site_tagline',
-        'contact_email',
-        'contact_phone',
-        'footer_copyright',
-        'footer_description',
-        'footer_address',
-        'footer_social_facebook',
-        'footer_social_instagram',
-        'footer_social_twitter',
       ];
       
       const updateData: SettingsUpdateRequest[] = groupSettings.map(setting => ({
         key: setting.key,
-        value: setting.value ?? '', // Ensure value is never null/undefined
-        type: setting.type || 'text', // Default to 'text' if missing
-        group: setting.group || groupName, // Use groupName as fallback
-        label: setting.label || setting.key, // Use key as fallback for label
-        description: setting.description || null,
+        value: setting.value,
+        type: setting.type,
+        group: setting.group,
+        label: setting.label,
+        description: setting.description,
         // Add locale for translatable settings
         ...(translatableKeys.includes(setting.key) ? { locale: contentLocale } : {}),
       }));
@@ -396,19 +272,7 @@ const Settings = () => {
       }
     } catch (error: any) {
       console.error('Error saving settings:', error);
-      // Try to extract validation errors
-      let errorMessage = error.message || 'Failed to save settings';
-      if (error.errors) {
-        // Format validation errors from Laravel
-        const validationErrors = Object.entries(error.errors)
-          .map(([field, messages]: [string, any]) => {
-            const fieldName = field.replace(/settings\.\d+\./, ''); // Remove array index prefix
-            return `${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
-          })
-          .join('; ');
-        errorMessage = `Validation errors: ${validationErrors}`;
-      }
-      toast.error(errorMessage);
+      toast.error(`Failed to save settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -911,7 +775,7 @@ const Settings = () => {
             <Input
               id={setting.key}
               type="number"
-              value={setting.value || ''}
+              value={setting.value}
               onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
               className="w-full"
             />
@@ -930,7 +794,7 @@ const Settings = () => {
             {setting.key.includes('disclaimer') || setting.key.includes('description') ? (
               <Textarea
                 id={setting.key}
-                value={setting.value || ''}
+                value={setting.value}
                 onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
                 className="w-full min-h-[100px]"
                 placeholder={descriptionText || ''}
@@ -938,7 +802,7 @@ const Settings = () => {
             ) : (
               <Input
                 id={setting.key}
-                value={setting.value || ''}
+                value={setting.value}
                 onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
                 className="w-full"
                 placeholder={descriptionText || ''}
@@ -1003,24 +867,6 @@ const Settings = () => {
           <p className="text-muted-foreground">{t('admin.settings_page.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="content-locale" className="text-sm text-muted-foreground">
-              {t('admin.settings_page.content_language') || 'Content Language'}:
-            </Label>
-            <Select
-              value={contentLocale}
-              onValueChange={(value: 'en' | 'es' | 'pt') => setContentLocale(value)}
-            >
-              <SelectTrigger id="content-locale" className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">🇺🇸 English</SelectItem>
-                <SelectItem value="es">🇪🇸 Español</SelectItem>
-                <SelectItem value="pt">🇵🇹 Português</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <Button variant="outline" onClick={fetchSettings} disabled={loading}>
             <RefreshCw className="mr-2 h-4 w-4" />
             {t('admin.common_refresh')}
@@ -1124,19 +970,8 @@ const Settings = () => {
                 currentFile={settings.about?.find(s => s.key === 'about_image')?.value || ''}
               />
             </div>
-            {settings.about && settings.about.length > 0 ? (
-              renderSettingsGroup('about', settings.about.filter(s => s.key !== 'about_image'))
-            ) : (
-              <div className="space-y-4">
-                <p className="text-muted-foreground">{t('admin.settings_page.about.no_settings')}</p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => initializeDefaultSettings('about')}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('admin.settings_initialize_about')}
-                </Button>
-              </div>
+            {settings.about ? renderSettingsGroup('about', settings.about.filter(s => s.key !== 'about_image')) : (
+              <p className="text-muted-foreground">{t('admin.settings_page.about.no_settings')}</p>
             )}
           </Card>
         </TabsContent>
@@ -1775,19 +1610,8 @@ const Settings = () => {
         <TabsContent value="general" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.general.title')}</h2>
-            {settings.general && settings.general.length > 0 ? (
-              renderSettingsGroup('general', settings.general)
-            ) : (
-              <div className="space-y-4">
-                <p className="text-muted-foreground">{t('admin.settings_page.general.no_settings')}</p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => initializeDefaultSettings('general')}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('admin.settings_initialize_general')}
-                </Button>
-              </div>
+            {settings.general ? renderSettingsGroup('general', settings.general) : (
+              <p className="text-muted-foreground">{t('admin.settings_page.general.no_settings')}</p>
             )}
           </Card>
         </TabsContent>
@@ -1796,19 +1620,8 @@ const Settings = () => {
         <TabsContent value="footer" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.footer.title')}</h2>
-            {settings.footer && settings.footer.length > 0 ? (
-              renderSettingsGroup('footer', settings.footer)
-            ) : (
-              <div className="space-y-4">
-                <p className="text-muted-foreground">{t('admin.settings_page.footer.no_settings')}</p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => initializeDefaultSettings('footer')}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('admin.settings_initialize_footer')}
-                </Button>
-              </div>
+            {settings.footer ? renderSettingsGroup('footer', settings.footer) : (
+              <p className="text-muted-foreground">{t('admin.settings_page.footer.no_settings')}</p>
             )}
           </Card>
         </TabsContent>
