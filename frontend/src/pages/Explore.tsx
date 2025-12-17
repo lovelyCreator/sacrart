@@ -283,9 +283,9 @@ const Explore = () => {
             {video.title || ''}
           </h3>
           <p className="text-[11px] text-gray-400 mt-1 font-medium tracking-wide line-clamp-1">
-            {video.category?.name || video.series_title || video.instructor?.name || t('explore.video', 'Video')}
-            {video.series_title && video.category?.name && ' • '}
-            {video.series_title && !video.category?.name && video.series_title}
+            {video.category?.name || (video as any).series_title || video.instructor?.name || t('explore.video', 'Video')}
+            {(video as any).series_title && video.category?.name && ' • '}
+            {(video as any).series_title && !video.category?.name && (video as any).series_title}
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
+import SignupSubscriptionProtectedRoute from "./components/SignupSubscriptionProtectedRoute";
 import UserLayout from "./components/UserLayout";
 import LocaleRedirect from "./components/LocaleRedirect";
 import Index from "./pages/Index";
@@ -18,6 +19,7 @@ import Explore from "./pages/Explore";
 import SeriesDetail from "./pages/SeriesDetail";
 import CategoryDetail from "./pages/CategoryDetail";
 import VideoPlayer from "./pages/VideoPlayer";
+import EpisodeDetail from "./pages/EpisodeDetail";
 import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
@@ -75,14 +77,22 @@ const App = () => (
               {/* Auth Routes (no locale prefix) */}
               <Route path="/auth" element={<Auth />} />
               
-              {/* Signup Subscription Route (no locale prefix, unprotected) */}
-              <Route path="/signup-subscription" element={<SignupSubscription />} />
+              {/* Signup Subscription Route (no locale prefix, protected - only accessible after registration) */}
+              <Route path="/signup-subscription" element={
+                <SignupSubscriptionProtectedRoute>
+                  <SignupSubscription />
+                </SignupSubscriptionProtectedRoute>
+              } />
 
               {/* Locale-prefixed routes */}
               <Route path="/:locale" element={<UserLayout />}>
                 <Route index element={<Home />} />
-                {/* Signup Subscription Route (with locale prefix, unprotected) */}
-                <Route path="signup-subscription" element={<SignupSubscription />} />
+                {/* Signup Subscription Route (with locale prefix, protected - only accessible after registration) */}
+                <Route path="signup-subscription" element={
+                  <SignupSubscriptionProtectedRoute>
+                    <SignupSubscription />
+                  </SignupSubscriptionProtectedRoute>
+                } />
                 <Route path="browse" element={
                   <ProtectedRoute>
                     <Explore />
@@ -101,6 +111,11 @@ const App = () => (
                 <Route path="video/:id" element={
                   <ProtectedRoute>
                     <VideoPlayer />
+                  </ProtectedRoute>
+                } />
+                <Route path="episode/:id" element={
+                  <ProtectedRoute>
+                    <EpisodeDetail />
                   </ProtectedRoute>
                 } />
                 <Route path="library" element={
@@ -146,6 +161,7 @@ const App = () => (
               <Route path="/series/:id" element={<RedirectWithParams />} />
               <Route path="/category/:id" element={<RedirectWithParams />} />
               <Route path="/video/:id" element={<RedirectWithParams />} />
+              <Route path="/episode/:id" element={<RedirectWithParams />} />
               <Route path="/library" element={<Navigate to="/en/library" replace />} />
               <Route path="/profile" element={<Navigate to="/en/profile" replace />} />
               <Route path="/support" element={<Navigate to="/en/support" replace />} />

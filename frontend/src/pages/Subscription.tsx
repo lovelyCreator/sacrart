@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { subscriptionPlanApi } from "@/services/subscriptionPlanApi";
 import { useTranslation } from "react-i18next";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Plan {
   id: 'freemium' | 'basic' | 'premium';
@@ -25,6 +24,7 @@ const Subscription = () => {
   const navigate = useNavigate();
   const { isAuthenticated, updateUser } = useAuth();
   const { t } = useTranslation();
+  const { getPathWithLocale } = useLocale();
 
   useEffect(() => {
     // Load active plans from backend so we can map to Stripe price via plan id
@@ -183,102 +183,125 @@ const Subscription = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen py-12 px-4 bg-background">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 font-playfair">
-            {t('subscription.choose_plan')} <span className="text-primary">{t('subscription.plan')}</span>
-          </h1>
-          <p className="text-xl text-muted-foreground font-montserrat">
-            {t('subscription.upgrade_learning')}
-          </p>
-        </div>
+  // Parse features from description (one feature per line)
+  const parseFeatures = (description: string | undefined | null): string[] => {
+    if (!description) return [];
+    return description
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+  };
 
-        {backendPlans.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg mb-4">
+  // Get plan features
+  const getPlanFeatures = (backendPlan: any): string[] => {
+    let features: string[] = [];
+    
+    // First, try to get features from the features field
+    if (backendPlan.features) {
+      if (Array.isArray(backendPlan.features)) {
+        features = backendPlan.features;
+      } else if (typeof backendPlan.features === 'string') {
+        try {
+          const parsed = JSON.parse(backendPlan.features);
+          features = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          // If not JSON, treat as single feature
+          features = [backendPlan.features];
+        }
+      }
+    }
+    
+    // If no features from features field, try parsing from description
+    if (features.length === 0 && backendPlan.description) {
+      features = parseFeatures(backendPlan.description);
+    }
+    
+    // Add feature flags from plan settings
+    const planFeatures: string[] = [];
+    
+    // Max Devices
+    if (backendPlan.max_devices) {
+      planFeatures.push(`${backendPlan.max_devices} ${t('subscription.devices', 'pantallas simultáneas')}`);
+    }
+    
+    // Video Quality
+    if (backendPlan.video_quality) {
+      planFeatures.push(`${backendPlan.video_quality} ${t('subscription.quality', 'calidad')}`);
+    }
+    
+    // Downloadable Content
+    if (backendPlan.downloadable_content) {
+      planFeatures.push(t('subscription.downloadable_content', 'Descargas para ver offline'));
+    }
+    
+    // Certificates
+    if (backendPlan.certificates) {
+      planFeatures.push(t('subscription.certificates', 'Certificados de finalización'));
+    }
+    
+    // Priority Support
+    if (backendPlan.priority_support) {
+      planFeatures.push(t('subscription.priority_support', 'Soporte prioritario'));
+    }
+    
+    // Ad Free
+    if (backendPlan.ad_free) {
+      planFeatures.push(t('subscription.ad_free', 'Sin anuncios'));
+    }
+    
+    // Combine custom features with plan features
+    return [...features, ...planFeatures];
+  };
+
+  // Sort plans: freemium first, then basic, then premium
+  const displayPlans = backendPlans.sort((a, b) => {
+    const order = { 'freemium': 1, 'basic': 2, 'premium': 3 };
+    const aOrder = order[a.name?.toLowerCase() as keyof typeof order] || 999;
+    const bOrder = order[b.name?.toLowerCase() as keyof typeof order] || 999;
+    return aOrder - bOrder;
+  });
+
+  const isFreemium = (plan: any) => plan.name?.toLowerCase() === 'freemium';
+  const isBasic = (plan: any) => plan.name?.toLowerCase() === 'basic';
+  const isPremium = (plan: any) => plan.name?.toLowerCase() === 'premium';
+
+  return (
+    <main className="flex-grow flex flex-col justify-center items-center relative py-16 px-4 bg-background-dark font-display min-h-screen">
+      {/* Background gradient effects */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]"></div>
+        <div className="absolute top-[40%] -right-[10%] w-[500px] h-[500px] bg-black/20 rounded-full blur-[100px]"></div>
+      </div>
+
+      {/* Header Section */}
+      <div className="relative z-10 max-w-5xl w-full mx-auto text-center mb-12">
+        <h1 className="text-3xl md:text-5xl font-bold mb-4 text-white leading-tight" style={{ fontFamily: "'Cinzel', serif" }}>
+          {t('subscription.hero_title', '¡Ya sabía yo que iba a querer ver más!')}
+        </h1>
+        <p className="text-lg text-white font-light max-w-2xl mx-auto opacity-90">
+          {t('subscription.hero_description', '...elige el plan que mejor se adapte a tu ritmo de aprendizaje y profundidad espiritual.')}
+        </p>
+      </div>
+
+        {/* Plans Grid */}
+        {displayPlans.length === 0 ? (
+          <div className="relative z-10 text-center py-12">
+            <p className="text-white opacity-80 text-lg mb-4">
               {t('subscription.no_plans') || 'No subscription plans available at the moment.'}
             </p>
-            {/* <p className="text-sm text-muted-foreground">
-              {t('subscription.contact_support') || 'Please contact support or check back later.'}
-            </p> */}
           </div>
         ) : (
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            {backendPlans.map((backendPlan, index) => {
-              const isFreemium = backendPlan.name?.toLowerCase() === 'freemium';
-              const isBasic = backendPlan.name?.toLowerCase() === 'basic';
-              const isPopular = isBasic; // Mark basic as popular by default
+          <div className={`relative z-10 grid gap-6 max-w-6xl w-full mx-auto ${
+            displayPlans.length === 1 ? 'grid-cols-1' : 
+            displayPlans.length === 2 ? 'md:grid-cols-2' : 
+            'md:grid-cols-3'
+          }`}>
+            {displayPlans.map((backendPlan) => {
+              const isPopular = isBasic(backendPlan); // Second plan (Basic) is recommended
+              const features = getPlanFeatures(backendPlan);
               
-              // Parse features from description (one feature per line)
-              const parseFeatures = (description: string | undefined | null): string[] => {
-                if (!description) return [];
-                return description
-                  .split(/\r?\n/)
-                  .map(line => line.trim())
-                  .filter(line => line.length > 0);
-              };
-              
-              // Get features - handle both array and JSON string formats
-              let features: string[] = [];
-              if (backendPlan.features) {
-                if (Array.isArray(backendPlan.features)) {
-                  features = backendPlan.features;
-                } else if (typeof backendPlan.features === 'string') {
-                  try {
-                    const parsed = JSON.parse(backendPlan.features);
-                    features = Array.isArray(parsed) ? parsed : [];
-                  } catch {
-                    // If not JSON, treat as single feature
-                    features = [backendPlan.features];
-                  }
-                }
-              }
-              
-              // If no features from features field, try parsing from description
-              if (features.length === 0 && backendPlan.description) {
-                features = parseFeatures(backendPlan.description);
-              }
-              
-              // Add feature flags from plan settings
-              const planFeatures: string[] = [];
-              
-              // Max Devices
-              if (backendPlan.max_devices) {
-                planFeatures.push(`${backendPlan.max_devices} ${backendPlan.max_devices === 1 ? 'Device' : 'Devices'}`);
-              }
-              
-              // Video Quality
-              if (backendPlan.video_quality) {
-                planFeatures.push(`${backendPlan.video_quality} Quality`);
-              }
-              
-              // Downloadable Content
-              if (backendPlan.downloadable_content) {
-                planFeatures.push('Downloadable Content');
-              }
-              
-              // Certificates
-              if (backendPlan.certificates) {
-                planFeatures.push('Certificates of Completion');
-              }
-              
-              // Priority Support
-              if (backendPlan.priority_support) {
-                planFeatures.push('Priority Support');
-              }
-              
-              // Ad Free
-              if (backendPlan.ad_free) {
-                planFeatures.push('Ad-Free Experience');
-              }
-              
-              // Combine custom features with plan features
-              const allFeatures = [...features, ...planFeatures];
-              
-              const displayPrice = isFreemium 
-                ? t('subscription.plan_prices.free')
+              const displayPrice = isFreemium(backendPlan)
+                ? t('subscription.plan_prices.free', 'Gratis')
                 : (() => {
                     try {
                       let price: number;
@@ -290,120 +313,120 @@ const Subscription = () => {
                       } else {
                         price = 0;
                       }
-                      // Double-check before calling toFixed
                       if (typeof price === 'number' && !isNaN(price) && isFinite(price)) {
-                        return `€${price.toFixed(2)}`;
+                        return price.toFixed(2);
                       }
-                      return '€0.00';
+                      return '0.00';
                     } catch (error) {
                       console.error('Error formatting price:', error, backendPlan);
-                      return '€0.00';
+                      return '0.00';
                     }
                   })();
-              
-              const hasStripe = backendPlan.stripe_price_id || isFreemium;
-              const isStripeReady = isFreemium || hasStripe;
-              
-              return (
-                <Card
-                  key={backendPlan.id}
-                  className={`p-8 relative hover:shadow-2xl transition-all duration-300 animate-slide-up flex flex-col ${
-                    isPopular ? "border-primary border-2 scale-105" : ""
-                  }`}
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  {isPopular && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-semibold">
-                      {t('subscription.most_popular')}
-                    </div>
-                  )}
 
-                  <div className="text-center mb-6">
-                    <h3 className="text-2xl font-bold mb-2 font-playfair">
-                      {backendPlan.display_name || backendPlan.name}
+              const hasStripe = !!backendPlan.stripe_price_id;
+              const isStripeReady = isFreemium(backendPlan) || hasStripe;
+
+            return (
+              <div
+                key={backendPlan.id}
+                className={`group relative ${
+                  isPopular
+                    ? 'bg-gradient-to-b from-[#2e2e2e] to-[#202020] border border-primary/30 shadow-[0_0_30px_rgba(160,82,69,0.1)] hover:border-primary/60 transform scale-100 md:scale-105 z-10'
+                    : 'bg-[#262626] border border-white/10 hover:border-white/20'
+                } rounded-xl p-8 transition-all duration-300 flex flex-col hover:-translate-y-1`}
+              >
+                {/* Recommended Badge */}
+                {isPopular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                    {t('subscription.recommended', 'Recomendado')}
+                  </div>
+                )}
+
+                  {/* Plan Header */}
+                  <div className="mb-6">
+                    <h3 className="text-white text-xs font-bold tracking-[0.2em] uppercase mb-2">
+                      {isFreemium(backendPlan)
+                        ? t('subscription.plan_freemium_label', 'Plan Gratuito')
+                        : isBasic(backendPlan)
+                        ? t('subscription.plan_basic_label', 'Plan Básico')
+                        : t('subscription.plan_premium_label', 'Experiencia Completa')}
                     </h3>
-                    <div className="flex items-baseline justify-center mb-3">
-                      <span className="text-4xl font-bold text-primary font-playfair">{displayPrice}</span>
-                      {!isFreemium && (
-                        <span className="text-muted-foreground ml-1 font-montserrat">
-                          /{t('subscription.plan_prices.monthly_period')}
-                        </span>
+                    <h2 className="text-2xl font-semibold text-white mb-4">
+                      {backendPlan.display_name || backendPlan.name}
+                    </h2>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-white">{displayPrice}</span>
+                      {!isFreemium(backendPlan) && (
+                        <span className="text-white text-sm">€ / {t('subscription.month', 'mes')}</span>
                       )}
                     </div>
-                    {backendPlan.description && (
-                      <p className="text-sm text-muted-foreground font-montserrat px-2 line-clamp-3">
-                        {backendPlan.description.split('\n')[0]}
-                      </p>
-                    )}
                   </div>
 
-                  <ul className="space-y-3 mb-8 flex-grow">
-                    {allFeatures.length > 0 ? (
-                      allFeatures.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                          <span className="text-foreground/80 font-montserrat">{feature}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-muted-foreground text-sm">
-                        {t('subscription.no_features_listed') || 'Features coming soon'}
-                      </li>
-                    )}
-                  </ul>
+                {/* Divider */}
+                <div className={`w-full h-px mb-6 ${isPopular ? 'bg-primary/20' : 'bg-white/10'}`}></div>
 
-                  {!isStripeReady && !isFreemium && (
-                    <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                      <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                        ⚠️ Payment not configured. This plan requires Stripe setup.
-                      </p>
-                    </div>
+                {/* Features List */}
+                <ul className="space-y-4 mb-8 flex-grow">
+                  {features.length > 0 ? (
+                    features.map((feature, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-sm text-white">
+                        <i className={`fa-solid ${idx === 0 && isPremium(backendPlan) ? 'fa-crown' : 'fa-check'} text-primary text-lg flex-shrink-0 mt-0.5`}></i>
+                        <span>{feature}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-sm text-white opacity-60">
+                      {t('subscription.no_features_listed', 'Características próximamente')}
+                    </li>
                   )}
-                  
-                  <Button
-                    variant={isPopular ? "hero" : "outline"}
-                    className="w-full"
-                    size="lg"
+                </ul>
+
+                {/* Action Button */}
+                {!isStripeReady && (
+                  <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <p className="text-sm text-yellow-400">
+                      ⚠️ {t('subscription.payment_not_configured', 'Pago no configurado')}
+                    </p>
+                  </div>
+                )}
+
+                  <button
                     onClick={() => handleSelectPlan({
                       id: backendPlan.name.toLowerCase() as 'freemium' | 'basic' | 'premium',
                       name: backendPlan.display_name || backendPlan.name,
-                      price: displayPrice,
-                      period: isFreemium ? '' : t('subscription.plan_prices.monthly_period'),
+                      price: isFreemium(backendPlan) ? displayPrice : `${displayPrice}€`,
+                      period: isFreemium(backendPlan) ? '' : t('subscription.month', 'mes'),
                       features: features,
                       popular: isPopular
                     })}
-                    disabled={isLoading || (!isStripeReady && !isFreemium)}
+                    disabled={isLoading || !isStripeReady}
+                    className={`w-full py-3 px-6 rounded text-white font-medium hover:bg-primary-hover transition-colors duration-300 text-sm tracking-wide uppercase shadow-lg ${
+                      isPopular
+                        ? 'bg-primary shadow-[0_0_15px_rgba(160,82,69,0.3)] font-bold'
+                        : 'bg-primary'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isLoading && selectedPlan === backendPlan.name
-                      ? t('subscription.processing')
-                      : !isStripeReady && !isFreemium
-                        ? 'Payment Not Available'
-                      : isFreemium
-                        ? t('subscription.select_freemium')
-                      : isBasic
-                        ? t('subscription.select_basic')
-                        : t('subscription.select_premium')}
-                  </Button>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="text-center">
-          {/* <p className="text-muted-foreground mb-2 font-montserrat">{t('subscription.all_plans_trial')}</p> */}
-          <button
-            onClick={() => {
-              const locale = localStorage.getItem('i18nextLng') || 'en';
-              navigate(`/${locale}`);
-            }}
-            className="text-primary hover:underline font-montserrat"
-          >
-            {t('subscription.maybe_later')}
-          </button>
+                      ? t('subscription.processing', 'Procesando...')
+                      : isFreemium(backendPlan)
+                        ? t('subscription.select_freemium', 'Seleccionar Plan Gratuito')
+                        : isBasic(backendPlan)
+                          ? t('subscription.select_plan', 'Seleccionar Plan')
+                          : t('subscription.start_now', 'Comenzar Ahora')}
+                  </button>
+              </div>
+            );
+          })}
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* Footer Note */}
+      <p className="relative z-10 mt-12 text-center text-xs text-white opacity-80 max-w-2xl px-4">
+        {t('subscription.auto_renewal_note', 'La suscripción se renueva automáticamente. Puedes cancelar en cualquier momento desde tu perfil.')}
+        <br />
+        {t('subscription.support_note', 'El arte sacro es patrimonio de todos, pero mantenerlo vivo requiere apoyo.')}
+      </p>
+    </main>
   );
 };
 

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cinzel:wght@400;600;700&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
 @tailwind base;
@@ -111,6 +111,21 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground font-display;
     font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  /* Apply font-display globally to all elements - Font Awesome compatible font */
+  * {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+  }
+
+  /* Override for headings - use same font family */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+  }
+
+  /* Ensure all text elements use the font */
+  p, span, div, a, button, input, textarea, select, label, li, td, th {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
   }
 
   #root {

@@ -249,23 +249,11 @@ const UserLayout = () => {
                 href="#seguir-viendo"
                 onClick={(e) => {
                   e.preventDefault();
-                  // Navigate to home first if not already there
+                  // Navigate to home with hash if not already there
                   if (pathname !== '/' && !pathname.endsWith('/')) {
-                    navigate(getPathWithLocale('/'));
-                    // Wait for navigation then scroll
-                    setTimeout(() => {
-                      const element = document.getElementById('seguir-viendo');
-                      if (element) {
-                        const headerOffset = 80;
-                        const elementPosition = element.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                        window.scrollTo({
-                          top: offsetPosition,
-                          behavior: 'smooth'
-                        });
-                      }
-                    }, 100);
+                    navigate(getPathWithLocale('/#seguir-viendo'));
                   } else {
+                    // Already on home, just scroll
                     const element = document.getElementById('seguir-viendo');
                     if (element) {
                       const headerOffset = 80;
@@ -532,23 +520,11 @@ const UserLayout = () => {
                 onClick={(e) => {
                   e.preventDefault();
                   setSidebarOpen(false);
-                  // Navigate to home first if not already there
+                  // Navigate to home with hash if not already there
                   if (pathname !== '/' && !pathname.endsWith('/')) {
-                    navigate(getPathWithLocale('/'));
-                    // Wait for navigation then scroll
-                    setTimeout(() => {
-                      const element = document.getElementById('seguir-viendo');
-                      if (element) {
-                        const headerOffset = 80;
-                        const elementPosition = element.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                        window.scrollTo({
-                          top: offsetPosition,
-                          behavior: 'smooth'
-                        });
-                      }
-                    }, 100);
+                    navigate(getPathWithLocale('/#seguir-viendo'));
                   } else {
+                    // Already on home, just scroll
                     const element = document.getElementById('seguir-viendo');
                     if (element) {
                       const headerOffset = 80;

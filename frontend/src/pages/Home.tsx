@@ -28,7 +28,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { generateMockSeries, generateMockVideos, MockSeries } from '@/services/mockData';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -159,6 +159,7 @@ const Home = () => {
   const [shouldCenterVideos, setShouldCenterVideos] = useState(false);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAuthenticated, updateUser, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
@@ -300,6 +301,37 @@ const Home = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [activeTab]);
+
+  // Handle scroll to seguir-viendo section when hash is present
+  useEffect(() => {
+    // Only scroll if hash is present (user clicked "Seguir Viendo")
+    if (location.hash === '#seguir-viendo') {
+      // Wait for the component to fully render
+      const scrollToSection = () => {
+        const element = document.getElementById('seguir-viendo');
+        if (element) {
+          const headerOffset = 80;
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+          // Remove hash from URL after scrolling to prevent re-scrolling on re-render
+          window.history.replaceState(null, '', location.pathname);
+        } else {
+          // Element not found yet, try again after a short delay
+          setTimeout(scrollToSection, 100);
+        }
+      };
+      
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        setTimeout(scrollToSection, 100);
+      });
+    }
+    // If no hash, browser will naturally keep scroll position at top (no action needed)
+  }, [location.hash, location.pathname]);
 
   const toggleFaq = (faqId: number) => {
     setExpandedFaq(expandedFaq === faqId ? null : faqId);

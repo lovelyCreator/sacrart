@@ -167,13 +167,13 @@ const SeriesDetail = () => {
   const handleVideoClick = (video: any, index: number) => {
     if (canAccessVideo(video.visibility)) {
       setActiveVideoIndex(index);
-      navigateWithLocale(`/video/${video.id}`);
+      navigateWithLocale(`/episode/${video.id}`);
     }
   };
 
   const handlePlayFirstVideo = () => {
     if (videos.length > 0 && canAccessVideo(videos[0].visibility)) {
-      navigateWithLocale(`/video/${videos[0].id}`);
+      navigateWithLocale(`/episode/${videos[0].id}`);
     }
   };
 

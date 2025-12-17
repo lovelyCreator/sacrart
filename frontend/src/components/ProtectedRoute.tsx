@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,6 +9,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, requireSubscription }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { getPathWithLocale } = useLocale();
 
   if (isLoading) {
     return (
@@ -18,7 +20,9 @@ const ProtectedRoute = ({ children, requireSubscription }: ProtectedRouteProps) 
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    // Redirect to home (signout status) instead of /auth
+    const locale = localStorage.getItem('i18nextLng') || 'en';
+    return <Navigate to={`/${locale}`} replace />;
   }
 
   // Check subscription level if required
@@ -28,7 +32,7 @@ const ProtectedRoute = ({ children, requireSubscription }: ProtectedRouteProps) 
     const userLevel = subscriptionLevels.indexOf(user.subscription_type);
 
     if (userLevel < requiredLevel) {
-      return <Navigate to="/subscription" replace />;
+      return <Navigate to={getPathWithLocale("/subscription")} replace />;
     }
   }
 
@@ -36,4 +40,3 @@ const ProtectedRoute = ({ children, requireSubscription }: ProtectedRouteProps) 
 };
 
 export default ProtectedRoute;
-

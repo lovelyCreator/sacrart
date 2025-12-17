@@ -176,7 +176,7 @@ const CategoryDetail = () => {
   }
 
   return (
-    <main className="pt-24 sm:pt-28 md:pt-32 min-h-screen pb-12 bg-[#0f0f0f]">
+    <main className="pt-24 sm:pt-28 md:pt-32 min-h-screen pb-12 bg-[#0f0f0f] font-display">
       {/* Category Header Section */}
       <section className="container mx-auto px-6 md:px-12 mb-12">
         <div className="flex flex-col gap-3">

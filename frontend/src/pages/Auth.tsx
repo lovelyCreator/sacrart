@@ -92,7 +92,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-background">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-background font-display">
       <Card className="w-full max-w-md p-8 space-y-6 animate-fade-in">
         <div className="text-center">
             <Link to="/" className="inline-block hover:opacity-80 transition-opacity">
