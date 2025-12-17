@@ -50,8 +50,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en', // Explicitly set default language to English
-    fallbackLng: 'en',
+    lng: 'es', // Explicitly set default language to Spanish
+    fallbackLng: 'es',
     defaultNS: 'translation',
     interpolation: {
       escapeValue: false,
@@ -279,9 +279,9 @@ export const loadAndSetTranslations = async (locale: string, skipI18nChange = fa
 
 // Wait for i18n to be ready before loading backend translations
 const initializeBackendTranslations = () => {
-  const initialLocale = localStorage.getItem('i18nextLng') || 'en';
+  const initialLocale = localStorage.getItem('i18nextLng') || 'es';
   // Ensure locale is valid
-  const validLocale = ['en', 'es', 'pt'].includes(initialLocale) ? initialLocale : 'en';
+  const validLocale = ['en', 'es', 'pt'].includes(initialLocale) ? initialLocale : 'es';
   
   console.log(`Initializing i18n with locale: ${validLocale}`);
   console.log(`Current i18n language: ${i18n.language}`);

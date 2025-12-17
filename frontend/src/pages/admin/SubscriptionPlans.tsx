@@ -49,14 +49,33 @@ import { subscriptionPlanApi, SubscriptionPlan, SubscriptionPlanCreateRequest } 
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
+import LanguageTabs from '@/components/admin/LanguageTabs';
+
+// Multilingual data structure
+interface MultilingualData {
+  en: string;
+  es: string;
+  pt: string;
+}
 
 const SubscriptionPlans = () => {
   const { t } = useTranslation();
   const { locale } = useLocale();
+  const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(locale as 'en' | 'es' | 'pt' || 'en');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Multilingual state for plans
+  const [planMultilingual, setPlanMultilingual] = useState<{
+    display_name: MultilingualData;
+    description: MultilingualData;
+  }>({
+    display_name: { en: '', es: '', pt: '' },
+    description: { en: '', es: '', pt: '' },
+  });
+  
   const [newPlan, setNewPlan] = useState<Partial<SubscriptionPlanCreateRequest>>({
     name: 'freemium',
     display_name: '',
@@ -80,7 +99,9 @@ const SubscriptionPlans = () => {
       try {
         const response = await subscriptionPlanApi.getAll();
         const plansData = response.data?.data || response.data || [];
-        setPlans(Array.isArray(plansData) ? plansData : []);
+        // Normalize price field to ensure it's always a number
+        const normalizedPlans = (Array.isArray(plansData) ? plansData : []).map(normalizePlan);
+        setPlans(normalizedPlans);
       } catch (error: any) {
         console.error('Failed to fetch plans:', error);
         toast.error(error?.message || t('admin.common_error'));
@@ -109,7 +130,7 @@ const SubscriptionPlans = () => {
   const togglePlanStatus = async (planId: number) => {
     try {
       const response = await subscriptionPlanApi.toggleStatus(planId);
-      const updatedPlan = response.data;
+      const updatedPlan = normalizePlan(response.data);
       setPlans(prev => prev.map(plan => 
         plan.id === planId ? updatedPlan : plan
       ));
@@ -121,18 +142,42 @@ const SubscriptionPlans = () => {
   };
 
   const handleEditPlan = (plan: SubscriptionPlan) => {
-    setEditingPlan(plan);
+    // Normalize plan before editing
+    const normalizedPlan = normalizePlan(plan);
+    setEditingPlan(normalizedPlan);
+    
+    // Load multilingual data from plan (check if translations exist)
+    const translations = (plan as any)?.translations || {};
+    setPlanMultilingual({
+      display_name: {
+        en: translations.display_name?.en || plan.display_name || '',
+        es: translations.display_name?.es || '',
+        pt: translations.display_name?.pt || '',
+      },
+      description: {
+        en: translations.description?.en || plan.description || '',
+        es: translations.description?.es || '',
+        pt: translations.description?.pt || '',
+      },
+    });
+    
     setIsDialogOpen(true);
   };
 
   const handleSavePlan = async () => {
+    // Validate that at least English display_name is provided
+    if (!planMultilingual.display_name.en?.trim()) {
+      toast.error('Display name in English is required');
+      return;
+    }
+
     try {
       if (editingPlan) {
         const response = await subscriptionPlanApi.update(editingPlan.id, {
           name: editingPlan.name,
-          display_name: editingPlan.display_name,
-          description: editingPlan.description,
-          price: editingPlan.price,
+          display_name: planMultilingual.display_name.en, // Default to English
+          description: planMultilingual.description.en,
+          price: typeof editingPlan.price === 'number' ? editingPlan.price : parseFloat(String(editingPlan.price || 0)) || 0,
           duration_days: editingPlan.duration_days,
           features: editingPlan.features,
           max_devices: editingPlan.max_devices,
@@ -144,8 +189,13 @@ const SubscriptionPlans = () => {
           is_active: editingPlan.is_active,
           sort_order: editingPlan.sort_order,
           stripe_price_id: (editingPlan as any)?.stripe_price_id || null,
+          // Include multilingual translations
+          translations: {
+            display_name: planMultilingual.display_name,
+            description: planMultilingual.description,
+          },
         } as any);
-        const updatedPlan = response.data;
+        const updatedPlan = normalizePlan(response.data);
         setPlans(prev => prev.map(plan => 
           plan.id === editingPlan.id ? updatedPlan : plan
         ));
@@ -153,14 +203,27 @@ const SubscriptionPlans = () => {
       } else {
         const response = await subscriptionPlanApi.create({
           ...newPlan,
+          display_name: planMultilingual.display_name.en, // Default to English
+          description: planMultilingual.description.en,
+          price: typeof newPlan.price === 'number' ? newPlan.price : parseFloat(String(newPlan.price || 0)) || 0,
           stripe_price_id: (newPlan as any)?.stripe_price_id || null,
-        } as SubscriptionPlanCreateRequest);
-        const createdPlan = response.data;
+          // Include multilingual translations
+          translations: {
+            display_name: planMultilingual.display_name,
+            description: planMultilingual.description,
+          },
+        } as any);
+        const createdPlan = normalizePlan(response.data);
         setPlans(prev => [...prev, createdPlan]);
         toast.success(t('admin.plans_created'));
       }
       setIsDialogOpen(false);
       setEditingPlan(null);
+      // Reset multilingual data
+      setPlanMultilingual({
+        display_name: { en: '', es: '', pt: '' },
+        description: { en: '', es: '', pt: '' },
+      });
       setNewPlan({
         name: 'freemium',
         display_name: '',
@@ -200,11 +263,13 @@ const SubscriptionPlans = () => {
 
   const handleDuplicatePlan = async (plan: SubscriptionPlan) => {
     try {
-      const duplicatedData: SubscriptionPlanCreateRequest = {
+      // Load multilingual data from plan
+      const translations = (plan as any)?.translations || {};
+      const duplicatedData: any = {
         name: `${plan.name}_copy`,
         display_name: `${plan.display_name} (Copy)`,
         description: plan.description,
-        price: plan.price,
+        price: typeof plan.price === 'number' ? plan.price : parseFloat(String(plan.price || 0)) || 0,
         duration_days: plan.duration_days,
         features: plan.features || [],
         max_devices: plan.max_devices,
@@ -215,9 +280,22 @@ const SubscriptionPlans = () => {
         ad_free: plan.ad_free,
         is_active: plan.is_active,
         sort_order: plan.sort_order,
+        // Include multilingual translations
+        translations: {
+          display_name: {
+            en: translations.display_name?.en ? `${translations.display_name.en} (Copy)` : `${plan.display_name} (Copy)`,
+            es: translations.display_name?.es || '',
+            pt: translations.display_name?.pt || '',
+          },
+          description: {
+            en: translations.description?.en || plan.description || '',
+            es: translations.description?.es || '',
+            pt: translations.description?.pt || '',
+          },
+        },
       };
       const response = await subscriptionPlanApi.create(duplicatedData);
-      const duplicatedPlan = response.data;
+      const duplicatedPlan = normalizePlan(response.data);
       setPlans(prev => [...prev, duplicatedPlan]);
       toast.success(t('admin.plans_duplicated'));
     } catch (error: any) {
@@ -226,12 +304,67 @@ const SubscriptionPlans = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  // Helper function to normalize plan data (ensure price is always a number)
+  const normalizePlan = (plan: any): SubscriptionPlan => {
+    if (!plan || typeof plan !== 'object') {
+      console.warn('normalizePlan: Invalid plan object', plan);
+      return {
+        id: 0,
+        name: '',
+        display_name: '',
+        description: '',
+        price: 0,
+        duration_days: 30,
+        features: [],
+        max_devices: 1,
+        video_quality: 'SD',
+        downloadable_content: false,
+        certificates: false,
+        priority_support: false,
+        ad_free: false,
+        is_active: true,
+        sort_order: 1,
+      } as SubscriptionPlan;
+    }
+    
+    let normalizedPrice = 0;
+    try {
+      if (typeof plan.price === 'number' && !isNaN(plan.price)) {
+        normalizedPrice = plan.price;
+      } else if (typeof plan.price === 'string') {
+        const parsed = parseFloat(plan.price);
+        normalizedPrice = isNaN(parsed) ? 0 : parsed;
+      } else if (plan.price != null) {
+        // Try to convert any other type
+        const parsed = parseFloat(String(plan.price));
+        normalizedPrice = isNaN(parsed) ? 0 : parsed;
+      }
+    } catch (error) {
+      console.error('Error normalizing price:', error, plan);
+      normalizedPrice = 0;
+    }
+    
+    return {
+      ...plan,
+      price: normalizedPrice,
+    } as SubscriptionPlan;
+  };
+
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    // Ensure amount is a valid number
+    const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+    if (isNaN(numAmount)) {
+      return new Intl.NumberFormat('en-EU', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+      }).format(0);
+    }
     return new Intl.NumberFormat('en-EU', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(numAmount);
   };
 
   if (isLoading) {
@@ -269,7 +402,17 @@ const SubscriptionPlans = () => {
           <h1 className="text-3xl font-bold">{t('admin.plans_management')}</h1>
           <p className="text-muted-foreground">{t('admin.plans_manage_pricing')}</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingPlan(null);
+            // Reset multilingual data when closing
+            setPlanMultilingual({
+              display_name: { en: '', es: '', pt: '' },
+              description: { en: '', es: '', pt: '' },
+            });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -286,6 +429,13 @@ const SubscriptionPlans = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {/* Language Tabs */}
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+                className="mb-4"
+              />
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">{t('admin.plans_plan_name')}</Label>
@@ -310,18 +460,15 @@ const SubscriptionPlans = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="display_name">{t('admin.plans_display_name')}</Label>
+                  <Label htmlFor="display_name">{t('admin.plans_display_name')} <span className="text-red-500">*</span></Label>
                   <Input 
                     id="display_name" 
-                    placeholder={t('admin.plans_display_name_placeholder')}
-                    value={editingPlan?.display_name || newPlan.display_name || ''}
-                    onChange={(e) => {
-                      if (editingPlan) {
-                        setEditingPlan({...editingPlan, display_name: e.target.value});
-                      } else {
-                        setNewPlan({...newPlan, display_name: e.target.value});
-                      }
-                    }}
+                    placeholder={`Enter display name in ${contentLocale.toUpperCase()}`}
+                    value={planMultilingual.display_name[contentLocale]}
+                    onChange={(e) => setPlanMultilingual({
+                      ...planMultilingual,
+                      display_name: { ...planMultilingual.display_name, [contentLocale]: e.target.value }
+                    })}
                   />
                 </div>
               </div>
@@ -329,15 +476,12 @@ const SubscriptionPlans = () => {
                 <Label htmlFor="description">{t('admin.plans_description')}</Label>
                 <Textarea 
                   id="description" 
-                  placeholder={t('admin.plans_description_placeholder')}
-                  value={editingPlan?.description || newPlan.description || ''}
-                  onChange={(e) => {
-                    if (editingPlan) {
-                      setEditingPlan({...editingPlan, description: e.target.value});
-                    } else {
-                      setNewPlan({...newPlan, description: e.target.value});
-                    }
-                  }}
+                  placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
+                  value={planMultilingual.description[contentLocale]}
+                  onChange={(e) => setPlanMultilingual({
+                    ...planMultilingual,
+                    description: { ...planMultilingual.description, [contentLocale]: e.target.value }
+                  })}
                   className="min-h-[120px]"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
@@ -352,7 +496,10 @@ const SubscriptionPlans = () => {
                     type="number" 
                     step="0.01" 
                     placeholder={t('admin.plans_price_placeholder')}
-                    value={editingPlan?.price || newPlan.price || 0}
+                    value={(() => {
+                      const price = editingPlan?.price ?? newPlan.price ?? 0;
+                      return typeof price === 'number' ? price : parseFloat(String(price)) || 0;
+                    })()}
                     onChange={(e) => {
                       const price = parseFloat(e.target.value) || 0;
                       if (editingPlan) {
@@ -536,7 +683,10 @@ const SubscriptionPlans = () => {
 
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {plans.map((plan) => (
+        {plans.map((plan) => {
+        // Ensure plan is normalized before rendering
+        const normalizedPlan = normalizePlan(plan);
+        return (
           <Card key={plan.id} className={`p-6 relative flex flex-col ${plan.is_active ? '' : 'opacity-60'}`}>
             {!plan.is_active && (
               <div className="absolute top-4 right-4">
@@ -613,7 +763,16 @@ const SubscriptionPlans = () => {
             <div className="mb-4 min-h-[60px]">
               <div className="flex items-baseline space-x-1">
                 <span className="text-3xl font-bold">
-                  {formatCurrency(plan.price)}
+                  {(() => {
+                    // Double-check that price is a number before formatting
+                    const price = normalizedPlan.price;
+                    const safePrice = typeof price === 'number' && !isNaN(price) 
+                      ? price 
+                      : (typeof price === 'string' 
+                        ? parseFloat(price) || 0 
+                        : 0);
+                    return formatCurrency(safePrice);
+                  })()}
                 </span>
                 <span className="text-muted-foreground">
                   /{t('admin.plans_monthly').toLowerCase()}
@@ -714,7 +873,8 @@ const SubscriptionPlans = () => {
               </ul>
             </div>
           </Card>
-        ))}
+        );
+        })}
       </div>
 
       {/* Stats Summary */}
@@ -742,7 +902,25 @@ const SubscriptionPlans = () => {
             <div>
               <p className="text-sm text-muted-foreground">{t('admin.plans_avg_price')}</p>
               <p className="text-2xl font-bold">
-                {formatCurrency((plans.reduce((sum, plan) => sum + plan.price, 0) / plans.length))}
+                {(() => {
+                  if (plans.length === 0) {
+                    return formatCurrency(0);
+                  }
+                  const total = plans.reduce((sum, plan) => {
+                    try {
+                      const normalized = normalizePlan(plan);
+                      const price = typeof normalized.price === 'number' 
+                        ? normalized.price 
+                        : parseFloat(String(normalized.price || 0)) || 0;
+                      return sum + (isNaN(price) ? 0 : price);
+                    } catch (error) {
+                      console.error('Error normalizing plan in reduce:', error, plan);
+                      return sum;
+                    }
+                  }, 0);
+                  const average = total / plans.length;
+                  return formatCurrency(isNaN(average) ? 0 : average);
+                })()}
               </p>
             </div>
             <EuroIcon className="h-8 w-8 text-blue-500" />

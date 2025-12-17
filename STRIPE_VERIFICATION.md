@@ -120,3 +120,4 @@ Con el Webhook Secret que proporcionaste (`whsec_MHPYEX7vdrQuRjYwTK5OTidQvbzUfIa
 Una vez completados estos pasos, la integración estará **100% funcional**.
 
 
+

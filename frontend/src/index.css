@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
 @tailwind base;
 @tailwind components;
@@ -83,6 +84,13 @@ All colors MUST be HSL.
     --input: 0 0% 18%;
     --ring: 0 100% 50%;
   }
+
+  /* SACRART Design System Colors */
+  body.dark {
+    --background-dark: 24 8% 8%; /* #181113 */
+    --surface-dark: 24 12% 15%; /* #271c1f */
+    --border-dark: 24 20% 28%; /* #543b43 */
+  }
 }
 
 @layer base {
@@ -101,8 +109,8 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Montserrat', sans-serif;
+    @apply bg-background text-foreground font-display;
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
 
   #root {
@@ -191,6 +199,22 @@ All colors MUST be HSL.
     animation: fadeIn 0.6s ease-out forwards;
   }
 
+  /* Fade in up animation for Sacrart Kids */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+  }
+
   /* Hero gradient overlay for video backgrounds */
   .hero-gradient {
     background: linear-gradient(
@@ -258,6 +282,11 @@ All colors MUST be HSL.
     display: none;
   }
 
+  /* Card gradient overlay matching code.html */
+  .card-gradient {
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+  }
+
   /* Glassmorphism for navigation - Dark streaming theme */
   .glass-nav {
     background: rgba(20, 20, 20, 0.95);
@@ -292,5 +321,51 @@ All colors MUST be HSL.
     );
     background-size: 1000px 100%;
     animation: shimmer 2s infinite;
+  }
+
+  /* Custom scrollbar for chat matching code.html */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #1A1A1A; 
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #333; 
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555; 
+  }
+
+  /* Chapter scrollbar for series detail page */
+  .chapter-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .chapter-scroll::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 3px;
+  }
+  .chapter-scroll::-webkit-scrollbar-thumb {
+    background: #A05245;
+    border-radius: 3px;
+  }
+  .chapter-scroll::-webkit-scrollbar-thumb:hover {
+    background: #8a4338;
+  }
+
+  /* Comments scrollbar for video player page */
+  .comments-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .comments-scroll::-webkit-scrollbar-track {
+    background: #1E1E1E;
+  }
+  .comments-scroll::-webkit-scrollbar-thumb {
+    background: #A05245;
+    border-radius: 4px;
+  }
+  .comments-scroll::-webkit-scrollbar-thumb:hover {
+    background: #8a4339;
   }
 }

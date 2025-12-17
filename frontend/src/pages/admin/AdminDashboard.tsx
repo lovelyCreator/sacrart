@@ -48,9 +48,57 @@ const AdminDashboard = () => {
         console.log('Subscription Response:', subscriptionRes);
         console.log('Top Videos Response:', topVideosRes);
         
-        setOverview(overviewRes.success ? overviewRes.data : null);
-        setSubscriptionStats(subscriptionRes.success ? subscriptionRes.data : null);
-        setTopVideos(topVideosRes.success ? (topVideosRes.data || []) : []);
+        // Safely set data with validation
+        setOverview(overviewRes.success && overviewRes.data ? overviewRes.data : null);
+        
+        // Validate and normalize subscription stats
+        if (subscriptionRes.success && subscriptionRes.data) {
+          const stats = subscriptionRes.data;
+          // Ensure subscription_breakdown values are numbers
+          if (stats.subscription_breakdown) {
+            const breakdown = stats.subscription_breakdown;
+            stats.subscription_breakdown = {
+              freemium: typeof breakdown.freemium === 'number' ? breakdown.freemium : parseFloat(String(breakdown.freemium || 0)) || 0,
+              basic: typeof breakdown.basic === 'number' ? breakdown.basic : parseFloat(String(breakdown.basic || 0)) || 0,
+              premium: typeof breakdown.premium === 'number' ? breakdown.premium : parseFloat(String(breakdown.premium || 0)) || 0,
+            };
+          }
+          // Ensure revenue values are numbers
+          if (stats.monthly_recurring_revenue != null) {
+            stats.monthly_recurring_revenue = typeof stats.monthly_recurring_revenue === 'number' 
+              ? stats.monthly_recurring_revenue 
+              : parseFloat(String(stats.monthly_recurring_revenue || 0)) || 0;
+          }
+          if (stats.average_revenue_per_user != null) {
+            stats.average_revenue_per_user = typeof stats.average_revenue_per_user === 'number' 
+              ? stats.average_revenue_per_user 
+              : parseFloat(String(stats.average_revenue_per_user || 0)) || 0;
+          }
+          setSubscriptionStats(stats);
+        } else {
+          setSubscriptionStats(null);
+        }
+        
+        // Validate top videos
+        if (topVideosRes.success && topVideosRes.data) {
+          const videos = Array.isArray(topVideosRes.data) ? topVideosRes.data : [];
+          // Ensure rating is a number for each video
+          const normalizedVideos = videos.map((video: any) => ({
+            ...video,
+            rating: typeof video.rating === 'number' && !isNaN(video.rating) 
+              ? video.rating 
+              : (video.rating != null ? parseFloat(String(video.rating)) || 0 : 0),
+            views: typeof video.views === 'number' && !isNaN(video.views) 
+              ? video.views 
+              : (video.views != null ? parseFloat(String(video.views)) || 0 : 0),
+            completion_rate: typeof video.completion_rate === 'number' && !isNaN(video.completion_rate) 
+              ? video.completion_rate 
+              : (video.completion_rate != null ? parseFloat(String(video.completion_rate)) || 0 : 0),
+          }));
+          setTopVideos(normalizedVideos);
+        } else {
+          setTopVideos([]);
+        }
         
       } catch (error: any) {
         console.error('Error loading analytics:', error);
@@ -63,17 +111,32 @@ const AdminDashboard = () => {
     fetchAnalytics();
   }, [locale]); // Refetch when locale changes
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    // Ensure amount is a valid number
+    const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+    if (isNaN(numAmount)) {
+      return new Intl.NumberFormat('en-EU', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(0);
+    }
     return new Intl.NumberFormat('en-EU', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(numAmount);
   };
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US').format(num);
+  const formatNumber = (num: number | string | null | undefined) => {
+    // Ensure num is a valid number
+    const numValue = typeof num === 'number' ? num : parseFloat(String(num || 0));
+    if (isNaN(numValue) || !isFinite(numValue)) {
+      return '0';
+    }
+    return new Intl.NumberFormat('en-US').format(numValue);
   };
 
   if (loading) {
@@ -243,8 +306,29 @@ const AdminDashboard = () => {
           </div>
           <div className="space-y-4">
             {subscriptionStats?.subscription_breakdown && (() => {
-              const { freemium = 0, basic = 0, premium = 0 } = subscriptionStats.subscription_breakdown;
+              // Safely extract and normalize values
+              const getSafeNumber = (val: any): number => {
+                if (typeof val === 'number' && !isNaN(val) && isFinite(val)) {
+                  return val;
+                }
+                const parsed = parseFloat(String(val || 0));
+                return isNaN(parsed) || !isFinite(parsed) ? 0 : parsed;
+              };
+              
+              const freemium = getSafeNumber(subscriptionStats.subscription_breakdown.freemium);
+              const basic = getSafeNumber(subscriptionStats.subscription_breakdown.basic);
+              const premium = getSafeNumber(subscriptionStats.subscription_breakdown.premium);
               const total = freemium + basic + premium;
+              
+              // Safe percentage calculation
+              const getPercentage = (value: number, total: number): string => {
+                if (total <= 0 || !isFinite(total) || !isFinite(value)) {
+                  return '0.0';
+                }
+                const percentage = (value / total) * 100;
+                return isNaN(percentage) || !isFinite(percentage) ? '0.0' : percentage.toFixed(1);
+              };
+              
               return (
                 <>
                   <div className="flex items-center justify-between">
@@ -255,7 +339,7 @@ const AdminDashboard = () => {
                     <div className="text-right">
                       <div className="text-sm font-medium">{freemium}</div>
                       <div className="text-xs text-muted-foreground">
-                        {total > 0 ? ((freemium / total) * 100).toFixed(1) : 0}%
+                        {getPercentage(freemium, total)}%
                       </div>
                     </div>
                   </div>
@@ -267,7 +351,7 @@ const AdminDashboard = () => {
                     <div className="text-right">
                       <div className="text-sm font-medium">{basic}</div>
                       <div className="text-xs text-muted-foreground">
-                        {total > 0 ? ((basic / total) * 100).toFixed(1) : 0}%
+                        {getPercentage(basic, total)}%
                       </div>
                     </div>
                   </div>
@@ -279,7 +363,7 @@ const AdminDashboard = () => {
                     <div className="text-right">
                       <div className="text-sm font-medium">{premium}</div>
                       <div className="text-xs text-muted-foreground">
-                        {total > 0 ? ((premium / total) * 100).toFixed(1) : 0}%
+                        {getPercentage(premium, total)}%
                       </div>
                     </div>
                   </div>
@@ -379,7 +463,21 @@ const AdminDashboard = () => {
                       </span>
                       <span className="flex items-center">
                         <Star className="h-3 w-3 mr-1" />
-                        {(() => { const r = typeof video.rating === 'number' ? video.rating : parseFloat(video.rating || '0'); return isNaN(r) ? '0.0' : r.toFixed(1); })()}
+                        {(() => {
+                          try {
+                            let r: number;
+                            if (typeof video.rating === 'number' && !isNaN(video.rating) && isFinite(video.rating)) {
+                              r = video.rating;
+                            } else {
+                              const parsed = parseFloat(String(video.rating || '0'));
+                              r = isNaN(parsed) || !isFinite(parsed) ? 0 : parsed;
+                            }
+                            return (typeof r === 'number' && !isNaN(r) && isFinite(r)) ? r.toFixed(1) : '0.0';
+                          } catch (error) {
+                            console.error('Error formatting rating:', error, video);
+                            return '0.0';
+                          }
+                        })()}
                       </span>
                       <span className="text-xs">
                         {video.completion_rate || 0}% {t('admin.completion')}

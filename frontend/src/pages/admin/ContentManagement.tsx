@@ -64,8 +64,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from '@/hooks/useLocale';
 import { seriesApi, videoApi, categoryApi, Series, Video, Category } from '@/services/videoApi';
 import FileUpload from '@/components/admin/FileUpload';
+import LanguageTabs from '@/components/admin/LanguageTabs';
 
 // Using types from videoApi
+
+// Multilingual data structure
+interface MultilingualData {
+  en: string;
+  es: string;
+  pt: string;
+}
 
 const ContentManagement = () => {
   const { t } = useTranslation();
@@ -86,6 +94,30 @@ const ContentManagement = () => {
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Multilingual state for series
+  const [seriesMultilingual, setSeriesMultilingual] = useState<{
+    title: MultilingualData;
+    description: MultilingualData;
+    short_description: MultilingualData;
+  }>({
+    title: { en: '', es: '', pt: '' },
+    description: { en: '', es: '', pt: '' },
+    short_description: { en: '', es: '', pt: '' },
+  });
+  
+  // Multilingual state for videos
+  const [videoMultilingual, setVideoMultilingual] = useState<{
+    title: MultilingualData;
+    description: MultilingualData;
+    short_description: MultilingualData;
+    intro_description: MultilingualData;
+  }>({
+    title: { en: '', es: '', pt: '' },
+    description: { en: '', es: '', pt: '' },
+    short_description: { en: '', es: '', pt: '' },
+    intro_description: { en: '', es: '', pt: '' },
+  });
   
   // Media management state
   const [uploadedImages, setUploadedImages] = useState<any[]>([]);
@@ -314,6 +346,27 @@ const ContentManagement = () => {
       updated_at: serie.updated_at || '',
     };
     setSelectedSeries(mappedSeries);
+    
+    // Load multilingual data from series (check if translations exist)
+    const translations = (serie as any)?.translations || {};
+    setSeriesMultilingual({
+      title: {
+        en: translations.title?.en || serie.title || serie.name || '',
+        es: translations.title?.es || '',
+        pt: translations.title?.pt || '',
+      },
+      description: {
+        en: translations.description?.en || serie.description || '',
+        es: translations.description?.es || '',
+        pt: translations.description?.pt || '',
+      },
+      short_description: {
+        en: translations.short_description?.en || serie.short_description || '',
+        es: translations.short_description?.es || '',
+        pt: translations.short_description?.pt || '',
+      },
+    });
+    
     setIsSeriesDialogOpen(true);
   };
 
@@ -350,26 +403,48 @@ const ContentManagement = () => {
       created_at: '',
       updated_at: '',
     });
+    
+    // Initialize multilingual data
+    setSeriesMultilingual({
+      title: { en: '', es: '', pt: '' },
+      description: { en: '', es: '', pt: '' },
+      short_description: { en: '', es: '', pt: '' },
+    });
+    
     setIsSeriesDialogOpen(true);
   };
 
   const handleSaveSeries = async () => {
     if (!selectedSeries) return;
 
+    // Validate that at least English title is provided
+    if (!seriesMultilingual.title.en?.trim()) {
+      toast.error('Title in English is required');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       console.log('Saving series:', selectedSeries);
       
-      // Prepare series payload with Bunny.net URLs
+      // Prepare series payload with multilingual data
       const seriesPayload: any = {
-        title: selectedSeries.title || selectedSeries.name || '',
-        description: selectedSeries.description || '',
+        title: seriesMultilingual.title.en, // Default to English
+        name: seriesMultilingual.title.en, // Category name
+        description: seriesMultilingual.description.en,
+        short_description: seriesMultilingual.short_description.en,
         visibility: selectedSeries.visibility || 'freemium',
         status: selectedSeries.status || 'draft',
         category_id: selectedSeries.category_id || null,
         thumbnail: (selectedSeries as any)?.thumbnail || null,
         cover_image: (selectedSeries as any)?.cover_image || null,
         trailer_url: (selectedSeries as any)?.trailer_url || null,
+        // Include multilingual translations
+        translations: {
+          title: seriesMultilingual.title,
+          description: seriesMultilingual.description,
+          short_description: seriesMultilingual.short_description,
+        },
       };
       
       let response;
@@ -408,6 +483,32 @@ const ContentManagement = () => {
 
   const handleEditVideo = (video: Video) => {
     setSelectedVideo(video);
+    
+    // Load multilingual data from video (check if translations exist)
+    const translations = (video as any)?.translations || {};
+    setVideoMultilingual({
+      title: {
+        en: translations.title?.en || video.title || '',
+        es: translations.title?.es || '',
+        pt: translations.title?.pt || '',
+      },
+      description: {
+        en: translations.description?.en || video.description || '',
+        es: translations.description?.es || '',
+        pt: translations.description?.pt || '',
+      },
+      short_description: {
+        en: translations.short_description?.en || video.short_description || '',
+        es: translations.short_description?.es || '',
+        pt: translations.short_description?.pt || '',
+      },
+      intro_description: {
+        en: translations.intro_description?.en || video.intro_description || '',
+        es: translations.intro_description?.es || '',
+        pt: translations.intro_description?.pt || '',
+      },
+    });
+    
     setIsVideoDialogOpen(true);
   };
 
@@ -463,6 +564,15 @@ const ContentManagement = () => {
       created_at: '',
       updated_at: '',
     });
+    
+    // Initialize multilingual data
+    setVideoMultilingual({
+      title: { en: '', es: '', pt: '' },
+      description: { en: '', es: '', pt: '' },
+      short_description: { en: '', es: '', pt: '' },
+      intro_description: { en: '', es: '', pt: '' },
+    });
+    
     setIsVideoDialogOpen(true);
   };
 
@@ -470,8 +580,8 @@ const ContentManagement = () => {
     if (!selectedVideo) return;
 
     // Validate required fields
-    if (!selectedVideo.title?.trim()) {
-      toast.error(t('admin.content_title_required'));
+    if (!videoMultilingual.title.en?.trim()) {
+      toast.error('Title in English is required');
       return;
     }
     
@@ -498,11 +608,39 @@ const ContentManagement = () => {
 
       // Create payload without series_id (database only has category_id)
       // series_id is kept in frontend state for UI purposes, but backend expects category_id
-      const { series_id, ...videoData } = selectedVideo;
-      const payload: Partial<Video> = {
-        ...videoData,
+      const { series_id, bunny_video_id, bunny_video_url, bunny_embed_url, bunny_thumbnail_url, ...restVideoData } = selectedVideo;
+      
+      // Build payload with multilingual translations
+      const payload: any = {
+        ...restVideoData,
+        title: videoMultilingual.title.en, // Default to English
+        description: videoMultilingual.description.en,
+        short_description: videoMultilingual.short_description.en || null,
+        intro_description: videoMultilingual.intro_description.en || null,
         category_id: selectedVideo.category_id || series_id, // Ensure category_id is always set
+        // Include multilingual translations
+        translations: {
+          title: videoMultilingual.title,
+          description: videoMultilingual.description,
+          short_description: videoMultilingual.short_description,
+          intro_description: videoMultilingual.intro_description,
+        },
       };
+      
+      // Only include bunny fields if they have actual non-empty values
+      // This prevents errors if the database doesn't have these columns
+      if (bunny_embed_url && bunny_embed_url.trim()) {
+        payload.bunny_embed_url = bunny_embed_url;
+      }
+      if (bunny_video_id && bunny_video_id.trim()) {
+        payload.bunny_video_id = bunny_video_id;
+      }
+      if (bunny_video_url && bunny_video_url.trim()) {
+        payload.bunny_video_url = bunny_video_url;
+      }
+      if (bunny_thumbnail_url && bunny_thumbnail_url.trim()) {
+        payload.bunny_thumbnail_url = bunny_thumbnail_url;
+      }
 
       let response;
       if (selectedVideo.id) {
@@ -1234,9 +1372,15 @@ const ContentManagement = () => {
         setIsSeriesDialogOpen(open);
         if (!open) {
           setSelectedSeries(null);
+          // Reset multilingual data when closing
+          setSeriesMultilingual({
+            title: { en: '', es: '', pt: '' },
+            description: { en: '', es: '', pt: '' },
+            short_description: { en: '', es: '', pt: '' },
+          });
         }
       }}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedSeries?.id ? t('admin.content_edit_series') : t('admin.content_create_series')}</DialogTitle>
             <DialogDescription>
@@ -1245,26 +1389,63 @@ const ContentManagement = () => {
           </DialogHeader>
           {selectedSeries && (
             <div className="grid gap-4 py-4">
+              {/* Language Tabs */}
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+                className="mb-4"
+              />
+              
+              {/* Title - Multilingual */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="title" className="text-right">
-                  {t('admin.content_label_title')}
+                  {t('admin.content_label_title')} <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="title"
-                  value={selectedSeries.title || selectedSeries.name || ''}
-                  onChange={(e) => setSelectedSeries({...selectedSeries, title: e.target.value, name: e.target.value})}
+                  value={seriesMultilingual.title[contentLocale]}
+                  onChange={(e) => setSeriesMultilingual({
+                    ...seriesMultilingual,
+                    title: { ...seriesMultilingual.title, [contentLocale]: e.target.value }
+                  })}
                   className="col-span-3"
+                  placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
+              
+              {/* Description - Multilingual */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="description" className="text-right pt-2">
                   {t('admin.content_label_description')}
                 </Label>
                 <Textarea
                   id="description"
-                  value={selectedSeries.description || ''}
-                  onChange={(e) => setSelectedSeries({...selectedSeries, description: e.target.value})}
+                  value={seriesMultilingual.description[contentLocale]}
+                  onChange={(e) => setSeriesMultilingual({
+                    ...seriesMultilingual,
+                    description: { ...seriesMultilingual.description, [contentLocale]: e.target.value }
+                  })}
                   className="col-span-3"
+                  placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
+                  rows={4}
+                />
+              </div>
+              
+              {/* Short Description - Multilingual */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="short_description" className="text-right pt-2">
+                  Short Description
+                </Label>
+                <Textarea
+                  id="short_description"
+                  value={seriesMultilingual.short_description[contentLocale]}
+                  onChange={(e) => setSeriesMultilingual({
+                    ...seriesMultilingual,
+                    short_description: { ...seriesMultilingual.short_description, [contentLocale]: e.target.value }
+                  })}
+                  className="col-span-3"
+                  placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
+                  rows={2}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -1349,7 +1530,19 @@ const ContentManagement = () => {
       </Dialog>
 
       {/* Edit Video Dialog */}
-      <Dialog open={isVideoDialogOpen} onOpenChange={setIsVideoDialogOpen}>
+      <Dialog open={isVideoDialogOpen} onOpenChange={(open) => {
+        setIsVideoDialogOpen(open);
+        if (!open) {
+          setSelectedVideo(null);
+          // Reset multilingual data when closing
+          setVideoMultilingual({
+            title: { en: '', es: '', pt: '' },
+            description: { en: '', es: '', pt: '' },
+            short_description: { en: '', es: '', pt: '' },
+            intro_description: { en: '', es: '', pt: '' },
+          });
+        }
+      }}>
         <DialogContent className="sm:max-w-[800px] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedVideo?.id ? 'Edit Episode' : 'Add New Episode'}</DialogTitle>
@@ -1359,26 +1552,81 @@ const ContentManagement = () => {
           </DialogHeader>
           {selectedVideo && (
             <div className="grid gap-4 py-4">
+              {/* Language Tabs */}
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+                className="mb-4"
+              />
+              
+              {/* Title - Multilingual */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="videoTitle" className="text-right">
-                  Title
+                  Title <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="videoTitle"
-                  value={selectedVideo.title}
-                  onChange={(e) => setSelectedVideo({...selectedVideo, title: e.target.value})}
+                  value={videoMultilingual.title[contentLocale]}
+                  onChange={(e) => setVideoMultilingual({
+                    ...videoMultilingual,
+                    title: { ...videoMultilingual.title, [contentLocale]: e.target.value }
+                  })}
                   className="col-span-3"
+                  placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="videoDescription" className="text-right">
+              
+              {/* Description - Multilingual */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="videoDescription" className="text-right pt-2">
                   Description
                 </Label>
                 <Textarea
                   id="videoDescription"
-                  value={selectedVideo.description}
-                  onChange={(e) => setSelectedVideo({...selectedVideo, description: e.target.value})}
+                  value={videoMultilingual.description[contentLocale]}
+                  onChange={(e) => setVideoMultilingual({
+                    ...videoMultilingual,
+                    description: { ...videoMultilingual.description, [contentLocale]: e.target.value }
+                  })}
                   className="col-span-3"
+                  placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
+                  rows={4}
+                />
+              </div>
+              
+              {/* Short Description - Multilingual */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="shortDescription" className="text-right pt-2">
+                  Short Description
+                </Label>
+                <Textarea
+                  id="shortDescription"
+                  value={videoMultilingual.short_description[contentLocale] || ''}
+                  onChange={(e) => setVideoMultilingual({
+                    ...videoMultilingual,
+                    short_description: { ...videoMultilingual.short_description, [contentLocale]: e.target.value }
+                  })}
+                  className="col-span-3"
+                  placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
+                  rows={2}
+                />
+              </div>
+              
+              {/* Intro Description - Multilingual */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="introDescription" className="text-right pt-2">
+                  Intro Description
+                </Label>
+                <Textarea
+                  id="introDescription"
+                  value={videoMultilingual.intro_description[contentLocale] || ''}
+                  onChange={(e) => setVideoMultilingual({
+                    ...videoMultilingual,
+                    intro_description: { ...videoMultilingual.intro_description, [contentLocale]: e.target.value }
+                  })}
+                  className="col-span-3"
+                  placeholder={`Enter intro description in ${contentLocale.toUpperCase()}`}
+                  rows={3}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">

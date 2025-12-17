@@ -92,12 +92,21 @@ const CouponsDiscounts = () => {
     fetchCoupons();
   }, [locale]);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    // Ensure amount is a valid number
+    const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+    if (isNaN(numAmount)) {
+      return new Intl.NumberFormat('en-EU', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+      }).format(0);
+    }
     return new Intl.NumberFormat('en-EU', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(numAmount);
   };
 
   const getDiscountIcon = (type: string) => {

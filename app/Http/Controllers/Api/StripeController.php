@@ -231,6 +231,75 @@ class StripeController extends Controller
     }
 
     /**
+     * Create a Stripe Customer Portal session for managing billing.
+     */
+    public function createCustomerPortalSession(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated.',
+            ], 401);
+        }
+
+        $secret = Config::get('stripe.secret');
+        if (!$secret) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Stripe is not configured. Missing STRIPE_SECRET.',
+            ], 500);
+        }
+
+        // Ensure Stripe customer exists
+        $client = new StripeClient($secret);
+        $customerId = $user->stripe_customer_id;
+        
+        if (!$customerId) {
+            // Create customer if doesn't exist
+            $customer = $client->customers->create([
+                'email' => $user->email,
+                'name' => $user->name,
+                'metadata' => [
+                    'user_id' => (string) $user->id,
+                ],
+            ]);
+            $customerId = $customer->id;
+            $user->update(['stripe_customer_id' => $customerId]);
+        }
+
+        // Get return URL from request or use default
+        $returnUrl = $request->input('return_url', Config::get('app.url') . '/profile');
+
+        try {
+            // Create customer portal session
+            $session = $client->billingPortal->sessions->create([
+                'customer' => $customerId,
+                'return_url' => $returnUrl,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'url' => $session->url,
+                ],
+                'message' => 'Customer portal session created successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Stripe Customer Portal session creation failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create customer portal session: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Stripe webhook handler.
      */
     public function webhook(Request $request)

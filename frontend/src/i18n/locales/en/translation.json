@@ -1,8 +1,21 @@
 {
+  "kids": {
+    "hero_description": "Learn, draw and create your first collection of Sacred Art.",
+    "start_adventure": "Start Adventure",
+    "more_info": "More Information",
+    "curious_ones": "LITTLE CURIOUS ONES",
+    "drawing_corner": "THE DRAWING CORNER",
+    "little_imaginer": "THE LITTLE IMAGINER",
+    "download": "Download",
+    "no_videos": "No videos available",
+    "no_pdfs": "No downloadable resources available",
+    "no_description": "No description"
+  },
   "common": {
     "welcome": "Welcome",
     "get_started": "Get Started",
     "sign_in": "Sign In",
+    "sign_up": "Sign Up",
     "sign_out": "Sign Out",
     "home": "Home",
     "browse": "Browse",
@@ -14,6 +27,10 @@
     "profile": "Profile",
     "logout": "Logout",
     "search": "Search",
+    "categories": "Categories",
+    "store": "Store",
+    "live": "Live",
+    "sacrart_kids": "Sacrart Kids",
     "loading": "Loading...",
     "no_results": "No results found",
     "save": "Save",
@@ -306,7 +323,29 @@
     "failed_submit_feedback": "Failed to submit feedback",
     "description_required": "Description is required",
     "na": "N/A",
-    "browser_no_video_support": "Your browser does not support the video tag."
+    "browser_no_video_support": "Your browser does not support the video tag.",
+    "download_materials": "DOWNLOAD MATERIALS",
+    "transcription": "TRANSCRIPTION",
+    "chapter": "Chapter",
+    "participants": "Participants",
+    "related_videos": "Related Videos",
+    "no_downloadable_resources": "No downloadable materials available",
+    "no_transcription": "No transcription available",
+    "please_sign_in": "Please sign in",
+    "failed_like": "Failed to like",
+    "failed_dislike": "Failed to dislike",
+    "comment_required": "Comment is required",
+    "comment_posted": "Comment posted",
+    "failed_post_comment": "Failed to post comment",
+    "just_now": "just now",
+    "minutes_ago": "minutes",
+    "hours_ago": "hours",
+    "days_ago": "days",
+    "new": "New",
+    "no_description": "No description",
+    "instructor": "Instructor",
+    "master_sculptor": "Master Sculptor Guest",
+    "no_comments": "No comments yet"
   },
   "series": {
     "title": "Series",
@@ -799,7 +838,6 @@
     "top_performing_videos": "Top Performing Videos",
     "views_label": "views",
     "completion": "completion",
-    "payments_transactions": "Payments & Transactions",
     "payments_monitor": "Monitor payment transactions and revenue",
     "payments_loading": "Loading transactions...",
     "payments_refresh": "Refresh",
@@ -1003,8 +1041,11 @@
         "no_settings": "No about settings found."
       },
       "testimonials": {
+        "section_settings": "Testimonial Section Settings",
+        "title": "Testimonial Title",
+        "subtitle": "Testimonial Subtitle",
         "all_reviews": "All Reviews",
-        "subtitle": "All testimonials from the database. Choose which ones to display on homepage.",
+        "list_description": "All testimonials from the database. Choose which ones to display on homepage.",
         "reviews_selected": "{{count}} review(s) selected for homepage",
         "selection_help": "Only approved reviews can be selected. Click reviews to toggle selection.",
         "clear_all": "Clear All",
@@ -1148,6 +1189,24 @@
     "browse_all_videos": "Browse All Videos",
     "view_pricing_plans": "View Pricing Plans",
     "copyright": "© 2025 <0>{{name}}</0> by Ana Rey. All rights reserved."
+  },
+  "category": {
+    "main_category": "Main Category",
+    "default_description": "Discover the ancestral secrets of sacred art. Immerse yourself in exclusive collections from master artisans.",
+    "not_found": "Category not found",
+    "no_series": "No series available in this category",
+    "loading_more": "Loading more series...",
+    "new": "New",
+    "untitled": "Untitled",
+    "filter": {
+      "all": "All",
+      "cristos": "Christs",
+      "virgenes": "Virgins",
+      "imaginería_menor": "Minor Imagery",
+      "bloque": "Block",
+      "talla_cuerpos": "Body Carving",
+      "manos_pies": "Hands and Feet"
+    }
   }
 }
 

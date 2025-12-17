@@ -75,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Payments (Stripe)
     Route::get('/payments/stripe/status', [StripeController::class, 'checkStatus']);
     Route::post('/payments/checkout', [StripeController::class, 'createCheckoutSession']);
+    Route::post('/payments/stripe/portal', [StripeController::class, 'createCustomerPortalSession']);
     // Auth routes
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);

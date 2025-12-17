@@ -47,7 +47,7 @@ const Hero = () => {
             <Button 
               size="lg"
               variant="outline"
-              onClick={() => navigate("/explore")}
+              onClick={() => navigate("/browse")}
               className="text-lg md:text-xl px-8 md:px-12 py-6 md:py-7 bg-white/10 text-white border-2 border-white/60 hover:bg-white/20 hover:border-white font-semibold backdrop-blur-sm transition-all duration-300"
             >
               Learn More

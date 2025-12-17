@@ -41,6 +41,33 @@ import HeroBackgroundSelector from '@/components/admin/HeroBackgroundSelector';
 import FileUpload from '@/components/admin/FileUpload';
 import { heroBackgroundApi } from '@/services/heroBackgroundApi';
 import axios from 'axios';
+import LanguageTabs from '@/components/admin/LanguageTabs';
+
+// Multilingual data structure
+interface MultilingualData {
+  en: string;
+  es: string;
+  pt: string;
+}
+
+// Translatable settings keys
+const TRANSLATABLE_KEYS = [
+  'hero_title',
+  'hero_subtitle',
+  'hero_cta_text',
+  'hero_cta_button_text',
+  'hero_disclaimer',
+  'about_title',
+  'about_description',
+  'testimonial_title',
+  'testimonial_subtitle',
+  'site_name',
+  'site_tagline',
+  'footer_copyright',
+  'footer_description',
+  'footer_address',
+  'contact_address',
+];
 
 const Settings = () => {
   const { user } = useAuth();
@@ -51,6 +78,9 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('hero');
   const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(locale as 'en' | 'es' | 'pt' || 'en');
+  
+  // Multilingual state for translatable settings
+  const [settingsMultilingual, setSettingsMultilingual] = useState<Record<string, MultilingualData>>({});
   const [selectedHeroBackgrounds, setSelectedHeroBackgrounds] = useState<any[]>([]);
   // Fixed hero background images (16 slots only)
   const HERO_SLOTS = 16;
@@ -225,8 +255,34 @@ const Settings = () => {
       setLoading(true);
       // Pass locale directly to API instead of using localStorage
       const response = await settingsApi.getAll(contentLocale);
-      if (response.success) {
-        setSettings(response.data);
+      if (response.success && response.data) {
+        const groupedSettings: Record<string, SiteSetting[]> = {};
+        const settingsData = response.data;
+        
+        // Group settings by their group property
+        Object.values(settingsData).forEach((setting: any) => {
+          const group = setting.group || 'general';
+          if (!groupedSettings[group]) {
+            groupedSettings[group] = [];
+          }
+          groupedSettings[group].push(setting);
+        });
+        
+        setSettings(groupedSettings);
+        
+        // Load multilingual data from settings
+        const multilingualData: Record<string, MultilingualData> = {};
+        TRANSLATABLE_KEYS.forEach(key => {
+          // Try to get translations from settings
+          const setting = Object.values(settingsData).find((s: any) => s.key === key) as any;
+          const translations = setting?.translations || {};
+          multilingualData[key] = {
+            en: translations.en || setting?.value || '',
+            es: translations.es || '',
+            pt: translations.pt || '',
+          };
+        });
+        setSettingsMultilingual(multilingualData);
       }
     } catch (error: any) {
       console.error('Error fetching settings:', error);
@@ -252,22 +308,173 @@ const Settings = () => {
         'about_description',
         'testimonial_title',
         'testimonial_subtitle',
+        'site_name',
+        'site_tagline',
+        'footer_copyright',
+        'footer_description',
+        'footer_address',
+        'contact_address',
       ];
       
-      const updateData: SettingsUpdateRequest[] = groupSettings.map(setting => ({
-        key: setting.key,
-        value: setting.value,
-        type: setting.type,
-        group: setting.group,
-        label: setting.label,
-        description: setting.description,
-        // Add locale for translatable settings
-        ...(translatableKeys.includes(setting.key) ? { locale: contentLocale } : {}),
-      }));
+      const updateData: SettingsUpdateRequest[] = [];
+      
+      // Process each setting
+      groupSettings.forEach(setting => {
+        // Skip settings without keys
+        if (!setting || !setting.key) {
+          return;
+        }
+        
+        if (translatableKeys.includes(setting.key)) {
+          // For translatable settings, save all languages
+          const multilingualValue = settingsMultilingual[setting.key] || { en: '', es: '', pt: '' };
+          updateData.push({
+            key: setting.key,
+            value: multilingualValue.en, // Default to English
+            type: setting.type,
+            group: setting.group,
+            label: setting.label,
+            description: setting.description,
+            locale: 'en',
+            // Include translations
+            translations: multilingualValue,
+          } as any);
+        } else {
+          // For non-translatable settings, save normally
+          updateData.push({
+            key: setting.key,
+            value: setting.value,
+            type: setting.type,
+            group: setting.group,
+            label: setting.label,
+            description: setting.description,
+          });
+        }
+      });
+      
+      // Also handle settings that might be in multilingual state but not in groupSettings yet
+      // This is important for newly created settings
+      if (groupName === 'general') {
+        ['site_name', 'site_tagline'].forEach(key => {
+          if (settingsMultilingual[key]) {
+            const multilingualValue = settingsMultilingual[key];
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: multilingualValue.en || '',
+                type: 'text',
+                group: 'general',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+                locale: 'en',
+                translations: multilingualValue,
+              } as any);
+            }
+          }
+        });
+      }
+      
+      // Handle footer settings
+      if (groupName === 'footer') {
+        ['footer_copyright', 'footer_description', 'footer_address'].forEach(key => {
+          if (settingsMultilingual[key]) {
+            const multilingualValue = settingsMultilingual[key];
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: multilingualValue.en || '',
+                type: 'text',
+                group: 'footer',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+                locale: 'en',
+                translations: multilingualValue,
+              } as any);
+            }
+          }
+        });
+        
+        // Handle non-translatable footer settings (social media URLs)
+        ['footer_social_facebook', 'footer_social_instagram', 'footer_social_twitter'].forEach(key => {
+          const setting = groupSettings.find(s => s && s.key === key);
+          if (setting) {
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: setting.value || '',
+                type: 'text',
+                group: 'footer',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+              });
+            }
+          } else {
+            // Check if it's in settings state but not in groupSettings
+            const settingFromState = settings.footer?.find(s => s && s.key === key);
+            if (settingFromState) {
+              const existingSetting = updateData.find(s => s.key === key);
+              if (!existingSetting) {
+                updateData.push({
+                  key: key,
+                  value: settingFromState.value || '',
+                  type: 'text',
+                  group: 'footer',
+                  label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                  description: '',
+                });
+              }
+            }
+          }
+        });
+      }
+      
+      // Also handle settings that might be in multilingual state but not in groupSettings yet
+      // This is important for newly created settings
+      if (groupName === 'general') {
+        ['site_name', 'site_tagline'].forEach(key => {
+          if (settingsMultilingual[key]) {
+            const multilingualValue = settingsMultilingual[key];
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: multilingualValue.en || '',
+                type: 'text',
+                group: 'general',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+                locale: 'en',
+                translations: multilingualValue,
+              } as any);
+            }
+          }
+        });
+        
+        // Handle contact_address (multilingual)
+        if (settingsMultilingual.contact_address) {
+          const multilingualValue = settingsMultilingual.contact_address;
+          const existingSetting = updateData.find(s => s.key === 'contact_address');
+          if (!existingSetting) {
+            updateData.push({
+              key: 'contact_address',
+              value: multilingualValue.en || '',
+              type: 'text',
+              group: 'general',
+              label: 'Contact Address',
+              description: '',
+              locale: 'en',
+              translations: multilingualValue,
+            } as any);
+          }
+        }
+      }
 
       const response = await settingsApi.bulkUpdate(updateData, contentLocale);
       if (response.success) {
-        toast.success(`${groupName} settings updated successfully for ${contentLocale.toUpperCase()}`);
+        toast.success(`${groupName} settings updated successfully for all languages`);
         await fetchSettings(); // Refresh to get updated data
       }
     } catch (error: any) {
@@ -279,14 +486,87 @@ const Settings = () => {
   };
 
   const updateSetting = (groupName: string, settingKey: string, newValue: string) => {
-    setSettings(prev => ({
-      ...prev,
-      [groupName]: prev[groupName]?.map(setting => 
-        setting.key === settingKey 
-          ? { ...setting, value: newValue }
-          : setting
-      ) || []
-    }));
+    // Check if this is a translatable setting
+    if (TRANSLATABLE_KEYS.includes(settingKey)) {
+      // Update multilingual state
+      setSettingsMultilingual(prev => ({
+        ...prev,
+        [settingKey]: {
+          ...(prev[settingKey] || { en: '', es: '', pt: '' }),
+          [contentLocale]: newValue,
+        },
+      }));
+      
+      // Also update the settings state for display
+      setSettings(prev => {
+        const currentGroup = prev[groupName] || [];
+        const existingSetting = currentGroup.find(s => s.key === settingKey);
+        
+        if (existingSetting) {
+          return {
+            ...prev,
+            [groupName]: currentGroup.map(setting => 
+              setting.key === settingKey 
+                ? { ...setting, value: newValue }
+                : setting
+            )
+          };
+        } else {
+          const newSetting: SiteSetting = {
+            id: 0,
+            key: settingKey,
+            value: newValue,
+            type: 'text',
+            group: groupName,
+            label: settingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            description: '',
+            is_active: true,
+            sort_order: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          return {
+            ...prev,
+            [groupName]: [...currentGroup, newSetting]
+          };
+        }
+      });
+    } else {
+      // For non-translatable settings, update normally
+      setSettings(prev => {
+        const currentGroup = prev[groupName] || [];
+        const existingSetting = currentGroup.find(s => s.key === settingKey);
+        
+        if (existingSetting) {
+          return {
+            ...prev,
+            [groupName]: currentGroup.map(setting => 
+              setting.key === settingKey 
+                ? { ...setting, value: newValue }
+                : setting
+            )
+          };
+        } else {
+          const newSetting: SiteSetting = {
+            id: 0,
+            key: settingKey,
+            value: newValue,
+            type: 'text',
+            group: groupName,
+            label: settingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            description: '',
+            is_active: true,
+            sort_order: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          return {
+            ...prev,
+            [groupName]: [...currentGroup, newSetting]
+          };
+        }
+      });
+    }
   };
 
   const handleHeroBackgroundsChange = (backgrounds: any[]) => {
@@ -747,8 +1027,20 @@ const Settings = () => {
   };
 
   const renderSettingField = (setting: SiteSetting, groupName: string) => {
+    // Safety check: ensure setting.key exists
+    if (!setting || !setting.key) {
+      return null;
+    }
+    
     const labelText = t(`admin.settings_fields.${setting.key}.label`, { defaultValue: setting.label || setting.key });
     const descriptionText = t(`admin.settings_fields.${setting.key}.description`, { defaultValue: setting.description || '' });
+    
+    // Check if this is a translatable setting
+    const isTranslatable = setting.key && TRANSLATABLE_KEYS.includes(setting.key);
+    const multilingualValue = isTranslatable 
+      ? (settingsMultilingual[setting.key] || { en: setting.value || '', es: '', pt: '' })
+      : null;
+    
     switch (setting.type) {
       case 'boolean':
         return (
@@ -786,41 +1078,105 @@ const Settings = () => {
         );
       
       default: // text
-        return (
-          <div className="space-y-2">
-            <Label htmlFor={setting.key} className="text-sm font-medium">
-              {labelText}
-            </Label>
-            {setting.key.includes('disclaimer') || setting.key.includes('description') ? (
-              <Textarea
-                id={setting.key}
-                value={setting.value}
-                onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
-                className="w-full min-h-[100px]"
-                placeholder={descriptionText || ''}
-              />
-            ) : (
-              <Input
-                id={setting.key}
-                value={setting.value}
-                onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
-                className="w-full"
-                placeholder={descriptionText || ''}
-              />
-            )}
-            {(descriptionText || '').length > 0 && (
-              <p className="text-xs text-gray-500">{descriptionText}</p>
-            )}
-          </div>
-        );
+        if (isTranslatable && multilingualValue) {
+          // Render multilingual input
+          const isTextarea = (setting.key || '').includes('disclaimer') || (setting.key || '').includes('description');
+          return (
+            <div className="space-y-2">
+              <Label htmlFor={setting.key} className="text-sm font-medium">
+                {labelText}
+              </Label>
+              {isTextarea ? (
+                <Textarea
+                  id={setting.key}
+                  value={multilingualValue[contentLocale]}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      [setting.key]: {
+                        ...(prev[setting.key] || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting(groupName, setting.key, e.target.value);
+                  }}
+                  className="w-full min-h-[100px]"
+                  placeholder={`Enter ${labelText.toLowerCase()} in ${contentLocale.toUpperCase()}`}
+                />
+              ) : (
+                <Input
+                  id={setting.key}
+                  value={multilingualValue[contentLocale]}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      [setting.key]: {
+                        ...(prev[setting.key] || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting(groupName, setting.key, e.target.value);
+                  }}
+                  className="w-full"
+                  placeholder={`Enter ${labelText.toLowerCase()} in ${contentLocale.toUpperCase()}`}
+                />
+              )}
+              {(descriptionText || '').length > 0 && (
+                <p className="text-xs text-gray-500">{descriptionText}</p>
+              )}
+            </div>
+          );
+        } else {
+          // Render normal input for non-translatable settings
+          return (
+            <div className="space-y-2">
+              <Label htmlFor={setting.key} className="text-sm font-medium">
+                {labelText}
+              </Label>
+              {(setting.key || '').includes('disclaimer') || (setting.key || '').includes('description') ? (
+                <Textarea
+                  id={setting.key}
+                  value={setting.value}
+                  onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
+                  className="w-full min-h-[100px]"
+                  placeholder={descriptionText || ''}
+                />
+              ) : (
+                <Input
+                  id={setting.key}
+                  value={setting.value}
+                  onChange={(e) => updateSetting(groupName, setting.key, e.target.value)}
+                  className="w-full"
+                  placeholder={descriptionText || ''}
+                />
+              )}
+              {(descriptionText || '').length > 0 && (
+                <p className="text-xs text-gray-500">{descriptionText}</p>
+              )}
+            </div>
+          );
+        }
     }
   };
 
   const renderSettingsGroup = (groupName: string, groupSettings: SiteSetting[]) => {
+    // Filter out any settings without keys
+    const validSettings = (groupSettings || []).filter(s => s && s.key);
+    const hasTranslatableSettings = validSettings.some(s => s.key && TRANSLATABLE_KEYS.includes(s.key));
+    
     return (
       <div className="space-y-6">
-        {groupSettings.map((setting) => (
-          <div key={setting.id} className="space-y-2">
+        {/* Show Language Tabs if group has translatable settings */}
+        {hasTranslatableSettings && (
+          <LanguageTabs 
+            activeLanguage={contentLocale} 
+            onLanguageChange={(lang) => setContentLocale(lang)}
+            className="mb-4"
+          />
+        )}
+        
+        {validSettings.map((setting) => (
+          <div key={setting.id || setting.key} className="space-y-2">
             {renderSettingField(setting, groupName)}
           </div>
         ))}
@@ -924,8 +1280,136 @@ const Settings = () => {
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.hero.title')}</h2>
-              {settings.hero ? renderSettingsGroup('hero', settings.hero.filter(setting => !setting.key.includes('hero_background_images'))) : (
-                <p className="text-muted-foreground">{t('admin.settings_page.hero.no_settings')}</p>
+              {settings.hero && settings.hero.length > 0 ? (
+                renderSettingsGroup('hero', settings.hero.filter(setting => setting && setting.key && !setting.key.includes('hero_background_images')))
+              ) : (
+                <div className="space-y-4">
+                  {/* <p className="text-muted-foreground mb-4">{t('admin.settings_page.hero.no_settings') || 'No hero settings found. Create them below:'}</p> */}
+                  
+                  {/* Language Tabs */}
+                  <LanguageTabs 
+                    activeLanguage={contentLocale} 
+                    onLanguageChange={(lang) => setContentLocale(lang)}
+                    className="mb-4"
+                  />
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_title">Hero Title <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="hero_title"
+                        value={settingsMultilingual.hero_title?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_title')?.value || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            hero_title: {
+                              ...(prev.hero_title || { en: '', es: '', pt: '' }),
+                              [contentLocale]: e.target.value,
+                            },
+                          }));
+                          updateSetting('hero', 'hero_title', e.target.value);
+                        }}
+                        placeholder={`Enter hero title in ${contentLocale.toUpperCase()}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_subtitle">Hero Subtitle</Label>
+                      <Input
+                        id="hero_subtitle"
+                        value={settingsMultilingual.hero_subtitle?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_subtitle')?.value || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            hero_subtitle: {
+                              ...(prev.hero_subtitle || { en: '', es: '', pt: '' }),
+                              [contentLocale]: e.target.value,
+                            },
+                          }));
+                          updateSetting('hero', 'hero_subtitle', e.target.value);
+                        }}
+                        placeholder={`Enter hero subtitle in ${contentLocale.toUpperCase()}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_cta_text">Hero CTA Text</Label>
+                      <Input
+                        id="hero_cta_text"
+                        value={settingsMultilingual.hero_cta_text?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_cta_text')?.value || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            hero_cta_text: {
+                              ...(prev.hero_cta_text || { en: '', es: '', pt: '' }),
+                              [contentLocale]: e.target.value,
+                            },
+                          }));
+                          updateSetting('hero', 'hero_cta_text', e.target.value);
+                        }}
+                        placeholder={`Enter hero CTA text in ${contentLocale.toUpperCase()}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_cta_button_text">Hero CTA Button Text</Label>
+                      <Input
+                        id="hero_cta_button_text"
+                        value={settingsMultilingual.hero_cta_button_text?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_cta_button_text')?.value || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            hero_cta_button_text: {
+                              ...(prev.hero_cta_button_text || { en: '', es: '', pt: '' }),
+                              [contentLocale]: e.target.value,
+                            },
+                          }));
+                          updateSetting('hero', 'hero_cta_button_text', e.target.value);
+                        }}
+                        placeholder={`Enter hero CTA button text in ${contentLocale.toUpperCase()}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_price">Hero Price</Label>
+                      <Input
+                        id="hero_price"
+                        value={settings.hero?.find(s => s.key === 'hero_price')?.value || ''}
+                        onChange={(e) => updateSetting('hero', 'hero_price', e.target.value)}
+                        placeholder="€9.99/month"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_disclaimer">Hero Disclaimer</Label>
+                      <Textarea
+                        id="hero_disclaimer"
+                        value={settingsMultilingual.hero_disclaimer?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_disclaimer')?.value || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            hero_disclaimer: {
+                              ...(prev.hero_disclaimer || { en: '', es: '', pt: '' }),
+                              [contentLocale]: e.target.value,
+                            },
+                          }));
+                          updateSetting('hero', 'hero_disclaimer', e.target.value);
+                        }}
+                        placeholder={`Enter hero disclaimer in ${contentLocale.toUpperCase()}`}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                    <div className="flex justify-end pt-4 border-t">
+                      <Button 
+                        onClick={() => handleSaveSettings('hero')}
+                        disabled={saving}
+                        className="flex items-center"
+                      >
+                        {saving ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        {t('admin.common_save')}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               )}
             </Card>
 
@@ -970,20 +1454,159 @@ const Settings = () => {
                 currentFile={settings.about?.find(s => s.key === 'about_image')?.value || ''}
               />
             </div>
-            {settings.about ? renderSettingsGroup('about', settings.about.filter(s => s.key !== 'about_image')) : (
-              <p className="text-muted-foreground">{t('admin.settings_page.about.no_settings')}</p>
+            {settings.about && settings.about.length > 0 ? (
+              renderSettingsGroup('about', settings.about.filter(s => s && s.key && s.key !== 'about_image'))
+            ) : (
+              <div className="space-y-4">
+                {/* <p className="text-muted-foreground mb-4">{t('admin.settings_page.about.no_settings') || 'No about settings found. Create them below:'}</p> */}
+                
+                {/* Language Tabs */}
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                  className="mb-4"
+                />
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="about_title">About Title</Label>
+                    <Input
+                      id="about_title"
+                      value={settingsMultilingual.about_title?.[contentLocale] || settings.about?.find(s => s.key === 'about_title')?.value || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          about_title: {
+                            ...(prev.about_title || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                        updateSetting('about', 'about_title', e.target.value);
+                      }}
+                      placeholder={`Enter about title in ${contentLocale.toUpperCase()}`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="about_description">About Description</Label>
+                    <Textarea
+                      id="about_description"
+                      value={settingsMultilingual.about_description?.[contentLocale] || settings.about?.find(s => s.key === 'about_description')?.value || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          about_description: {
+                            ...(prev.about_description || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                        updateSetting('about', 'about_description', e.target.value);
+                      }}
+                      placeholder={`Enter about description in ${contentLocale.toUpperCase()}`}
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button 
+                      onClick={() => handleSaveSettings('about')}
+                      disabled={saving}
+                      className="flex items-center"
+                    >
+                      {saving ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {t('admin.common_save')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
           </Card>
         </TabsContent>
 
         {/* Testimonial Section Settings */}
         <TabsContent value="testimonial" className="mt-6 space-y-6">
+          {/* Testimonial Section Text Settings */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.testimonials.section_settings') || 'Testimonial Section Settings'}</h2>
+            {settings.testimonial ? renderSettingsGroup('testimonial', settings.testimonial.filter(setting => 
+              setting.key === 'testimonial_title' || setting.key === 'testimonial_subtitle'
+            )) : (
+              <div className="space-y-4">
+                {/* Language Tabs */}
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                  className="mb-4"
+                />
+                
+                <div className="space-y-2">
+                  <Label htmlFor="testimonial_title" className="text-sm font-medium">
+                    {t('admin.settings_page.testimonials.title') || 'Testimonial Title'}
+                  </Label>
+                  <Input
+                    id="testimonial_title"
+                    value={settingsMultilingual.testimonial_title?.[contentLocale] || settings.testimonial?.find(s => s.key === 'testimonial_title')?.value || ''}
+                    onChange={(e) => {
+                      setSettingsMultilingual(prev => ({
+                        ...prev,
+                        testimonial_title: {
+                          ...(prev.testimonial_title || { en: '', es: '', pt: '' }),
+                          [contentLocale]: e.target.value,
+                        },
+                      }));
+                      updateSetting('testimonial', 'testimonial_title', e.target.value);
+                    }}
+                    className="w-full"
+                    placeholder={`Enter testimonial title in ${contentLocale.toUpperCase()}`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="testimonial_subtitle" className="text-sm font-medium">
+                    {t('admin.settings_page.testimonials.subtitle') || 'Testimonial Subtitle'}
+                  </Label>
+                  <Input
+                    id="testimonial_subtitle"
+                    value={settingsMultilingual.testimonial_subtitle?.[contentLocale] || settings.testimonial?.find(s => s.key === 'testimonial_subtitle')?.value || ''}
+                    onChange={(e) => {
+                      setSettingsMultilingual(prev => ({
+                        ...prev,
+                        testimonial_subtitle: {
+                          ...(prev.testimonial_subtitle || { en: '', es: '', pt: '' }),
+                          [contentLocale]: e.target.value,
+                        },
+                      }));
+                      updateSetting('testimonial', 'testimonial_subtitle', e.target.value);
+                    }}
+                    className="w-full"
+                    placeholder={`Enter testimonial subtitle in ${contentLocale.toUpperCase()}`}
+                  />
+                </div>
+                <div className="flex justify-end pt-4 border-t">
+                  <Button 
+                    onClick={() => handleSaveSettings('testimonial')}
+                    disabled={saving}
+                    className="flex items-center"
+                  >
+                    {saving ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {t('admin.common_save')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+
           {/* All Reviews/Testimonials from Database */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-semibold">{t('admin.settings_page.testimonials.all_reviews')}</h2>
-                <p className="text-muted-foreground">{t('admin.settings_page.testimonials.subtitle')}</p>
+                <p className="text-muted-foreground">{t('admin.settings_page.testimonials.list_description')}</p>
               </div>
             </div>
 
@@ -1610,9 +2233,88 @@ const Settings = () => {
         <TabsContent value="general" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.general.title')}</h2>
-            {settings.general ? renderSettingsGroup('general', settings.general) : (
-              <p className="text-muted-foreground">{t('admin.settings_page.general.no_settings')}</p>
-            )}
+            
+            {/* Language Tabs */}
+            <LanguageTabs 
+              activeLanguage={contentLocale} 
+              onLanguageChange={(lang) => setContentLocale(lang)}
+              className="mb-4"
+            />
+            
+            {/* Always show form fields for common settings */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="site_name">Site Name</Label>
+                <Input
+                  id="site_name"
+                  value={settingsMultilingual.site_name?.[contentLocale] || settings.general?.find(s => s && s.key === 'site_name')?.value || ''}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      site_name: {
+                        ...(prev.site_name || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting('general', 'site_name', e.target.value);
+                  }}
+                  placeholder={`Enter site name in ${contentLocale.toUpperCase()}`}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="site_tagline">Site Tagline</Label>
+                <Input
+                  id="site_tagline"
+                  value={settingsMultilingual.site_tagline?.[contentLocale] || settings.general?.find(s => s && s.key === 'site_tagline')?.value || ''}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      site_tagline: {
+                        ...(prev.site_tagline || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting('general', 'site_tagline', e.target.value);
+                  }}
+                  placeholder={`Enter site tagline in ${contentLocale.toUpperCase()}`}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Contact Email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={settings.general?.find(s => s && s.key === 'contact_email')?.value || ''}
+                  onChange={(e) => updateSetting('general', 'contact_email', e.target.value)}
+                  placeholder="support@sacrart.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_phone">Contact Phone</Label>
+                <Input
+                  id="contact_phone"
+                  value={settings.general?.find(s => s && s.key === 'contact_phone')?.value || ''}
+                  onChange={(e) => updateSetting('general', 'contact_phone', e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+            </div>
+            
+            {/* Save button */}
+            <div className="flex justify-end pt-4 border-t mt-6">
+              <Button 
+                onClick={() => handleSaveSettings('general')}
+                disabled={saving}
+                className="flex items-center"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {t('admin.common_save')}
+              </Button>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1620,9 +2322,119 @@ const Settings = () => {
         <TabsContent value="footer" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.footer.title')}</h2>
-            {settings.footer ? renderSettingsGroup('footer', settings.footer) : (
-              <p className="text-muted-foreground">{t('admin.settings_page.footer.no_settings')}</p>
-            )}
+            
+            {/* Language Tabs */}
+            <LanguageTabs 
+              activeLanguage={contentLocale} 
+              onLanguageChange={(lang) => setContentLocale(lang)}
+              className="mb-4"
+            />
+            
+            {/* Always show form fields for footer settings */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="footer_copyright">Footer Copyright</Label>
+                <Input
+                  id="footer_copyright"
+                  value={settingsMultilingual.footer_copyright?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_copyright')?.value || ''}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      footer_copyright: {
+                        ...(prev.footer_copyright || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting('footer', 'footer_copyright', e.target.value);
+                  }}
+                  placeholder={`Enter footer copyright text in ${contentLocale.toUpperCase()}`}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="footer_description">Footer Description</Label>
+                <Textarea
+                  id="footer_description"
+                  value={settingsMultilingual.footer_description?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_description')?.value || ''}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      footer_description: {
+                        ...(prev.footer_description || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting('footer', 'footer_description', e.target.value);
+                  }}
+                  placeholder={`Enter footer description in ${contentLocale.toUpperCase()}`}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="footer_address">Footer Address</Label>
+                <Textarea
+                  id="footer_address"
+                  value={settingsMultilingual.footer_address?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_address')?.value || ''}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      footer_address: {
+                        ...(prev.footer_address || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting('footer', 'footer_address', e.target.value);
+                  }}
+                  placeholder={`Enter footer address in ${contentLocale.toUpperCase()}`}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="footer_social_facebook">Facebook Address (URL)</Label>
+                <Input
+                  id="footer_social_facebook"
+                  type="url"
+                  value={settings.footer?.find(s => s && s.key === 'footer_social_facebook')?.value || ''}
+                  onChange={(e) => updateSetting('footer', 'footer_social_facebook', e.target.value)}
+                  placeholder="https://www.facebook.com/yourpage"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="footer_social_instagram">Instagram Address (URL)</Label>
+                <Input
+                  id="footer_social_instagram"
+                  type="url"
+                  value={settings.footer?.find(s => s && s.key === 'footer_social_instagram')?.value || ''}
+                  onChange={(e) => updateSetting('footer', 'footer_social_instagram', e.target.value)}
+                  placeholder="https://www.instagram.com/yourpage"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="footer_social_twitter">Twitter Address (URL)</Label>
+                <Input
+                  id="footer_social_twitter"
+                  type="url"
+                  value={settings.footer?.find(s => s && s.key === 'footer_social_twitter')?.value || ''}
+                  onChange={(e) => updateSetting('footer', 'footer_social_twitter', e.target.value)}
+                  placeholder="https://www.twitter.com/yourpage"
+                />
+              </div>
+            </div>
+            
+            {/* Save button */}
+            <div className="flex justify-end pt-4 border-t mt-6">
+              <Button 
+                onClick={() => handleSaveSettings('footer')}
+                disabled={saving}
+                className="flex items-center"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {t('admin.common_save')}
+              </Button>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1630,28 +2442,70 @@ const Settings = () => {
         <TabsContent value="contact" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.contact.title')}</h2>
-            <div className="space-y-6">
-              {/* Show contact-related settings from general group */}
-              {settings.general?.filter(s => s.key.includes('contact') || s.key.includes('email') || s.key.includes('phone')).map((setting) => (
-                <div key={setting.id} className="space-y-2">
-                  {renderSettingField(setting, 'general')}
-                </div>
-              ))}
-              
-              <div className="flex justify-end pt-4 border-t">
-                <Button 
-                  onClick={() => handleSaveSettings('general')}
-                  disabled={saving}
-                  className="flex items-center"
-                >
-                  {saving ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  {t('admin.common_save')}
-                </Button>
+            
+            {/* Language Tabs */}
+            <LanguageTabs 
+              activeLanguage={contentLocale} 
+              onLanguageChange={(lang) => setContentLocale(lang)}
+              className="mb-4"
+            />
+            
+            {/* Always show form fields for contact settings */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Contact Email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={settings.general?.find(s => s && s.key === 'contact_email')?.value || ''}
+                  onChange={(e) => updateSetting('general', 'contact_email', e.target.value)}
+                  placeholder="support@sacrart.com"
+                />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_phone">Contact Phone</Label>
+                <Input
+                  id="contact_phone"
+                  value={settings.general?.find(s => s && s.key === 'contact_phone')?.value || ''}
+                  onChange={(e) => updateSetting('general', 'contact_phone', e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_address">Contact Address</Label>
+                <Textarea
+                  id="contact_address"
+                  value={settingsMultilingual.contact_address?.[contentLocale] || settings.general?.find(s => s && s.key === 'contact_address')?.value || ''}
+                  onChange={(e) => {
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      contact_address: {
+                        ...(prev.contact_address || { en: '', es: '', pt: '' }),
+                        [contentLocale]: e.target.value,
+                      },
+                    }));
+                    updateSetting('general', 'contact_address', e.target.value);
+                  }}
+                  placeholder={`Enter contact address in ${contentLocale.toUpperCase()}`}
+                  className="min-h-[100px]"
+                />
+              </div>
+            </div>
+            
+            {/* Save button */}
+            <div className="flex justify-end pt-4 border-t mt-6">
+              <Button 
+                onClick={() => handleSaveSettings('general')}
+                disabled={saving}
+                className="flex items-center"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {t('admin.common_save')}
+              </Button>
             </div>
           </Card>
         </TabsContent>

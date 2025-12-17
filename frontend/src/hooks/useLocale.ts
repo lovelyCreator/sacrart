@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 const SUPPORTED_LOCALES = ['en', 'es', 'pt'] as const;
 export type SupportedLocale = typeof SUPPORTED_LOCALES[number];
 
-export const DEFAULT_LOCALE: SupportedLocale = 'en';
+export const DEFAULT_LOCALE: SupportedLocale = 'es';
 
 /**
  * Hook to get and manage locale from URL

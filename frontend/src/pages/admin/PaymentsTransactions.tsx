@@ -399,12 +399,21 @@ const PaymentsTransactions = () => {
     toast.success(t('admin.payments_refreshed'));
   };
 
-  const formatCurrency = (amount: number, currency: string = 'EUR') => {
+  const formatCurrency = (amount: number | string | null | undefined, currency: string = 'EUR') => {
+    // Ensure amount is a valid number
+    const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+    if (isNaN(numAmount)) {
+      return new Intl.NumberFormat('en-EU', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+      }).format(0);
+    }
     return new Intl.NumberFormat('en-EU', {
       style: 'currency',
       currency: currency,
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(numAmount);
   };
 
   const formatDate = (dateString: string) => {

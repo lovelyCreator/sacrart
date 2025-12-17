@@ -1,8 +1,21 @@
 {
+  "kids": {
+    "hero_description": "Aprenda, desenhe e crie sua primeira coleção de Arte Sacra.",
+    "start_adventure": "Começar Aventura",
+    "more_info": "Mais Informações",
+    "curious_ones": "PEQUENOS CURIOSOS",
+    "drawing_corner": "O CANTINHO DO DESENHISTA",
+    "little_imaginer": "O PEQUENO IMAGINÁRIO",
+    "download": "Baixar",
+    "no_videos": "Nenhum vídeo disponível",
+    "no_pdfs": "Nenhum recurso para download disponível",
+    "no_description": "Sem descrição"
+  },
   "common": {
     "welcome": "Bem-vindo",
     "get_started": "Começar",
     "sign_in": "Entrar",
+    "sign_up": "Cadastrar",
     "sign_out": "Sair",
     "home": "Início",
     "browse": "Explorar",
@@ -14,6 +27,10 @@
     "profile": "Perfil",
     "logout": "Sair",
     "search": "Buscar",
+    "categories": "Categorias",
+    "store": "Loja",
+    "live": "Ao Vivo",
+    "sacrart_kids": "Sacrart Kids",
     "loading": "Carregando...",
     "no_results": "Nenhum resultado encontrado",
     "save": "Salvar",
@@ -274,7 +291,29 @@
     "failed_submit_feedback": "Falha ao enviar feedback",
     "description_required": "Descrição é obrigatória",
     "na": "N/A",
-    "browser_no_video_support": "Seu navegador não suporta a tag de vídeo."
+    "browser_no_video_support": "Seu navegador não suporta a tag de vídeo.",
+    "download_materials": "BAIXAR MATERIAIS",
+    "transcription": "TRANSCRIÇÃO",
+    "chapter": "Capítulo",
+    "participants": "Participantes",
+    "related_videos": "Vídeos Relacionados",
+    "no_downloadable_resources": "Nenhum material para download disponível",
+    "no_transcription": "Nenhuma transcrição disponível",
+    "please_sign_in": "Por favor, entre",
+    "failed_like": "Falha ao curtir",
+    "failed_dislike": "Falha ao descurtir",
+    "comment_required": "Comentário é obrigatório",
+    "comment_posted": "Comentário publicado",
+    "failed_post_comment": "Falha ao publicar comentário",
+    "just_now": "agora mesmo",
+    "minutes_ago": "minutos",
+    "hours_ago": "horas",
+    "days_ago": "dias",
+    "new": "Novo",
+    "no_description": "Sem descrição",
+    "instructor": "Instrutor",
+    "master_sculptor": "Mestre Escultor Convidado",
+    "no_comments": "Ainda não há comentários"
   },
   "series": {
     "title": "Série",
@@ -795,7 +834,6 @@
     "top_performing_videos": "Vídeos com Melhor Desempenho",
     "views_label": "visualizações",
     "completion": "conclusão",
-    "payments_transactions": "Pagamentos e Transações",
     "payments_monitor": "Monitorar transações de pagamento e receita",
     "payments_loading": "Carregando transações...",
     "payments_refresh": "Atualizar",
@@ -999,8 +1037,11 @@
         "no_settings": "Nenhuma configuração de sobre encontrada."
       },
       "testimonials": {
+        "section_settings": "Configurações da Seção de Depoimentos",
+        "title": "Título do Depoimento",
+        "subtitle": "Subtítulo do Depoimento",
         "all_reviews": "Todas as Avaliações",
-        "subtitle": "Todos os depoimentos do banco de dados. Escolha quais exibir na página inicial.",
+        "list_description": "Todos os depoimentos do banco de dados. Escolha quais exibir na página inicial.",
         "reviews_selected": "{{count}} avaliação(ões) selecionada(s) para a página inicial",
         "selection_help": "Apenas avaliações aprovadas podem ser selecionadas. Clique para alternar a seleção.",
         "clear_all": "Limpar Tudo",
@@ -1144,6 +1185,24 @@
     "browse_all_videos": "Explorar Todos os Vídeos",
     "view_pricing_plans": "Ver Planos de Preços",
     "copyright": "© 2025 <0>{{name}}</0> por Ana Rey. Todos os direitos reservados."
+  },
+  "category": {
+    "main_category": "Categoria Principal",
+    "default_description": "Descubra os segredos ancestrais da arte sacra. Mergulhe em coleções exclusivas de mestres artesãos.",
+    "not_found": "Categoria não encontrada",
+    "no_series": "Não há séries disponíveis nesta categoria",
+    "loading_more": "Carregando mais séries...",
+    "new": "Novo",
+    "untitled": "Sem título",
+    "filter": {
+      "all": "Tudo",
+      "cristos": "Cristos",
+      "virgenes": "Virgens",
+      "imaginería_menor": "Imaginária Menor",
+      "bloque": "Bloco",
+      "talla_cuerpos": "Talla de Corpos",
+      "manos_pies": "Mãos e Pés"
+    }
   }
 }
 

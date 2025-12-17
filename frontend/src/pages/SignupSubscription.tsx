@@ -242,13 +242,86 @@ const SignupSubscription = () => {
                   .filter(line => line.length > 0);
               };
               
-              const features = backendPlan.features && Array.isArray(backendPlan.features) 
-                ? backendPlan.features 
-                : parseFeatures(backendPlan.description);
+              // Get features - handle both array and JSON string formats
+              let features: string[] = [];
+              if (backendPlan.features) {
+                if (Array.isArray(backendPlan.features)) {
+                  features = backendPlan.features;
+                } else if (typeof backendPlan.features === 'string') {
+                  try {
+                    const parsed = JSON.parse(backendPlan.features);
+                    features = Array.isArray(parsed) ? parsed : [];
+                  } catch {
+                    // If not JSON, treat as single feature
+                    features = [backendPlan.features];
+                  }
+                }
+              }
+              
+              // If no features from features field, try parsing from description
+              if (features.length === 0 && backendPlan.description) {
+                features = parseFeatures(backendPlan.description);
+              }
+              
+              // Add feature flags from plan settings
+              const planFeatures: string[] = [];
+              
+              // Max Devices
+              if (backendPlan.max_devices) {
+                planFeatures.push(`${backendPlan.max_devices} ${backendPlan.max_devices === 1 ? 'Device' : 'Devices'}`);
+              }
+              
+              // Video Quality
+              if (backendPlan.video_quality) {
+                planFeatures.push(`${backendPlan.video_quality} Quality`);
+              }
+              
+              // Downloadable Content
+              if (backendPlan.downloadable_content) {
+                planFeatures.push('Downloadable Content');
+              }
+              
+              // Certificates
+              if (backendPlan.certificates) {
+                planFeatures.push('Certificates of Completion');
+              }
+              
+              // Priority Support
+              if (backendPlan.priority_support) {
+                planFeatures.push('Priority Support');
+              }
+              
+              // Ad Free
+              if (backendPlan.ad_free) {
+                planFeatures.push('Ad-Free Experience');
+              }
+              
+              // Combine custom features with plan features
+              const allFeatures = [...features, ...planFeatures];
               
               const displayPrice = isFreemium 
                 ? t('subscription.plan_prices.free')
-                : `€${Number(backendPlan.price).toFixed(2)}`;
+                : (() => {
+                    try {
+                      let price: number;
+                      if (typeof backendPlan?.price === 'number' && !isNaN(backendPlan.price)) {
+                        price = backendPlan.price;
+                      } else if (backendPlan?.price != null) {
+                        const parsed = parseFloat(String(backendPlan.price));
+                        price = isNaN(parsed) ? 0 : parsed;
+                      } else {
+                        price = 0;
+                      }
+                      // Double-check before calling toFixed
+                      if (typeof price === 'number' && !isNaN(price) && isFinite(price)) {
+                        return `€${price.toFixed(2)}`;
+                      }
+                      return '€0.00';
+                    } catch (error) {
+                      console.error('Error formatting price:', error, backendPlan);
+                      return '€0.00';
+                    }
+                  })();
               
               const hasStripe = backendPlan.stripe_price_id || isFreemium;
               const isStripeReady = isFreemium || hasStripe;
@@ -256,7 +329,7 @@ const SignupSubscription = () => {
               return (
                 <Card
                   key={backendPlan.id}
-                  className={`p-8 relative hover:shadow-2xl transition-all duration-300 animate-slide-up ${
+                  className={`p-8 relative hover:shadow-2xl transition-all duration-300 animate-slide-up flex flex-col ${
                     isPopular ? "border-primary border-2 scale-105" : ""
                   }`}
                   style={{ animationDelay: `${index * 100}ms` }}
@@ -271,7 +344,7 @@ const SignupSubscription = () => {
                     <h3 className="text-2xl font-bold mb-2 font-playfair">
                       {backendPlan.display_name || backendPlan.name}
                     </h3>
-                    <div className="flex items-baseline justify-center">
+                    <div className="flex items-baseline justify-center mb-3">
                       <span className="text-4xl font-bold text-primary font-playfair">{displayPrice}</span>
                       {!isFreemium && (
                         <span className="text-muted-foreground ml-1 font-montserrat">
@@ -279,11 +352,16 @@ const SignupSubscription = () => {
                         </span>
                       )}
                     </div>
+                    {backendPlan.description && (
+                      <p className="text-sm text-muted-foreground font-montserrat px-2 line-clamp-3">
+                        {backendPlan.description.split('\n')[0]}
+                      </p>
+                    )}
                   </div>
 
-                  <ul className="space-y-3 mb-8">
-                    {features.length > 0 ? (
-                      features.map((feature, idx) => (
+                  <ul className="space-y-3 mb-8 flex-grow">
+                    {allFeatures.length > 0 ? (
+                      allFeatures.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2">
                           <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                           <span className="text-foreground/80 font-montserrat">{feature}</span>

@@ -22,3 +22,4 @@ export const EuroIcon: React.FC<EuroIconProps> = ({ className = "h-6 w-6" }) => 
 };
 
 
+

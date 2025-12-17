@@ -17,7 +17,15 @@ import {
   ChevronRight,
   Check,
   Plus,
-  X
+  X,
+  ChevronLeft,
+  Brush,
+  Heart,
+  Film,
+  Languages,
+  Monitor,
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import { generateMockSeries, generateMockVideos, MockSeries } from '@/services/mockData';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -69,6 +77,12 @@ const Home = () => {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const homepageVideosCarouselRef = useRef<HTMLDivElement>(null);
+  
+  // Landing page data (for unauthenticated users)
+  const [trendingVideos, setTrendingVideos] = useState<any[]>([]);
+  const [videosLoading, setVideosLoading] = useState(true);
+  const [landingSettings, setLandingSettings] = useState<Record<string, any>>({});
+  const [landingSettingsLoading, setLandingSettingsLoading] = useState(true);
 
   // Helper function to parse features from description (one feature per line)
   const parseFeatures = (description: string | undefined | null): string[] => {
@@ -79,13 +93,74 @@ const Home = () => {
       .map(line => line.trim())
       .filter(line => line.length > 0);
   };
+
+  // Helper function to get features from plan (handles both features array and description)
+  const getPlanFeatures = (plan: SubscriptionPlan): string[] => {
+    let features: string[] = [];
+    
+    // First, try to get features from the features field
+    if (plan.features) {
+      if (Array.isArray(plan.features)) {
+        features = plan.features;
+      } else if (typeof plan.features === 'string') {
+        try {
+          const parsed = JSON.parse(plan.features);
+          features = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          // If not JSON, treat as single feature
+          features = [plan.features];
+        }
+      }
+    }
+    
+    // If no features from features field, try parsing from description
+    if (features.length === 0 && plan.description) {
+      features = parseFeatures(plan.description);
+    }
+    
+    // Add feature flags from plan settings
+    const planFeatures: string[] = [];
+    
+    // Max Devices
+    if (plan.max_devices) {
+      planFeatures.push(`${plan.max_devices} ${plan.max_devices === 1 ? 'Device' : 'Devices'}`);
+    }
+    
+    // Video Quality
+    if (plan.video_quality) {
+      planFeatures.push(`${plan.video_quality} Quality`);
+    }
+    
+    // Downloadable Content
+    if (plan.downloadable_content) {
+      planFeatures.push('Downloadable Content');
+    }
+    
+    // Certificates
+    if (plan.certificates) {
+      planFeatures.push('Certificates of Completion');
+    }
+    
+    // Priority Support
+    if (plan.priority_support) {
+      planFeatures.push('Priority Support');
+    }
+    
+    // Ad Free
+    if (plan.ad_free) {
+      planFeatures.push('Ad-Free Experience');
+    }
+    
+    // Combine custom features with plan features
+    return [...features, ...planFeatures];
+  };
   const [showVideosLeftArrow, setShowVideosLeftArrow] = useState(false);
   const [showVideosRightArrow, setShowVideosRightArrow] = useState(true);
   const [shouldCenterVideos, setShouldCenterVideos] = useState(false);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, isAuthenticated, updateUser } = useAuth();
+  const { user, isAuthenticated, updateUser, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const { navigateWithLocale, getPathWithLocale, locale } = useLocale();
 
@@ -460,6 +535,50 @@ const Home = () => {
 
     fetchHeroSettings();
   }, []);
+
+  // Fetch landing page data (for unauthenticated users)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // Fetch trending videos
+      const fetchTrendingVideos = async () => {
+        setVideosLoading(true);
+        try {
+          const response = await videoApi.getPublic({
+            status: 'published',
+            sort_by: 'views',
+            sort_order: 'desc',
+            per_page: 20 // Get more videos for the carousel
+          });
+          const videosData = response.data?.data || response.data || [];
+          setTrendingVideos(Array.isArray(videosData) ? videosData : []);
+        } catch (error) {
+          console.error('Error fetching trending videos:', error);
+          setTrendingVideos([]);
+        } finally {
+          setVideosLoading(false);
+        }
+      };
+
+      // Fetch landing settings
+      const fetchLandingSettings = async () => {
+        setLandingSettingsLoading(true);
+        try {
+          const response = await settingsApi.getPublicSettings();
+          if (response.success && response.data) {
+            setLandingSettings(response.data);
+          }
+        } catch (error) {
+          console.error('Error fetching landing settings:', error);
+          setLandingSettings({});
+        } finally {
+          setLandingSettingsLoading(false);
+        }
+      };
+
+      fetchTrendingVideos();
+      fetchLandingSettings();
+    }
+  }, [isAuthenticated, locale]);
 
   // Handle payment success/cancel callbacks from Stripe
   useEffect(() => {
@@ -1156,9 +1275,606 @@ const Home = () => {
   );
   };
 
+  // Helper functions for landing page
+  const formatPrice = (price: number | string | null | undefined): string => {
+    if (price === null || price === undefined || price === '') return '0.00';
+    const numPrice = typeof price === 'number' ? price : parseFloat(String(price));
+    if (isNaN(numPrice) || !isFinite(numPrice)) return '0.00';
+    return numPrice.toFixed(2);
+  };
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    const carousel = document.getElementById('trending-carousel');
+    if (carousel) {
+      // Calculate scroll amount based on container width and gap
+      const containerWidth = carousel.clientWidth;
+      const gap = 24; // gap-6 = 24px
+      // Each video takes (containerWidth - 3*gap) / 4
+      const videoWidth = (containerWidth - 3 * gap) / 4;
+      const scrollAmount = videoWidth + gap; // Scroll by one video + gap
+      
+      carousel.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  // Format video duration from seconds to readable format
+  const formatVideoDuration = (seconds: number | string | null | undefined): string => {
+    if (!seconds) return '';
+    const numSeconds = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds;
+    if (isNaN(numSeconds) || numSeconds <= 0) return '';
+    
+    const hours = Math.floor(numSeconds / 3600);
+    const minutes = Math.floor((numSeconds % 3600) / 60);
+    const secs = numSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs > 0 ? `${secs}s` : ''}`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  const getSetting = (key: string, defaultValue: string = ''): string => {
+    const value = landingSettings[key];
+    // Only return if it's a string, otherwise return default
+    if (value && typeof value === 'string') {
+      return value;
+    }
+    // If it's an object, don't try to render it
+    if (value && typeof value === 'object') {
+      return defaultValue;
+    }
+    return defaultValue;
+  };
+
+  // Ensure dark mode is applied for landing page
+  useEffect(() => {
+    if (!isAuthenticated) {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+    }
+  }, [isAuthenticated]);
+
+  // Render landing page for unauthenticated users
+  const renderLandingPage = () => {
+    return (
+      <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden antialiased selection:bg-primary selection:text-white">
+        {/* Fixed Background */}
+        <div className="fixed inset-0 z-0">
+          <div 
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url('${getSetting('hero_background_image', 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop')}')`
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/90 to-background-dark/60" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background-dark/80 via-transparent to-background-dark/80" />
+        </div>
+
+        {/* Header */}
+        <header className="fixed top-0 z-50 w-full border-b border-white/10 bg-background-dark/80 backdrop-blur-md transition-all duration-300">
+          <div className="mx-auto flex h-16 sm:h-20 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-10">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <img
+                alt="SACRART Logo"
+                src={logoSA}
+                className="h-8 sm:h-10 md:h-12 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/')}
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/auth')}
+                className="flex h-9 sm:h-10 items-center justify-center rounded-lg border border-white/20 bg-white/5 px-3 sm:px-5 text-xs sm:text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10"
+              >
+                <span className="hidden sm:inline">{t('common.sign_in')}</span>
+                <span className="sm:hidden">{t('common.sign_in').split(' ')[0]}</span>
+              </Button>
+              <Button
+                onClick={() => navigate('/auth')}
+                className="flex h-9 sm:h-10 items-center justify-center rounded-lg bg-primary px-3 sm:px-5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-[#8a4539]"
+              >
+                {t('common.sign_up')}
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Hero Section */}
+        <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 pb-12 sm:pb-20 pt-24 sm:pt-32 lg:pt-20">
+          <div className="w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="grid grid-cols-1 items-center gap-8 sm:gap-12 lg:grid-cols-2">
+              {/* Left Content */}
+              <div className="flex flex-col gap-4 sm:gap-6 text-center lg:text-left">
+                {/* Badge */}
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary mx-auto lg:mx-0">
+                  <span className="relative flex h-1.5 sm:h-2 w-1.5 sm:w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 sm:h-2 w-1.5 sm:w-2 bg-primary" />
+                  </span>
+                  <span className="hidden sm:inline">{getSetting('hero_badge', t('index.hero.badge', 'Nueva Masterclass Disponible'))}</span>
+                  <span className="sm:hidden">{getSetting('hero_badge', t('index.hero.badge', 'Nueva Masterclass Disponible')).split(' ')[0]}</span>
+                </div>
+
+                {/* Title */}
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black leading-[0.95] tracking-tight text-white">
+                  {getSetting('hero_title', t('index.hero.title', 'EL ARTE DE'))} <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-orange-400">
+                    {getSetting('hero_subtitle', t('index.hero.subtitle', 'LO DIVINO'))}
+                  </span>
+                </h1>
+
+                {/* Description */}
+                <p className="mx-auto max-w-xl text-base sm:text-lg font-medium text-gray-300 lg:mx-0 lg:text-xl">
+                  {getSetting('hero_description', t('index.hero.description', 'La primera plataforma de streaming dedicada exclusivamente a la enseñanza y apreciación del arte religioso. Aprende técnicas centenarias de los maestros.'))}
+                </p>
+
+                {/* CTA Buttons */}
+                <div className="mt-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 lg:justify-start">
+                  <Button
+                    onClick={() => navigate('/auth')}
+                    className="flex h-12 sm:h-14 w-full sm:w-auto min-w-[200px] items-center justify-center gap-2 rounded-lg bg-primary px-6 sm:px-8 text-sm sm:text-base font-bold text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105 active:scale-95"
+                  >
+                    <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
+                    <span className="hidden sm:inline">{t('index.hero.cta_subscribe', 'Suscribirse ahora')}</span>
+                    <span className="sm:hidden">{t('index.hero.cta_subscribe', 'Suscribirse ahora').split(' ')[0]}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigateWithLocale('/browse')}
+                    className="flex h-12 sm:h-14 w-full sm:w-auto min-w-[200px] items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-6 sm:px-8 text-sm sm:text-base font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/10"
+                  >
+                    {t('index.hero.cta_catalog', 'Ver catálogo')}
+                  </Button>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="mt-6 sm:mt-8 grid grid-cols-2 gap-y-6 sm:gap-y-8 gap-x-6 sm:gap-x-12 border-t border-white/10 pt-6 sm:pt-8 w-full max-w-lg mx-auto lg:mx-0">
+                  <div className="flex flex-col">
+                    <span className="text-xl sm:text-2xl font-bold text-white">{getSetting('hero_stat_1_value', '500+')}</span>
+                    <span className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider">{getSetting('hero_stat_1_label', t('index.hero.stat_1', 'Horas de contenido'))}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xl sm:text-2xl font-bold text-white">{getSetting('hero_stat_2_value', '4K')}</span>
+                    <span className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider">{getSetting('hero_stat_2_label', t('index.hero.stat_2', 'Ultra Alta Definición'))}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xl sm:text-2xl font-bold text-white">{getSetting('hero_stat_3_value', 'Escultora Ana Rey')}</span>
+                    <span className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider">{getSetting('hero_stat_3_label', t('index.hero.stat_3', 'Artista Principal'))}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xl sm:text-2xl font-bold text-white">{getSetting('hero_stat_4_value', '400k+')}</span>
+                    <span className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider">{getSetting('hero_stat_4_label', t('index.hero.stat_4', 'Seguidores en redes'))}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Featured Video Card (Desktop Only) */}
+              <div className="hidden lg:flex lg:justify-end">
+                <div className="relative group cursor-pointer">
+                  <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary to-orange-700 opacity-25 blur transition duration-1000 group-hover:opacity-75 group-hover:duration-200" />
+                  <div className="relative h-[500px] w-[380px] overflow-hidden rounded-xl bg-surface-dark border border-border-dark shadow-2xl">
+                    <div 
+                      className="absolute inset-0 h-full w-full bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                      style={{
+                        backgroundImage: `url('${trendingVideos[0]?.thumbnail_url ? getImageUrl(trendingVideos[0].thumbnail_url) : 'https://images.unsplash.com/photo-1576504677634-06b2130bd1f3?q=80&w=1974&auto=format&fit=crop'}')`
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/90 text-white backdrop-blur-sm shadow-xl">
+                        <Play className="h-8 w-8 ml-1" fill="currentColor" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 w-full p-6">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-md">{t('index.hero.featured_badge', 'NUEVO')}</span>
+                        <span className="text-xs font-medium text-gray-300">{trendingVideos[0]?.series_title || t('index.hero.featured_series', 'Temporada 1')}</span>
+                      </div>
+                      <h3 className="mb-1 text-2xl font-bold text-white">
+                        {typeof trendingVideos[0]?.title === 'string' ? trendingVideos[0].title : t('index.hero.featured_title', 'Técnicas de Dorado')}
+                      </h3>
+                      <p className="line-clamp-2 text-sm text-gray-300">
+                        {typeof trendingVideos[0]?.description === 'string' ? trendingVideos[0].description : t('index.hero.featured_description', 'Descubre los secretos del pan de oro y las técnicas de estofado utilizadas en el siglo XVII.')}
+                      </p>
+                      <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                        <div className="h-full w-1/3 bg-primary" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Why SACRART Section */}
+        <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16 md:py-20">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mb-8 sm:mb-12 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{t('index.why_sacrart.title', '¿Por qué SACRART?')}</h2>
+              <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400 px-4">{t('index.why_sacrart.description', 'Sumérgete en el conocimiento ancestral del arte sacro desde cualquier dispositivo.')}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 max-w-5xl mx-auto">
+              <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-6 sm:p-8 transition-colors hover:bg-surface-dark hover:border-primary/50">
+                <div className="mb-4 inline-flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                  <Brush className="h-6 w-6 sm:h-8 sm:w-8" />
+                </div>
+                <h3 className="mb-2 text-lg sm:text-xl font-bold text-white">{t('index.why_sacrart.artist_title', 'Para el Artista o Aprendiz')}</h3>
+                <p className="text-xs sm:text-sm leading-relaxed text-gray-400">{t('index.why_sacrart.artist_description', 'Que busca perfeccionar su técnica, aprender métodos tradicionales y modernos y encontrar inspiración en una artista que abre las puertas de su taller.')}</p>
+              </div>
+              <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-6 sm:p-8 transition-colors hover:bg-surface-dark hover:border-primary/50">
+                <div className="mb-4 inline-flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                  <Heart className="h-6 w-6 sm:h-8 sm:w-8" />
+                </div>
+                <h3 className="mb-2 text-lg sm:text-xl font-bold text-white">{t('index.why_sacrart.art_lover_title', 'Para el Apasionado del Arte')}</h3>
+                <p className="text-xs sm:text-sm leading-relaxed text-gray-400">{t('index.why_sacrart.art_lover_description', 'Que disfruta viendo nacer y crecer una imagen, sin necesidad de practicar: solo curiosidad y emoción por el proceso.')}</p>
+              </div>
+            </div>
+            <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
+              <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-4 sm:p-6 transition-colors hover:bg-surface-dark hover:border-primary/50">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="inline-flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    <Film className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white">{t('index.why_sacrart.quality_title', 'Calidad 4K HDR')}</h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400">{t('index.why_sacrart.quality_description', 'No pierdas detalle de cada pincelada.')}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-4 sm:p-6 transition-colors hover:bg-surface-dark hover:border-primary/50">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="inline-flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    <Languages className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white">{t('index.why_sacrart.multilang_title', 'Multilenguaje')}</h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400">{t('index.why_sacrart.multilang_description', 'Doblados y subtitulados al inglés y portugués.')}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-4 sm:p-6 transition-colors hover:bg-surface-dark hover:border-primary/50">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="inline-flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    <Monitor className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white">{t('index.why_sacrart.platform_title', 'Multiplataforma')}</h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400">{t('index.why_sacrart.platform_description', 'Web, tablet y móvil.')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Subscription Plans Section */}
+        <section className="relative z-10 border-t border-white/5 bg-background-dark py-12 sm:py-16 md:py-20">
+          <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
+            <div className="mb-8 sm:mb-10 text-center">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white">{t('index.plans.title', 'Elige tu Plan')}</h2>
+              <p className="mt-2 text-sm sm:text-base text-gray-400 px-4">{t('index.plans.description', 'Únete a la comunidad de arte sacro más grande del mundo')}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 items-end">
+              {plansLoading ? (
+                <div className="col-span-3 text-center text-gray-400">{t('common.loading')}</div>
+              ) : subscriptionPlans.length > 0 ? (
+                subscriptionPlans.map((plan, index) => {
+                  const features = getPlanFeatures(plan);
+                  const isPopular = plan.name.toLowerCase() === 'basic';
+                  const isPremium = plan.name.toLowerCase() === 'premium';
+                  
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`flex flex-col h-full rounded-xl sm:rounded-2xl border ${isPopular ? 'border-2 border-primary bg-surface-dark lg:scale-105 z-10' : 'border-border-dark bg-surface-dark/30'} p-6 sm:p-8 shadow-lg transition-transform hover:-translate-y-1 relative`}
+                    >
+                      {isPopular && (
+                        <div className="absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 sm:px-4 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-white shadow-md">
+                          {t('index.plans.popular', 'Más Popular')}
+                        </div>
+                      )}
+                      <h3 className="text-lg sm:text-xl font-bold text-white">{plan.display_name || plan.name}</h3>
+                      <div className="mt-3 sm:mt-4 flex items-baseline gap-1">
+                        <span className="text-3xl sm:text-4xl font-black text-white">
+                          {plan.name.toLowerCase() === 'freemium' ? t('index.plans.free', 'Gratis') : `€${formatPrice(plan.price)}`}
+                        </span>
+                        {plan.name.toLowerCase() !== 'freemium' && (
+                          <span className="text-sm sm:text-base text-gray-400">/mes</span>
+                        )}
+                      </div>
+                      <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-400">{plan.description || ''}</p>
+                      <ul className="mt-6 sm:mt-8 mb-6 sm:mb-8 flex flex-col gap-2 sm:gap-3 flex-grow">
+                        {features.slice(0, 5).map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-300">
+                            {isPremium ? (
+                              <Star className={`text-orange-400 text-[16px] sm:text-[20px]`} fill="currentColor" />
+                            ) : (
+                              <CheckCircle2 className={`${isPopular ? 'text-primary' : 'text-gray-500'} text-[16px] sm:text-[20px]`} />
+                            )}
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        onClick={() => navigate('/auth')}
+                        className={`mt-auto w-full rounded-lg py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white transition-colors ${
+                          isPopular
+                            ? 'bg-primary hover:bg-[#8a4539] shadow-lg shadow-primary/25'
+                            : 'border border-white/10 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        {plan.name.toLowerCase() === 'freemium'
+                          ? t('index.plans.cta_free', 'Registrarse Gratis')
+                          : t('index.plans.cta_choose', 'Elegir Plan', { plan: plan.display_name || plan.name })}
+                      </Button>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-3 text-center text-gray-400">{t('index.plans.no_plans', 'No hay planes disponibles')}</div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Trending Section */}
+        <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mb-6 sm:mb-10 flex items-center justify-between">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">{t('index.trending.title', 'Trending en SACRART')}</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => scrollCarousel('left')}
+                  className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+                <button
+                  onClick={() => scrollCarousel('right')}
+                  className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              </div>
+            </div>
+            {videosLoading ? (
+              <div className="text-center text-gray-400 text-sm sm:text-base">{t('common.loading')}</div>
+            ) : trendingVideos.length > 0 ? (
+              <div className="relative">
+                <div
+                  id="trending-carousel"
+                  className="flex gap-3 sm:gap-4 md:gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x scroll-smooth"
+                  style={{ 
+                    scrollbarWidth: 'none', 
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch'
+                  }}
+                >
+                  {trendingVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      onClick={() => navigate('/auth')}
+                      className="flex-shrink-0 snap-start rounded-lg bg-surface-dark overflow-hidden border border-white/5 group cursor-pointer hover:border-primary/50 transition-colors w-[calc((100%-36px)/2)] sm:w-[calc((100%-48px)/3)] md:w-[calc((100%-72px)/4)] min-w-[200px] sm:min-w-[240px] md:min-w-[280px]"
+                    >
+                      <div className="relative aspect-video w-full bg-gray-800">
+                        <img
+                          alt={video.title || 'Video thumbnail'}
+                          src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                        {video.duration && (
+                          <div className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-white">
+                            {formatVideoDuration(video.duration)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 sm:p-4">
+                        <h4 className="font-bold text-sm sm:text-base text-white group-hover:text-primary transition-colors line-clamp-2">
+                          {typeof video.title === 'string' ? video.title : ''}
+                        </h4>
+                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1 line-clamp-1">
+                          {(typeof video.instructor === 'string' ? video.instructor : (video.instructor && typeof video.instructor === 'object' ? video.instructor.name : '')) || (typeof video.series_title === 'string' ? video.series_title : '') || ''} {video.episode_number ? `• Ep. ${video.episode_number}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 text-sm sm:text-base">{t('index.trending.no_videos', 'No hay videos disponibles')}</div>
+            )}
+          </div>
+        </section>
+
+        {/* Sobre Ana Rey Section */}
+        <section className="relative z-10 border-t border-white/5 bg-background-dark py-12 sm:py-16 md:py-20">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mx-auto max-w-6xl overflow-hidden rounded-xl sm:rounded-2xl border border-border-dark bg-surface-dark/50 shadow-2xl">
+              <div className="grid grid-cols-1 items-center lg:grid-cols-2">
+                <div className="h-full w-full relative group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-background-dark/20 to-transparent z-10" />
+                  <img
+                    alt={t('index.about.ana_rey_image_alt', 'Ana Rey trabajando en una escultura')}
+                    className="h-full min-h-[300px] sm:min-h-[400px] w-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                    src={getSetting('about_image', 'https://lh3.googleusercontent.com/aida-public/AB6AXuCP3XaE1D6DBXIoP-vyVcoJi6m3H2S_Sn7WOWwvQHLRf5b2rsKArv9EPpH82yyLEYQCRgA3E5I0NbwWszYst20KB2koDVGlrS_8R_DxVcERAcjo0GFNk8-yHtGUmUe8ZuHIobotfwAWdR1G5i5Q2iCAtokysx8wOezlxSvoQJHSBOakpj4MJxJdD4csypcy7Vak--j8V6Wv_EW05lqrgT_e0hEQQu2e4UCn9ML2FrPuk5HiWAUTCODrcYbNvhIz84BwvsKGuAcJuQ4')}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-4 sm:gap-6 p-6 sm:p-8 lg:p-12">
+                  <div className="w-fit rounded bg-primary/20 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary">
+                    {t('index.about.badge', 'Artista Principal')}
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{t('index.about.title', 'Sobre Ana Rey')}</h2>
+                  <div className="space-y-3 sm:space-y-4 text-gray-400 leading-relaxed text-sm sm:text-base">
+                    <p>
+                      {getSetting('about_text_1', t('index.about.text_1', 'Ana Rey es una reconocida escultora española especializada en imaginería religiosa realista. Con 15 años de experiencia, ha perfeccionado las técnicas de talla en madera y policromía.'))}
+                    </p>
+                    <p>
+                      {getSetting('about_text_2', t('index.about.text_2', 'Su trabajo se caracteriza por el detalle extraordinario y la expresión emotiva que imprime en cada pieza. Combina métodos tradicionales con herramientas modernas para crear obras que trascienden lo meramente artístico.'))}
+                    </p>
+                    <p>
+                      {getSetting('about_text_3', t('index.about.text_3', 'Galardonada con el Premio La Hornacina —tanto en la categoría del público como en la del experto—, comparte ahora su conocimiento y pasión por el arte sacro a través de SACRART, ofreciendo una perspectiva única del proceso creativo desde dentro.'))}
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-4 sm:pt-6 border-t border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Heart className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xl sm:text-2xl font-bold text-white leading-none">{getSetting('about_stat_value', '+400 mil')}</span>
+                        <span className="text-xs sm:text-sm font-medium text-gray-400">{t('index.about.stat_label', 'Seguidores en redes sociales')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ Section - Using code.html design */}
+        <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+            <h2 className="mb-8 sm:mb-10 text-center text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+              {t('faq.title', 'Preguntas Frecuentes')}
+            </h2>
+            {faqLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-gray-400">{t('faq.loading', 'Cargando...')}</p>
+              </div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                {Object.entries(faqs).flatMap(([category, categoryFaqs]) =>
+                  categoryFaqs.map((faq: Faq) => (
+                    <details
+                      key={faq.id}
+                      className="group rounded-xl border border-white/5 bg-surface-dark overflow-hidden transition-all duration-300 hover:border-primary/30"
+                      open={expandedFaq === faq.id}
+                    >
+                      <summary
+                        className="flex cursor-pointer items-center justify-between p-4 sm:p-6 text-white outline-none list-none"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleFaq(faq.id);
+                        }}
+                      >
+                        <span className="font-bold text-base sm:text-lg pr-4">{faq.question}</span>
+                        <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${expandedFaq === faq.id ? 'rotate-180' : ''} text-gray-400 group-hover:text-primary flex-shrink-0`} />
+                      </summary>
+                      {expandedFaq === faq.id && (
+                        <div className="border-t border-white/5 bg-black/20 px-4 sm:px-6 pb-4 sm:pb-6 pt-3 sm:pt-4 text-gray-400 leading-relaxed text-sm sm:text-base">
+                          {faq.answer}
+                        </div>
+                      )}
+                    </details>
+                  ))
+                )}
+              </div>
+            )}
+            <div className="mt-12 sm:mt-16 rounded-xl sm:rounded-2xl border border-border-dark bg-surface-dark/30 p-6 sm:p-8 text-center">
+              <h3 className="mb-3 sm:mb-4 text-xl sm:text-2xl font-bold text-white">{t('faq.cta_title', '¿Aún tienes dudas?')}</h3>
+              <p className="mb-4 sm:mb-6 text-sm sm:text-base text-gray-400">{t('faq.cta_description', 'Escríbenos y estaremos encantados de atenderte')}</p>
+              <Button
+                onClick={() => navigate('/auth')}
+                className="flex h-10 sm:h-12 w-full max-w-[200px] items-center justify-center gap-2 rounded-lg bg-primary px-6 sm:px-8 text-sm sm:text-base font-bold text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105 active:scale-95 sm:w-auto mx-auto hover:bg-[#8a4539]"
+              >
+                {t('faq.cta_button', 'Tengo dudas')}
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="relative z-10 mt-auto border-t border-white/5 bg-[#120d0f] py-8 sm:py-12">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="flex flex-col items-center justify-between gap-6 sm:gap-8 md:flex-row">
+              <div className="flex items-center gap-2">
+                <img
+                  alt="SACRART Logo"
+                  src={logoSA}
+                  className="h-6 sm:h-8 w-auto object-contain brightness-0 invert opacity-80"
+                />
+              </div>
+              <div className="flex flex-wrap justify-center gap-4 sm:gap-6 md:gap-8">
+                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                  {t('footer.terms', 'Términos de uso')}
+                </a>
+                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                  {t('footer.privacy', 'Política de privacidad')}
+                </a>
+                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                  {t('footer.help', 'Centro de ayuda')}
+                </a>
+                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                  {t('footer.careers', 'Trabaja con nosotros')}
+                </a>
+              </div>
+              <div className="flex gap-3 sm:gap-4">
+                {getSetting('footer_social_facebook') && (
+                  <a href={getSetting('footer_social_facebook')} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                    <span className="sr-only">Facebook</span>
+                    <svg aria-hidden="true" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path clipRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" fillRule="evenodd" />
+                    </svg>
+                  </a>
+                )}
+                {getSetting('footer_social_instagram') && (
+                  <a href={getSetting('footer_social_instagram')} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                    <span className="sr-only">Instagram</span>
+                    <svg aria-hidden="true" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path clipRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465C9.673 2.013 10.03 2 12.315 2zm-1.082 2.682c-2.316.05-3.085.12-3.864.417-.817.31-1.428.911-1.737 1.72-.3.771-.368 1.543-.418 3.864-.05 2.302-.05 2.977 0 5.28.05 2.316.118 3.085.418 3.864.31.817.92 1.428 1.737 1.737.77.299 1.543.367 3.864.417 2.301.05 2.977.05 5.279 0 2.317-.05 3.086-.118 3.865-.417.817-.31 1.428-.92 1.737-1.737.299-.77.367-1.543.417-3.864.05-2.301.05-2.977 0-5.279-.05-2.317-.118-3.086-.417-3.865-.31-.817-.92-1.428-1.737-1.737-.77-.299-1.543-.367-3.865-.417-2.301-.05-2.976-.05-5.279 0zm1.082 3.193a6.126 6.126 0 110 12.252 6.126 6.126 0 010-12.252zm0 2.16a3.966 3.966 0 100 7.932 3.966 3.966 0 000-7.932zm6.22-3.66a1.44 1.44 0 110 2.88 1.44 1.44 0 010-2.88z" fillRule="evenodd" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            </div>
+            <div className="mt-8 text-center text-xs text-gray-600">
+              {getSetting('footer_copyright', `© ${new Date().getFullYear()} SACRART Inc. Todos los derechos reservados.`)}
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  };
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background-dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-400">{t('common.loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show landing page if user is not authenticated
+  if (!isAuthenticated) {
+    return renderLandingPage();
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background-dark">
         <div className="w-full px-12 lg:px-16 xl:px-20 py-8">
           <div className="animate-pulse">
             {/* Carousel Loading */}
@@ -1185,149 +1901,479 @@ const Home = () => {
     );
   }
 
+  // Get featured video/series for hero
+  const heroVideo = featuredCourse || (homepageVideos.length > 0 ? homepageVideos[0] : null);
+  const heroBgImage = heroVideo?.thumbnail_url || heroVideo?.intro_image_url || heroBgUrls[0] || (heroSettings.hero_background_images ? (() => {
+    try {
+      const customImages = JSON.parse(heroSettings.hero_background_images);
+      if (Array.isArray(customImages) && customImages.length > 0) {
+        return getImageUrl(customImages[0].url || '');
+      }
+    } catch (e) {}
+    return null;
+  })() : null);
+
+  // Get trending videos for "Tendencias Ahora" section (first 4)
+  const trendingForSection = homepageVideos.slice(0, 4);
+
+  // Get new releases for "Novedades esta semana" section
+  const newReleases = homepageVideos.slice(4, 10);
+
+  // Get featured processes (using seriesByCategory or categories)
+  const featuredProcesses = Object.values(seriesByCategory).flat().slice(0, 5);
+
+  // Get featured category for highlight section
+  const featuredCategory = categories[0] || null;
+
   return (
-    <div className="min-h-screen bg-[#141414]">
-      {/* Hero Section - HBO Max Style */}
-      <section className="relative overflow-hidden -mt-16 lg:-mt-20">
-        <div className="w-full">
-          <div className="relative h-[75vh] lg:h-[90vh] w-full overflow-hidden">
-            {/* HBO Max Style Poster Collage Background */}
-            <div className="absolute inset-0 bg-black">
-              {/* Smooth gradient overlay that fades completely to main background */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 via-black/70 to-[#141414] z-10"></div>
-              <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#141414] via-[#141414]/60 via-[#141414]/30 to-transparent z-15"></div>
-              
-              {/* Poster collage */}
-              {posterCollage.map((poster, index) => (
-                <div
-                  key={index}
-                  className="absolute w-32 h-48 lg:w-40 lg:h-60 opacity-50 hover:opacity-70 transition-opacity duration-300"
-                  style={{
-                    left: `${poster.x}%`,
-                    top: `${poster.y}%`,
-                    transform: `rotate(${poster.rotation}deg)`,
-                    zIndex: 5
-                  }}
-                >
-                  <img
-                    src={poster.src}
-                    alt={poster.alt}
-                    className="w-full h-full object-cover rounded-sm shadow-lg"
-                    key={`${poster.src}-${index}`}
-                    onError={(e) => {
-                      // Fallback to default cover if image fails to load
-                      const target = e.target as HTMLImageElement;
-                      if (!target.src.includes('cover')) {
-                        const covers = [cover1, cover2, cover3, cover4, cover5, cover6, cover7, cover8];
-                        target.src = covers[index % covers.length];
-                      }
-                    }}
-                  />
-                </div>
-              ))}
+    <div className="min-h-screen bg-background-dark font-display text-white overflow-x-hidden flex flex-col">
+      {/* Hero Section - Based on code.html - Only image at top when login status */}
+      <header className="relative w-full h-[60vh] sm:h-[70vh] md:h-[85vh] min-h-[400px] sm:min-h-[500px] md:min-h-[600px] flex items-center -mt-16 lg:-mt-20">
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="w-full h-full bg-cover bg-center bg-no-repeat" 
+            style={{
+              backgroundImage: `url('${heroBgImage ? getImageUrl(heroBgImage) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk'}')`
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/40 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background-dark via-background-dark/60 to-transparent" />
+        </div>
+        <div className="relative z-10 w-full px-4 sm:px-6 md:px-16 pt-16 sm:pt-20 max-w-7xl mx-auto">
+          <div className="flex flex-col gap-4 sm:gap-6 max-w-2xl animate-fade-in-up">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 rounded bg-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white">
+                {heroVideo?.category?.name || t('index.hero.badge', 'Nuevo')}
+              </span>
+              <span className="text-xs sm:text-sm font-medium text-gray-300 uppercase tracking-widest">
+                {t('index.hero.series_original', 'Serie Original')}
+              </span>
             </div>
-            
-            {/* Center-Aligned Content Overlay - HBO Max Style */}
-            <div className="relative z-20 h-full flex items-center justify-center">
-              <div className="text-center text-white space-y-6 lg:space-y-8 max-w-4xl px-6">
-                {/* SACRART Logo */}
-                <div className="space-y-2 lg:space-y-4">
-                  <div className="flex justify-center">
-                    <img
-                      src={logoSA}
-                      alt="SACRART"
-                      className="h-40 sm:h-48 lg:h-56 xl:h-64 2xl:h-72 w-auto drop-shadow-2xl"
-                    />
-                  </div>
-                  <p className="text-xl lg:text-2xl xl:text-3xl text-white/90 drop-shadow-lg font-light max-w-2xl mx-auto">
-                    {settingsLoading ? t('common.loading') : `${heroSettings.hero_cta_text || t('hero.cta_text')} ${heroSettings.hero_price || '€9.99/month'}`}
-                  </p>                 
-                  </div>
-
-                {/* Subscribe Button */}
-                <div className="pt-4">
-                  {isAuthenticated ? (
-                      <Button 
-                        size="lg" 
-                      className="bg-white text-black hover:bg-white/90 font-bold text-lg lg:text-xl px-12 lg:px-16 py-4 lg:py-5 rounded-md shadow-xl transition-all duration-300 hover:scale-105"
-                        onClick={() => navigateWithLocale('/explore')}
-                      >
-{settingsLoading ? t('common.loading') : (heroSettings.hero_cta_button_text || t('hero.cta_button'))}
-                      </Button>
-                  ) : (
-                      <Button
-                        onClick={handleGetStarted}
-                        size="lg"
-                      className="bg-white text-black hover:bg-white/90 font-bold text-lg lg:text-xl px-12 lg:px-16 py-4 lg:py-5 rounded-md shadow-xl transition-all duration-300 hover:scale-105"
-                      >
-{settingsLoading ? t('common.loading') : (heroSettings.hero_cta_button_text || t('hero.cta_button'))}
-                      </Button>
-                  )}
-                </div>
-
-                {/* Disclaimer */}
-                <div className="pt-8 lg:pt-12">
-                  <p className="text-xs lg:text-sm text-white/70 max-w-4xl mx-auto leading-relaxed">
-                    {settingsLoading ? t('common.loading') : (heroSettings.hero_disclaimer || t('hero.disclaimer'))}
-                  </p>
-                </div>
-              </div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.9] tracking-tighter text-white drop-shadow-2xl">
+              {heroVideo?.title || heroSettings.hero_title || t('index.hero.title', 'El Arte de')} <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
+                {heroVideo?.category?.name || heroSettings.hero_subtitle || t('index.hero.subtitle', 'Lo Divino')}
+              </span>
+            </h1>
+            <p className="text-sm sm:text-base md:text-lg text-gray-200 line-clamp-3 md:line-clamp-none font-medium max-w-xl drop-shadow-md">
+              {heroVideo?.description || heroSettings.hero_description || t('index.hero.description', 'Descubre los secretos ancestrales del arte sacro en esta nueva serie documental.')}
+            </p>
+            <div className="flex flex-wrap gap-3 sm:gap-4 mt-4">
+              <Button
+                onClick={() => heroVideo ? handleCourseClick(heroVideo.id) : navigateWithLocale('/browse')}
+                className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-lg font-bold text-sm sm:text-base md:text-lg transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/30"
+              >
+                <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
+                <span>{t('index.hero.play', 'Reproducir')}</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => heroVideo ? navigateWithLocale(`/video/${heroVideo.id}`) : navigateWithLocale('/browse')}
+                className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-lg font-bold text-sm sm:text-base md:text-lg transition-colors border border-white/10"
+              >
+                <span className="hidden sm:inline">{t('index.hero.more_info', 'Más información')}</span>
+                <span className="sm:hidden">{t('index.hero.more_info', 'Más información').split(' ')[0]}</span>
+              </Button>
             </div>
           </div>
         </div>
-      </section>
+      </header>
 
-       {/* Course Hero Section - Two Part Layout */}
-       {featuredLoading ? (
-         <div className="py-16 lg:py-24 px-4 md:px-8 bg-[#141414]">
-           <div className="container mx-auto max-w-7xl">
-             <div className="flex items-center justify-center py-20">
-               <div className="text-gray-400 text-xl">{t('common.loading')}</div>
-             </div>
-           </div>
-         </div>
-       ) : featuredCourse ? (
-         <CourseHeroSection
-           featuredCourse={featuredCourse}
-           courseCategories={courseCategories}
-           featuredCourses={featuredCourses}
-           onCourseClick={handleCourseClick}
-           onCategoryClick={handleCategoryClick}
-           selectedCategoryId={selectedCategoryId}
-          heroBackgroundImage={(() => {
-            // First, try to use first hero background from database
-            if (heroBgUrls.length > 0) {
-              return heroBgUrls[0];
-            }
-            // Fallback: Get hero background image from settings
-            if (heroSettings.hero_background_images) {
-              try {
-                const customImages = JSON.parse(heroSettings.hero_background_images);
-                if (Array.isArray(customImages) && customImages.length > 0) {
-                  // Get the first image URL
-                  const firstImage = customImages[0];
-                  const imageUrl = firstImage.url || '';
-                  if (imageUrl) {
-                    return getImageUrl(imageUrl);
-                  }
-                }
-              } catch (e) {
-                console.error('Error parsing hero_background_images:', e);
-              }
-            }
-            return null;
-          })()}
-         />
-       ) : null}
+      {/* Main Content - Based on code.html */}
+      <main className="relative z-20 flex-1 w-full pb-20 -mt-20 space-y-12">
+        {/* Tendencias Ahora Section */}
+        <section className="px-4 sm:px-6 md:px-16">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+            <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
+              {t('index.trending.title', 'Tendencias Ahora')}
+            </h2>
+            <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
+          </div>
+          {homepageVideosLoading ? (
+            <div className="text-center text-gray-400 py-8 text-sm sm:text-base">{t('common.loading')}</div>
+          ) : trendingForSection.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {trendingForSection.map((video) => (
+                <div
+                  key={video.id}
+                  onClick={() => handleCourseClick(video.id)}
+                  className="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer"
+                >
+                  <div className="aspect-video w-full overflow-hidden">
+                    <img
+                      src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
+                      alt={video.title || ''}
+                      className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                      }}
+                    />
+                    {video.duration && (
+                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs font-bold text-white">
+                        {formatVideoDuration(video.duration)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 sm:p-4">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-bold text-base sm:text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                        {video.title || ''}
+                      </h3>
+                      <span className="border border-white/20 rounded px-1 text-[9px] sm:text-[10px] uppercase text-gray-400 ml-2 flex-shrink-0">HD</span>
+                    </div>
+                    <p className="text-text-subtle text-xs sm:text-sm line-clamp-1">
+                      {typeof video.instructor === 'string' ? video.instructor : (video.instructor?.name || '') || video.category?.name || ''}
+                    </p>
+                    <div className="mt-2 sm:mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCourseClick(video.id);
+                        }}
+                        className="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors"
+                      >
+                        <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Add to favorites/watchlist functionality
+                        }}
+                        className="border border-white/30 rounded-full p-1 hover:border-white transition-colors"
+                      >
+                        <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-8">{t('index.trending.no_videos', 'No hay videos disponibles')}</div>
+          )}
+        </section>
 
-      {/* Content Sections - HBO Max Style */}
-      <div className="w-full px-4 md:px-8 lg:px-16 xl:px-24 2xl:px-32 pt-16 lg:pt-20 pb-12 lg:pb-20">
-          <TabbedCarousel />
-        </div>
+        {/* Seguir viendo Section */}
+        <section id="seguir-viendo" className="px-4 sm:px-6 md:px-16 scroll-mt-24">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+            <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
+              {t('index.continue_watching.title', 'Seguir viendo')}
+            </h2>
+            <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
+          </div>
+          <div className="relative group/slider">
+            <button
+              onClick={() => {
+                const slider = document.getElementById('continue-watching-slider');
+                if (slider) slider.scrollBy({ left: -280, behavior: 'smooth' });
+              }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-2 sm:-ml-4 shadow-lg hidden sm:block"
+            >
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+            <button
+              onClick={() => {
+                const slider = document.getElementById('continue-watching-slider');
+                if (slider) slider.scrollBy({ left: 280, behavior: 'smooth' });
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-2 sm:-mr-4 shadow-lg hidden sm:block"
+            >
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+            <div
+              id="continue-watching-slider"
+              className="flex overflow-x-auto gap-3 sm:gap-4 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar"
+            >
+              {homepageVideos.slice(0, 4).map((video, index) => {
+                // Simulate progress (75%, 30%, 90%, 15%)
+                const progressPercent = [75, 30, 90, 15][index] || 50;
+                const remainingTime = ['15m', '42m', '5m', '55m'][index] || '30m';
+                const episodeInfo = ['E1: El Comienzo', 'E4: Sombras', 'Parte 2', 'Clase 3'][index] || 'Episodio';
+                
+                return (
+                  <div key={video.id} className="min-w-[240px] sm:min-w-[280px] md:min-w-[320px] snap-start">
+                    <div
+                      onClick={() => handleCourseClick(video.id)}
+                      className="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]"
+                    >
+                      <img
+                        src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
+                        alt={video.title || ''}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Play className="text-white text-4xl sm:text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
+                      </div>
+                      <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+                        <div className="h-full bg-primary" style={{ width: `${progressPercent}%` }} />
+                      </div>
+                    </div>
+                    <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
+                    <p className="text-[10px] sm:text-xs text-text-subtle mt-1">
+                      {episodeInfo} • {remainingTime} {t('index.continue_watching.remaining', 'restantes')}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
-      {/* Homepage Video Carousel */}
-      {homepageVideos.length > 0 && (
-        <section className="py-16 lg:py-24 px-4 md:px-8 bg-[#141414]">
+        {/* Formatos Exclusivos Section */}
+        <section className="px-4 sm:px-6 md:px-16 py-6 sm:py-8">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+            <div className="h-5 sm:h-6 w-1 bg-primary rounded-full" />
+            <h2 className="text-xs sm:text-sm font-bold text-gray-300 uppercase tracking-[0.2em] group-hover:text-white transition-colors">
+              {t('index.formats.title', 'Formatos Exclusivos')}
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+            {[
+              { title: 'Reels', subtitle: t('index.formats.reels', 'Técnica Rápida'), image: cover1 },
+              { title: 'Rewind', subtitle: t('index.formats.rewind', 'Archivo Histórico'), image: cover2 },
+              { title: 'Retos', subtitle: t('index.formats.challenges', 'Desafíos Creativos'), image: cover3 },
+              { title: 'Directos', subtitle: t('index.formats.live', 'Live Studio'), image: cover4, isLive: true }
+            ].map((format, index) => (
+              <div
+                key={format.title}
+                onClick={() => navigateWithLocale('/browse')}
+                className="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]"
+              >
+                <div
+                  className="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-100 group-hover:scale-110"
+                  style={{ backgroundImage: `url('${format.image}')` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
+                {format.isLive && (
+                  <div className="absolute top-4 left-4 flex items-center gap-1 bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white">
+                    <span className="size-1.5 bg-white rounded-full animate-pulse" />
+                    Live
+                  </div>
+                )}
+                <div className="absolute bottom-4 sm:bottom-8 left-0 w-full text-center z-10 p-2 sm:p-4">
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-serif font-medium text-white mb-1 sm:mb-2 tracking-wide group-hover:text-primary transition-colors">
+                    {format.title}
+                  </h3>
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 group-hover:text-white transition-colors">
+                    {format.subtitle}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Novedades esta semana Section */}
+        <section className="px-4 sm:px-6 md:px-16">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+            <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
+              {t('index.new_releases.title', 'Novedades esta semana')}
+            </h2>
+            <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
+          </div>
+          <div className="relative group/slider">
+            <button
+              onClick={() => {
+                const slider = document.getElementById('new-releases-slider');
+                if (slider) slider.scrollBy({ left: -280, behavior: 'smooth' });
+              }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-2 sm:-ml-4 shadow-lg hidden sm:block"
+            >
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+            <button
+              onClick={() => {
+                const slider = document.getElementById('new-releases-slider');
+                if (slider) slider.scrollBy({ left: 280, behavior: 'smooth' });
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-2 sm:-mr-4 shadow-lg hidden sm:block"
+            >
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+            <div
+              id="new-releases-slider"
+              className="flex overflow-x-auto gap-3 sm:gap-4 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar"
+            >
+              {newReleases.map((video) => (
+                <div key={video.id} className="min-w-[240px] sm:min-w-[280px] md:min-w-[320px] snap-start">
+                  <div
+                    onClick={() => handleCourseClick(video.id)}
+                    className="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer"
+                  >
+                    <img
+                      src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
+                      alt={video.title || ''}
+                      className="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Play className="text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
+                    </div>
+                  </div>
+                  <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
+                  <p className="text-[10px] sm:text-xs text-text-subtle mt-1">
+                    {video.category?.name || video.series_title || t('index.new_releases.episode', 'Episodio')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Procesos destacados Section */}
+        <section className="px-4 sm:px-6 md:px-16">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+            <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
+              {t('index.featured_processes.title', 'Procesos destacados')}
+            </h2>
+            <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
+          </div>
+          <div className="relative group/slider">
+            <div className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar">
+              {featuredProcesses.slice(0, 5).map((item) => (
+                <div key={item.id} className="w-[160px] sm:w-[200px] md:w-[240px] flex-shrink-0 snap-start">
+                  <div
+                    onClick={() => handleCategoryClick(item.category_id || item.id)}
+                    className="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20"
+                  >
+                    <img
+                      src={getImageUrl(item.cover_image || item.thumbnail_url || '')}
+                      alt={item.name || item.title || ''}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = cover1;
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <h3 className="font-bold text-base md:text-lg text-white leading-tight line-clamp-2">{item.name || item.title || ''}</h3>
+                      <p className="text-xs md:text-sm text-primary font-bold mt-1.5">
+                        {t('index.featured_processes.new_episode', 'Nuevo Episodio')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Category Section */}
+        {featuredCategory && (
+          <section className="px-4 sm:px-6 md:px-16 py-6 sm:py-8">
+            <div className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#2a1d21] border border-white/5">
+              <div className="flex flex-col md:flex-row items-center">
+                <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-12 flex flex-col gap-3 sm:gap-4 z-10">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white">{featuredCategory.name}</h2>
+                  <p className="text-text-subtle text-sm sm:text-base md:text-lg">
+                    {featuredCategory.description || t('index.category.description', 'Explora esta categoría única')}
+                  </p>
+                  <Button
+                    onClick={() => handleCategoryClick(featuredCategory.id)}
+                    className="bg-primary hover:bg-primary/90 text-white font-bold py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg w-fit mt-2 text-sm sm:text-base transition-colors"
+                  >
+                    {t('index.category.explore', 'Explorar Categoría')}
+                  </Button>
+                </div>
+                <div
+                  className="w-full md:w-1/2 h-48 sm:h-64 md:h-[400px] bg-cover bg-center relative"
+                  style={{
+                    backgroundImage: `url('${getImageUrl(featuredCategory.cover_image || '')}')`
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#2a1d21] to-transparent md:bg-gradient-to-r md:from-[#2a1d21] md:to-transparent" />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+        {/* Proyectos de talla en madera Section */}
+        <section className="px-4 sm:px-6 md:px-16 pb-8 sm:pb-12">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+            <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
+              {t('index.wood_projects.title', 'Proyectos de talla en madera')}
+            </h2>
+            <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            {/* Featured large video */}
+            {featuredProcesses.length > 0 && (
+              <div
+                onClick={() => handleCategoryClick(featuredProcesses[0].category_id || featuredProcesses[0].id)}
+                className="md:col-span-2 relative group rounded-lg overflow-hidden aspect-[21/9] cursor-pointer"
+              >
+                <img
+                  src={getImageUrl(featuredProcesses[0].cover_image || featuredProcesses[0].thumbnail_url || '')}
+                  alt={featuredProcesses[0].name || featuredProcesses[0].title || ''}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = cover1;
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 max-w-lg">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2">{featuredProcesses[0].name || featuredProcesses[0].title || ''}</h3>
+                  <p className="text-gray-300 text-xs sm:text-sm line-clamp-2">
+                    {featuredProcesses[0].description || t('index.wood_projects.description', 'Documental exclusivo sobre técnicas de talla en madera.')}
+                  </p>
+                </div>
+                <div className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-primary text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded">
+                  {t('index.wood_projects.exclusive', 'EXCLUSIVO')}
+                </div>
+              </div>
+            )}
+            {/* Side videos list */}
+            <div className="flex flex-col gap-4 sm:gap-6">
+              {featuredProcesses.slice(1, 4).map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleCategoryClick(item.category_id || item.id)}
+                  className="flex gap-3 sm:gap-4 items-center group cursor-pointer bg-[#2a1d21]/50 p-2 sm:p-3 rounded-lg hover:bg-[#2a1d21] transition-colors"
+                >
+                  <div className="w-24 sm:w-32 aspect-video rounded-md overflow-hidden flex-shrink-0">
+                    <img
+                      src={getImageUrl(item.cover_image || item.thumbnail_url || '')}
+                      alt={item.name || item.title || ''}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = cover1;
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <h4 className="font-bold text-white text-xs sm:text-sm group-hover:text-primary transition-colors line-clamp-2">
+                      {item.name || item.title || ''}
+                    </h4>
+                    <p className="text-[10px] sm:text-xs text-text-subtle mt-1 line-clamp-1">
+                      {item.category?.name || item.description?.substring(0, 30) || ''}
+                    </p>
+                  </div>
+                  <div className="ml-auto pr-1 sm:pr-2 flex-shrink-0">
+                    <Play className="h-4 w-4 sm:h-5 sm:w-5 text-white/50 group-hover:text-white transition-colors" fill="currentColor" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+
+      </main>
+      
+      {/* Old sections removed - replaced with new design */}
+      {false && homepageVideos.length > 0 && (
+        <section className="py-16 lg:py-24 px-4 md:px-8 bg-background-dark">
           <div className="container mx-auto max-w-7xl">
             <div className="space-y-12">
               {/* Section Title */}
@@ -1487,282 +2533,6 @@ const Home = () => {
         </section>
       )}
 
-      {/* About Section */}
-      <section className="py-16 lg:py-24 bg-gradient-to-br from-gray-900 via-black to-gray-800">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <div className="space-y-6">
-              <h2 className="text-3xl lg:text-5xl font-bold text-white font-playfair">
-                {heroSettings.about_title || t('about.title')}
-              </h2>
-              <p className="text-lg lg:text-xl text-gray-400 font-montserrat leading-relaxed">
-                {heroSettings.about_description || t('about.description')}
-              </p>
-              <div className="grid grid-cols-2 gap-6 pt-4">
-                <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-primary mb-2">50+</div>
-                  <div className="text-gray-400 font-montserrat">{t('about.expert_instructors')}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-primary mb-2">1000+</div>
-                  <div className="text-gray-400 font-montserrat">{t('about.master_classes')}</div>
-                </div>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="aspect-[16/9] rounded-xl overflow-hidden shadow-2xl">
-                  <iframe
-                    src="https://www.youtube.com/embed/aHR2IFjhOwg"
-                    title={t('general.about_sacrart')}
-                    className="w-full h-full"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonial Section - Single Row Carousel with Auto Slide */}
-      <section className="py-16 lg:py-24 bg-gradient-to-br from-black via-gray-900 to-black">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="text-center mb-12 lg:mb-16">
-            <h2 className="text-3xl lg:text-5xl font-bold mb-4 font-playfair text-white">
-              {heroSettings.testimonial_title || t('testimonials.title')}
-            </h2>
-            <p className="text-lg lg:text-xl text-gray-400 max-w-3xl mx-auto font-montserrat">
-              {heroSettings.testimonial_subtitle || t('testimonials.subtitle')}
-            </p>
-          </div>
-
-          {testimonialsLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-gray-400">{t('testimonials.loading')}</p>
-            </div>
-          ) : testimonials.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-400">{t('testimonials.no_testimonials')}</p>
-            </div>
-          ) : (
-            <div className="overflow-hidden">
-              <div 
-                className="flex gap-6 lg:gap-8 animate-scroll"
-                style={{
-                  animation: `scroll ${testimonials.length * 10}s linear infinite`,
-                  width: `calc(${testimonials.length * 400}px + ${(testimonials.length - 1) * 24}px)`
-                }}
-              >
-                {/* Render testimonials twice for seamless loop */}
-                {[...testimonials, ...testimonials].map((testimonial, index) => (
-                  <div 
-                    key={`${testimonial.id}-${index}`} 
-                    className="flex-shrink-0 w-96 lg:w-[420px] bg-gray-900/50 rounded-xl p-8 lg:p-10 border border-white/10 hover:border-primary/50 transition-all duration-300 backdrop-blur-sm"
-                  >
-                    <div className="flex items-center mb-6">
-                      {testimonial.user?.avatar ? (
-                        <img
-                          src={testimonial.user.avatar}
-                          alt={testimonial.user?.name || t('general.user')}
-                          className="w-12 h-12 rounded-full object-cover mr-4"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mr-4">
-                          <span className="text-primary font-semibold">{(testimonial.user?.name || t('general.user')).charAt(0).toUpperCase()}</span>
-                        </div>
-                      )}
-                      <div>
-                        <h4 className="text-white font-semibold font-montserrat">{testimonial.user?.name || t('general.anonymous')}</h4>
-                      </div>
-                    </div>
-                    <p className="text-gray-300 leading-relaxed font-montserrat mb-4">
-                      "{testimonial.description}"
-                    </p>
-                    <div className="flex">
-                      {[...Array(testimonial.rating || 5)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <style>{`
-        @keyframes scroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(calc(-50% - ${24 * (testimonials.length - 1)}px));
-          }
-        }
-      `}</style>
-
-      {/* Subscription Plans Section */}
-      <section className="py-16 lg:py-24 bg-gradient-to-b from-transparent to-black/50">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="text-center mb-12 lg:mb-16">
-            <h2 className="text-3xl lg:text-5xl font-bold mb-4 font-playfair text-white">
-              {t('subscription.title')}
-            </h2>
-            <p className="text-lg lg:text-xl text-gray-400 max-w-3xl mx-auto font-montserrat">
-              {t('subscription.subtitle')}
-            </p>
-          </div>
-
-          {plansLoading ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400">{t('subscription.loading') || 'Loading plans...'}</p>
-            </div>
-          ) : subscriptionPlans.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400">{t('subscription.no_plans') || 'No subscription plans available.'}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 max-w-6xl mx-auto mb-8">
-              {subscriptionPlans.map((plan) => {
-                const features = parseFeatures(plan.description);
-                const isBasic = plan.name.toLowerCase() === 'basic';
-                const isFreemium = plan.name.toLowerCase() === 'freemium';
-                
-                return (
-                  <div
-                    key={plan.id}
-                    className={`bg-gray-900/50 rounded-xl p-8 lg:p-10 border ${
-                      isBasic ? 'border-2 border-primary relative' : 'border-white/10'
-                    } hover:border-primary/50 transition-all duration-300 hover:shadow-2xl backdrop-blur-sm ${
-                      isBasic ? 'transform hover:scale-105' : ''
-                    } flex flex-col`}
-                  >
-                    {isBasic && (
-                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-primary text-white px-4 py-1 font-semibold">
-                          {t('subscription.most_popular')}
-                        </Badge>
-                      </div>
-                    )}
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold mb-2 text-white font-montserrat">
-                        {plan.display_name || t(`subscription.${plan.name.toLowerCase()}`)}
-                      </h3>
-                      <div className="text-4xl font-bold text-white mb-2 font-montserrat">
-                        {isFreemium ? (
-                          t('subscription.free')
-                        ) : (
-                          <>
-                            €{Number(plan.price || 0).toFixed(2)}
-                            <span className="text-lg text-gray-400">{t('subscription.per_month')}</span>
-                          </>
-                        )}
-                      </div>
-                      <p className="text-gray-400 font-montserrat">
-                        {isFreemium 
-                          ? t('subscription.perfect_for_getting_started')
-                          : isBasic
-                          ? t('subscription.for_art_enthusiasts')
-                          : t('subscription.for_professionals')
-                        }
-                      </p>
-                    </div>
-                    <ul className="space-y-4 mb-8 flex-grow">
-                      {features.length > 0 ? (
-                        features.map((feature, index) => (
-                          <li key={index} className="flex items-center text-gray-300 font-montserrat">
-                            <Check className="h-5 w-5 text-primary mr-3 flex-shrink-0" />
-                            <span>{feature}</span>
-                          </li>
-                        ))
-                      ) : (
-                        // Fallback to translation keys if no features in description
-                        <li className="flex items-center text-gray-300 font-montserrat">
-                          <Check className="h-5 w-5 text-primary mr-3 flex-shrink-0" />
-                          <span>{t('features.no_features_available') || 'Features coming soon'}</span>
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          
-          {/* Buttons Row - Aligned Horizontally */}
-          <div className="flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 max-w-6xl mx-auto">
-            <Button variant="outline" className="w-full md:w-auto md:flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20 hover:border-white font-semibold" onClick={() => navigate('/auth')}>
-              {t('subscription.get_started_free')}
-            </Button>
-            <Button className="w-full md:w-auto md:flex-1 bg-primary hover:bg-primary/90 text-white font-semibold" onClick={() => navigate('/subscription')}>
-              {t('subscription.start_basic_plan')}
-            </Button>
-            <Button variant="outline" className="w-full md:w-auto md:flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20 hover:border-white font-semibold" onClick={() => navigate('/subscription')}>
-              {t('subscription.go_premium')}
-            </Button>
-          </div>
-        </div>
-      </section>
-
-       {/* FAQ Section - New Style with Categories */}
-       <section className="py-16 lg:py-24 bg-gradient-to-br from-gray-900 via-black to-gray-800">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="text-center mb-12 lg:mb-16">
-            <h2 className="text-3xl lg:text-5xl font-bold mb-4 font-playfair text-white">
-              {t('faq.title')}
-            </h2>
-            <p className="text-lg lg:text-xl text-gray-400 max-w-3xl mx-auto font-montserrat">
-              {t('faq.subtitle')}
-            </p>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            {faqLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-gray-400">{t('faq.loading')}</p>
-              </div>
-            ) : (
-              Object.entries(faqs).map(([category, categoryFaqs]) => (
-                <div key={category} className="mb-12">
-                  <h3 className="text-2xl font-bold text-white mb-6 font-playfair capitalize">
-                    {category.replace('_', ' ')} {t('faq.faqs')}
-                  </h3>
-                  <div className="space-y-4">
-                    {categoryFaqs.map((faq: Faq) => (
-                      <div key={faq.id} className="bg-gray-900/50 rounded-xl border border-white/10 transform hover:border-primary/50 transition-all duration-300 backdrop-blur-sm">
-                        <button
-                          onClick={() => toggleFaq(faq.id)}
-                          className="w-full text-left px-6 py-4 flex justify-between items-center hover:bg-white/5 transition-colors duration-200 rounded-xl"
-                        >
-                          <span className="text-lg font-semibold text-white font-montserrat">
-                            {faq.question}
-                          </span>
-                          {expandedFaq === faq.id ? (
-                            <X className="h-5 w-5 text-primary" />
-                          ) : (
-                            <Plus className="h-5 w-5 text-gray-400" />
-                          )}
-                        </button>
-                        {expandedFaq === faq.id && (
-                          <div className="px-6 pb-4">
-                            <div className="text-gray-400 py-2 font-montserrat leading-relaxed">
-                              {faq.answer}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

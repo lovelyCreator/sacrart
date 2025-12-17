@@ -34,15 +34,36 @@ const newReleases = [
 ];
 
 const Index = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/");
+    // Always redirect to /es (default locale) when accessing root
+    // This ensures the URL always has a locale prefix
+    if (!isLoading) {
+      if (isAuthenticated) {
+        // Redirect authenticated users to /es (default locale)
+        navigate("/es", { replace: true });
+      } else {
+        // For unauthenticated users, also redirect to /es to show landing page with locale
+        // The landing page will be shown at /es when not authenticated
+        navigate("/es", { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background-dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-400">{t('common.loading', 'Cargando...')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#141414]">
@@ -66,7 +87,7 @@ const Index = () => {
         </div>
       </section>
 
-      <footer className="py-8 border-t border-white/10 px-4 md:px-8 bg-black">
+      {/* <footer className="py-8 border-t border-white/10 px-4 md:px-8 bg-black">
         <div className="container mx-auto text-center text-gray-400 font-montserrat">
           <p>
             <Trans
@@ -76,7 +97,7 @@ const Index = () => {
             />
           </p>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 };

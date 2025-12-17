@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sacrart - La Piedad de Sevilla</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#A05245", // Terracota branding
+                        "primary-hover": "#8a4338",
+                        "background-dark": "#0F0F0F", // Darker background to match reference
+                        "surface-dark": "#161616", // Slightly lighter for cards
+                        "surface-hover": "#222222",
+                        "text-light": "#E0E0E0",
+                        "text-dim": "#A0A0A0",
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                        'xl': '0.75rem',
+                    },
+                    height: {
+                        'hero': '550px',
+                    }
+                },
+            },
+        };
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            }
+        }.chapter-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chapter-scroll::-webkit-scrollbar-track {
+            background: #1a1a1a; 
+            border-radius: 3px;
+        }
+        .chapter-scroll::-webkit-scrollbar-thumb {
+            background: #A05245; 
+            border-radius: 3px;
+        }
+        .chapter-scroll::-webkit-scrollbar-thumb:hover {
+            background: #8a4338; 
+        }.hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            background-color: #0F0F0F;
+            color: #E0E0E0;
+        }
+    </style>
+</head>
+<body class="bg-background-dark font-sans min-h-screen flex flex-col text-text-light antialiased">
+<header class="fixed top-0 w-full z-50 bg-[#0F0F0F]/90 backdrop-blur-md border-b border-white/5">
+<div class="container mx-auto px-6 h-[72px] flex items-center justify-between">
+<a class="flex items-center gap-2 group" href="#">
+<div class="w-8 h-8 flex items-center justify-center bg-white rounded text-black font-bold text-xs">S</div>
+</a>
+<nav class="hidden md:flex items-center gap-8 text-[11px] font-bold tracking-wider uppercase text-text-dim">
+<a class="text-white hover:text-primary transition-colors" href="#">Inicio</a>
+<div class="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
+<span>Categorías</span>
+<span class="material-symbols-outlined text-[16px]">expand_more</span>
+</div>
+<a class="hover:text-white transition-colors" href="#">Seguir Viendo</a>
+<a class="hover:text-white transition-colors" href="#">Browse</a>
+<a class="hover:text-white transition-colors" href="#">Directos</a>
+<a class="hover:text-white transition-colors flex items-center gap-1" href="#">
+                Sacrart Kids <span class="material-symbols-outlined text-[12px]">lock</span>
+</a>
+</nav>
+<div class="flex items-center gap-5">
+<button class="hidden lg:block px-4 py-1.5 border border-white/20 rounded text-[10px] font-bold tracking-wider uppercase hover:bg-white hover:text-black transition-all">
+                Tienda
+            </button>
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-dim text-[18px]">search</span>
+<input class="bg-[#1F1F1F] text-xs text-white pl-9 pr-4 py-2 rounded-full border-none focus:ring-1 focus:ring-primary w-48 placeholder-text-dim/50" placeholder="Buscar..." type="text"/>
+</div>
+<button class="w-8 h-8 rounded-full bg-gradient-to-br from-[#d4af37] to-[#8a6e1f] flex items-center justify-center text-white shadow-lg overflow-hidden border border-white/10">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-grow pt-28 pb-12 px-6 container mx-auto">
+<div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-[600px] mb-16">
+<div class="w-full lg:w-[70%] h-[350px] lg:h-full relative rounded-xl overflow-hidden shadow-2xl group cursor-pointer border border-white/5">
+<img alt="Artesano aplicando pan de oro en Sevilla" class="w-full h-full object-cover opacity-90 transform group-hover:scale-105 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JAKW2pM6KHsj2P_o8BEixgOMFuzg6xr9-3XIOW9DhrrgssgWBWQsNIop0dSxiOT4bHaFuuuwvirkmlDiGoIUEYmJ2ruevEl-nP3ZxC8LQezDZPOGDhTNst0EJMDIiFA2f8A4dBk7LR2yiTog43A5wt3gs1U29D_f_09YnCXvwtfUF36HAWpNA3FtBFssYbO8puh3f2X8OmLvGYD1swWj9HVqD8w9vn52lnb4ugRrUIJOeOfOY8vcAMP3oEZH2DO964taK12CsOc"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-transparent opacity-90"></div>
+<div class="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-300"></div>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[1px]">
+<button class="w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center shadow-[0_0_30px_rgba(160,82,69,0.4)] hover:bg-[#b55e50] transform hover:scale-110 transition-all">
+<span class="material-symbols-outlined text-[48px] ml-1">play_arrow</span>
+</button>
+</div>
+<div class="absolute bottom-0 left-0 p-6 lg:hidden">
+<span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2 inline-block">Serie Original</span>
+<h1 class="font-sans text-3xl font-extrabold text-white mb-2 leading-tight">La Piedad de Sevilla</h1>
+</div>
+</div>
+<div class="w-full lg:w-[30%] flex flex-col h-full bg-surface-dark rounded-xl border border-white/5 overflow-hidden shadow-xl">
+<div class="p-6 border-b border-white/5 bg-[#1a1a1a]">
+<div class="flex items-center gap-2 mb-3">
+<span class="bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide">Serie</span>
+<span class="text-[10px] text-text-dim border border-white/10 px-1.5 py-0.5 rounded-sm">4K</span>
+</div>
+<h1 class="font-sans text-2xl lg:text-3xl font-bold text-white mb-3 tracking-tight">La Piedad de Sevilla</h1>
+<p class="text-sm text-text-dim leading-relaxed line-clamp-3 mb-4 font-light">
+                    La Piedad de Sevilla es la obra cumbre que cambió la historia de la imaginería sagrada. Un viaje íntimo a través de los talleres, el oro y la devoción.
+                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-text-dim">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span>
+<span>2023</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">grid_view</span>
+<span>8 Episodios</span>
+</div>
+</div>
+</div>
+<div class="px-6 py-3 bg-[#111] border-b border-white/5 flex justify-between items-center">
+<h3 class="font-bold text-white text-xs uppercase tracking-widest">Capítulos</h3>
+<span class="text-[10px] text-text-dim uppercase tracking-wider">Temporada 1</span>
+</div>
+<div class="flex-grow overflow-y-auto chapter-scroll relative bg-[#131313]">
+<div class="divide-y divide-white/5">
+<div class="flex items-center gap-4 p-4 bg-primary/10 border-l-[3px] border-primary cursor-pointer hover:bg-primary/20 transition-colors group">
+<span class="font-sans text-lg font-bold text-primary w-6 text-center">1</span>
+<div class="flex-grow">
+<h4 class="text-sm font-bold text-white mb-0.5">El Comienzo del Oro</h4>
+<span class="text-[11px] text-primary font-medium">45 min</span>
+</div>
+<span class="material-symbols-outlined text-primary text-[20px]">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">2</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">La Madera Viva</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">42 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">3</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">El Lavadiano de Sevilla</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">48 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">4</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">Sombras del Ayer</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">50 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">5</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">El Lamezazo del Viento</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">41 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">6</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">Resurrección</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">55 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">7</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">El Silencio</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">46 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+<div class="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="font-sans text-lg text-text-dim group-hover:text-white w-6 text-center transition-colors">8</span>
+<div class="flex-grow">
+<h4 class="text-sm font-medium text-text-dim group-hover:text-white transition-colors mb-0.5">La Madrugá</h4>
+<span class="text-[11px] text-[#555] group-hover:text-[#777]">60 min</span>
+</div>
+<span class="material-symbols-outlined text-text-dim/30 group-hover:text-white text-[20px] transition-colors">play_circle</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<section>
+<div class="flex justify-between items-center mb-6">
+<h2 class="text-lg font-bold text-white border-l-[3px] border-primary pl-3 tracking-wide">Vídeos Recomendados</h2>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-colors text-text-dim">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-colors text-text-dim">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<div class="group cursor-pointer">
+<div class="relative aspect-video rounded-lg overflow-hidden mb-3 bg-surface-dark border border-white/5">
+<img alt="Escultura religiosa" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhDpIU8MQXacCMfBpfABQ91sSm7GuCFYyN3BzzZW_LytJYsYR1Wk2Rb5VUMsuLcCQlhWACznWUFTC-Yvoz6XXSCq52kmsO5b7QxlvjpvClfQEioq4J-k3Iv0g_WT1r4_OYHHG4hdAuWq_QX9fk0PN88bbcXfKHQ0nNRax3bHKureQR1-3UrfYKrG0RiOwAa0KB76sZiUPdgF0kPpH4xh2m3sD6G7pwJgVrh9NcIK1-ilDyN72pLbrtpEMJleIj6qRD8Xlnl4Qfr48"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[48px] drop-shadow-lg">play_circle</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded border border-white/10">12:30</span>
+</div>
+<h3 class="text-sm font-bold text-gray-200 group-hover:text-primary transition-colors leading-tight">El Arte del Dorado</h3>
+<p class="text-[11px] text-text-dim mt-1 font-medium">Maestros Artesanos</p>
+</div>
+<div class="group cursor-pointer">
+<div class="relative aspect-video rounded-lg overflow-hidden mb-3 bg-surface-dark border border-white/5">
+<img alt="Iglesia interior" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCB0-FjmmXvqcl8IEQJ2ledhRoo1c8uAFBTsCkNWyhQDiuaR1Tq_cmk0J9NBhFIab_J3mgFLK39dsNkpqFjdYItScCMU1yOdNOMGmE8Au9TX2GyzsJysyfKGupjAsDfi3puKKTFNM_lcBp9cM1GKsWfEwlWDVLRtNxlapftVutvTCypj9cusmYzdoGVnVdYl_s8w71aiqn9QijAzuZswJlCci9489wG1_uMo9e8NGWwuBC3qP5IIaIFykZhF09E5gZe5si205xak0I"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[48px] drop-shadow-lg">play_circle</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded border border-white/10">45:10</span>
+</div>
+<h3 class="text-sm font-bold text-gray-200 group-hover:text-primary transition-colors leading-tight">Catedrales del Sur</h3>
+<p class="text-[11px] text-text-dim mt-1 font-medium">Arquitectura Sacra</p>
+</div>
+<div class="group cursor-pointer">
+<div class="relative aspect-video rounded-lg overflow-hidden mb-3 bg-surface-dark border border-white/5">
+<img alt="Velas procesión" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYbW_aPPfl0blJVSEfgRFkef65GpqVEDe8SycBIk9L8iDIIEmY2v0EdFxHNXAN-IP-QjN7TD2CF8834eS6kd81Dk76Uh-geZ-26FV_VERHF4yb1Rzz6JB1UhqSYjWyvqg7O72hC7VrVEO9LgeVkf7ek9b51lfQVOq7y6t41nggkNW8muS0S3ltEA6SNl5flCJGrD0uDBvkcRKyMhKDRzMvvBIVqRsdytmjrkdSC5SojM8MoxDzARATo3U5rjN8V1owXP_6pUMzVyk"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[48px] drop-shadow-lg">play_circle</span>
+</div>
+<span class="absolute top-2 left-2 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">Nuevo</span>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded border border-white/10">22:15</span>
+</div>
+<h3 class="text-sm font-bold text-gray-200 group-hover:text-primary transition-colors leading-tight">Luz de Pasión</h3>
+<p class="text-[11px] text-text-dim mt-1 font-medium">Semana Santa</p>
+</div>
+<div class="group cursor-pointer">
+<div class="relative aspect-video rounded-lg overflow-hidden mb-3 bg-surface-dark border border-white/5">
+<img alt="Detalle bordado" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBevrlkpK6tWAkk2w6_hsU85n_ZKjL2-HQafeIWywyToeSKt5X0gJEQpGnaWgfwhb4FyWEBO-M1N-Xkqhjl-2IR7gWvTeK4tBS-cjYOP2Whf6KiqoXGrsFrD7Qbcq8wRyKhJvPbqVufuvJ14xSVf28l8Qj2mLCz9G-OxYWSm4tc5gtDg6-mRNiXukgHB84yVgfXD5VVK7N3YixUSoEHUwNvcQhzwjM8-4__nYISQLOqkQV3pQpRFY7H3xgwqYnWHa-duu2PeGjsZ4c"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[48px] drop-shadow-lg">play_circle</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded border border-white/10">34:00</span>
+</div>
+<h3 class="text-sm font-bold text-gray-200 group-hover:text-primary transition-colors leading-tight">Hilos de Oro y Seda</h3>
+<p class="text-[11px] text-text-dim mt-1 font-medium">Bordados</p>
+</div>
+</div>
+</section>
+</main>
+<footer class="bg-[#0A0A0A] border-t border-white/5 py-12 mt-auto">
+<div class="container mx-auto px-6">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-8">
+<div class="w-10 h-10 flex items-center justify-center bg-white rounded text-black font-bold text-sm">S</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-4 text-xs font-medium text-text-dim">
+<div>
+<h4 class="text-white font-bold mb-3 uppercase tracking-wider text-[10px]">Explorar</h4>
+<ul class="space-y-2">
+<li><a class="hover:text-primary transition-colors" href="#">Modelado</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Talla</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Policromía</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Materiales</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-white font-bold mb-3 uppercase tracking-wider text-[10px]">Cuenta</h4>
+<ul class="space-y-2">
+<li><a class="hover:text-primary transition-colors" href="#">Mi Perfil</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Mi Lista</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Certificados</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Suscripción</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-white font-bold mb-3 uppercase tracking-wider text-[10px]">Ayuda</h4>
+<ul class="space-y-2">
+<li><a class="hover:text-primary transition-colors" href="#">Soporte</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Preguntas Frecuentes</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Contacto</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-white font-bold mb-3 uppercase tracking-wider text-[10px]">Legal</h4>
+<ul class="space-y-2">
+<li><a class="hover:text-primary transition-colors" href="#">Términos</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Privacidad</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Cookies</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/5 gap-4">
+<div class="flex gap-4">
+<a class="text-text-dim hover:text-white transition-colors" href="#"><i class="material-symbols-outlined text-[18px]">photo_camera</i></a>
+<a class="text-text-dim hover:text-white transition-colors" href="#"><i class="material-symbols-outlined text-[18px]">public</i></a>
+<a class="text-text-dim hover:text-white transition-colors" href="#"><i class="material-symbols-outlined text-[18px]">music_note</i></a>
+<a class="text-text-dim hover:text-white transition-colors" href="#"><i class="material-symbols-outlined text-[18px]">smart_display</i></a>
+</div>
+<div class="text-center md:text-right text-[10px] text-text-dim/60">
+<p>© 2023 SACRART. Todos los derechos reservados.</p>
+</div>
+</div>
+</div>
+</footer>
+<script>
+    // Simple script to toggle active state on chapters for demo purposes
+    const chapters = document.querySelectorAll('.chapter-scroll > div > div');
+    chapters.forEach(chapter => {
+        chapter.addEventListener('click', () => {
+            // Reset all
+            chapters.forEach(c => {
+                c.classList.remove('bg-primary/10', 'border-l-[3px]', 'border-primary');
+                c.classList.add('hover:bg-white/5');
+                const title = c.querySelector('h4');
+                title.classList.remove('font-bold', 'text-white');
+                title.classList.add('font-medium', 'text-text-dim');
+                const meta = c.querySelector('span.text-\\[11px\\]');
+                if(meta) {
+                    meta.classList.remove('text-primary');
+                    meta.classList.add('text-[#555]');
+                }
+                const num = c.querySelector('.font-sans.text-lg');
+                num.classList.remove('font-bold', 'text-primary');
+                num.classList.add('text-text-dim');
+                const icon = c.querySelector('.material-symbols-outlined');
+                icon.classList.remove('text-primary');
+                icon.classList.add('text-text-dim/30');
+            });
+            // Set active
+            chapter.classList.remove('hover:bg-white/5');
+            chapter.classList.add('bg-primary/10', 'border-l-[3px]', 'border-primary');
+            const title = chapter.querySelector('h4');
+            title.classList.add('text-white', 'font-bold');
+            title.classList.remove('font-medium', 'text-text-dim');
+             const meta = chapter.querySelector('span.text-\\[11px\\]');
+            if(meta) {
+                meta.classList.add('text-primary');
+                meta.classList.remove('text-[#555]');
+            }
+            const num = chapter.querySelector('.font-sans.text-lg');
+            num.classList.add('font-bold', 'text-primary');
+            num.classList.remove('text-text-dim');
+            const icon = chapter.querySelector('.material-symbols-outlined');
+            icon.classList.add('text-primary');
+            icon.classList.remove('text-text-dim/30');
+        });
+    });
+</script>
+
+</body></html>

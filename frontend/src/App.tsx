@@ -16,10 +16,12 @@ import SignupSubscription from "./pages/SignupSubscription";
 import Home from "./pages/Home";
 import Explore from "./pages/Explore";
 import SeriesDetail from "./pages/SeriesDetail";
+import CategoryDetail from "./pages/CategoryDetail";
 import VideoPlayer from "./pages/VideoPlayer";
 import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
+import SacrartKids from "./pages/SacrartKids";
 import AdminRoutes from "./pages/admin/AdminRoutes";
 import NotFound from "./pages/NotFound";
 import { SupportTicketsProvider } from "./contexts/SupportTicketsContext";
@@ -64,8 +66,11 @@ const App = () => (
           <SupportTicketsProvider>
           <BrowserRouter>
             <Routes>
-              {/* Root redirect to default locale */}
-              <Route path="/" element={<LocaleRedirect />} />
+              {/* Landing page (before auth) - Index will redirect to /es if authenticated */}
+              <Route path="/" element={<Index />} />
+              
+              {/* Root redirect to default locale (for authenticated users) */}
+              <Route path="/redirect" element={<LocaleRedirect />} />
 
               {/* Auth Routes (no locale prefix) */}
               <Route path="/auth" element={<Auth />} />
@@ -78,7 +83,7 @@ const App = () => (
                 <Route index element={<Home />} />
                 {/* Signup Subscription Route (with locale prefix, unprotected) */}
                 <Route path="signup-subscription" element={<SignupSubscription />} />
-                <Route path="explore" element={
+                <Route path="browse" element={
                   <ProtectedRoute>
                     <Explore />
                   </ProtectedRoute>
@@ -90,7 +95,7 @@ const App = () => (
                 } />
                 <Route path="category/:id" element={
                   <ProtectedRoute>
-                    <SeriesDetail />
+                    <CategoryDetail />
                   </ProtectedRoute>
                 } />
                 <Route path="video/:id" element={
@@ -118,6 +123,11 @@ const App = () => (
                     <Subscription />
                   </ProtectedRoute>
                 } />
+                <Route path="kids" element={
+                  <ProtectedRoute>
+                    <SacrartKids />
+                  </ProtectedRoute>
+                } />
               </Route>
 
               {/* Admin Routes (with locale prefix, but outside UserLayout to avoid header) */}
@@ -131,7 +141,8 @@ const App = () => (
               <Route path="/admin/*" element={<AdminRedirectToLocale />} />
 
               {/* Redirect old routes without locale to default locale */}
-              <Route path="/explore" element={<Navigate to="/en/explore" replace />} />
+              <Route path="/explore" element={<Navigate to="/en/browse" replace />} />
+              <Route path="/browse" element={<Navigate to="/en/browse" replace />} />
               <Route path="/series/:id" element={<RedirectWithParams />} />
               <Route path="/category/:id" element={<RedirectWithParams />} />
               <Route path="/video/:id" element={<RedirectWithParams />} />

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -20,9 +21,23 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
+          DEFAULT: "#A05245",
           foreground: "hsl(var(--primary-foreground))",
         },
+        "background-light": "#f8f6f6",
+        "background-dark": "#0A0A0A",
+        "surface-dark": "#1E1E1E",
+        "border-dark": "#333333",
+        "text-subtle": "#b99da6",
+        "kids-bg": "#252525",
+        "text-light": "#E0E0E0",
+        "text-dim": "#A0A0A0",
+        "text-main-light": "#2D2D2D",
+        "text-main-dark": "#E5E5E5",
+        "text-muted-light": "#666666",
+        "text-muted-dark": "#A3A3A3",
+        "border-light": "#E5E5E5",
+        "primary-hover": "#8a4539",
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
@@ -68,6 +83,7 @@ export default {
       fontFamily: {
         'playfair': ['Playfair Display', 'serif'],
         'montserrat': ['Montserrat', 'sans-serif'],
+        'display': ['Plus Jakarta Sans', 'sans-serif'],
       },
       keyframes: {
         "accordion-down": {
@@ -125,5 +141,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

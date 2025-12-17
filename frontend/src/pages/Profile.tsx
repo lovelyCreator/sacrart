@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
+import { 
   Dialog,
   DialogContent,
   DialogDescription,
@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { 
   User, 
   Mail, 
@@ -61,8 +62,11 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [userStats, setUserStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -89,6 +93,14 @@ const Profile = () => {
 
   useEffect(() => {
     if (user) {
+      // Load privacy settings from localStorage if available
+      const savedPrivacy = localStorage.getItem('user_privacy_settings');
+      const privacySettings = savedPrivacy ? JSON.parse(savedPrivacy) : {
+        profilePublic: false,
+        showProgress: true,
+        allowMessages: true,
+      };
+      
       setFormData({
         name: user.name || '',
         email: user.email || '',
@@ -98,28 +110,56 @@ const Profile = () => {
           push: true,
           marketing: false,
         },
-        privacy: {
-          profilePublic: false,
-          showProgress: true,
-          allowMessages: true,
-        }
+        privacy: privacySettings,
       });
 
       // Load favorites
       loadFavorites();
+      // Load user stats
+      loadUserStats();
     }
   }, [user]);
+
+  const loadUserStats = async () => {
+    if (!user) return;
+    setLoadingStats(true);
+    try {
+      const response = await userProgressApi.getStats();
+      // Handle different response formats
+      if (response.success && response.data) {
+        setUserStats(response.data);
+      } else if (response.total_videos_watched !== undefined) {
+        // Direct data response
+        setUserStats(response);
+      } else {
+        setUserStats(null);
+      }
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+      setUserStats(null);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   const loadFavorites = async () => {
     if (!user) return;
     setLoadingFavorites(true);
     try {
       const response = await userProgressApi.getFavoritesList();
-      if (response.success) {
-        setFavorites(response.data || []);
+      // Handle different response formats
+      if (response.success && response.data) {
+        setFavorites(Array.isArray(response.data) ? response.data : []);
+      } else if (Array.isArray(response)) {
+        setFavorites(response);
+      } else if (response.data && Array.isArray(response.data)) {
+        setFavorites(response.data);
+      } else {
+        setFavorites([]);
       }
     } catch (error) {
       console.error('Failed to load favorites:', error);
+      setFavorites([]);
     } finally {
       setLoadingFavorites(false);
     }
@@ -186,6 +226,119 @@ const Profile = () => {
       });
     } catch (error) {
       toast.error("Failed to update password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      setLoading(true);
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000/api';
+      const token = localStorage.getItem('auth_token');
+      
+      // Create Stripe Customer Portal session
+      const response = await fetch(`${API_BASE_URL}/payments/stripe/portal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          return_url: `${window.location.origin}${window.location.pathname}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data?.url) {
+        // Redirect to Stripe Customer Portal
+        window.location.href = data.data.url;
+      } else {
+        throw new Error(data.message || 'Failed to create billing portal session');
+      }
+    } catch (error: any) {
+      console.error('Error opening billing portal:', error);
+      toast.error(error.message || 'Failed to open billing management. Please ensure you have an active subscription.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpgradePlan = async () => {
+    try {
+      setLoading(true);
+      // Navigate to subscription page for plan upgrade
+      navigateWithLocale('/subscription');
+    } catch (error) {
+      console.error('Error navigating to upgrade plan:', error);
+      toast.error('Failed to open plan upgrade');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadData = async () => {
+    try {
+      setLoading(true);
+      // TODO: Implement data download functionality
+      // This should export user data (profile, progress, favorites, etc.) as JSON
+      const userData = {
+        profile: {
+          name: user?.name,
+          email: user?.email,
+          subscription_type: user?.subscription_type,
+          created_at: (user as any)?.created_at || new Date().toISOString(),
+        },
+        // Add more data as needed
+        exported_at: new Date().toISOString(),
+      };
+      
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `user-data-${user?.id || 'export'}-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Data downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading data:', error);
+      toast.error('Failed to download data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrivacySettings = () => {
+    // Open privacy settings dialog
+    setShowPrivacyDialog(true);
+  };
+
+  const handleSavePrivacySettings = async () => {
+    try {
+      setLoading(true);
+      // Save privacy settings to localStorage
+      localStorage.setItem('user_privacy_settings', JSON.stringify(formData.privacy));
+      
+      // Update user context if needed
+      if (user) {
+        updateUser({
+          ...user,
+          // Privacy settings can be stored in user metadata if backend supports it
+        });
+      }
+      
+      toast.success('Privacy settings saved successfully');
+      setShowPrivacyDialog(false);
+    } catch (error) {
+      console.error('Error saving privacy settings:', error);
+      toast.error('Failed to save privacy settings');
     } finally {
       setLoading(false);
     }
@@ -361,11 +514,11 @@ const Profile = () => {
               )}
 
               <div className="flex space-x-3 pt-4">
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleManageBilling} disabled={loading}>
                   <CreditCard className="h-4 w-4 mr-2" />
                   Manage Billing
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleUpgradePlan} disabled={loading}>
                   <Crown className="h-4 w-4 mr-2" />
                   Upgrade Plan
                 </Button>
@@ -425,11 +578,11 @@ const Profile = () => {
                   Admin Panel
                 </Button>
               )}
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={handleDownloadData} disabled={loading}>
                 <Download className="h-4 w-4 mr-2" />
                 Download Data
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={handlePrivacySettings} disabled={loading}>
                 <Settings className="h-4 w-4 mr-2" />
                 Privacy Settings
               </Button>
@@ -445,27 +598,52 @@ const Profile = () => {
           </Card>
 
           {/* Quick Stats */}
-          <Card className="p-6">
-            <h3 className="font-semibold mb-4">Learning Progress</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Courses Completed</span>
-                <span className="font-medium">12</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Total Watch Time</span>
-                <span className="font-medium">24.5h</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Certificates</span>
-                <span className="font-medium">8</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Current Streak</span>
-                <span className="font-medium">7 days</span>
-              </div>
-            </div>
-          </Card>
+          {formData.privacy.showProgress && (
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4">Learning Progress</h3>
+              {loadingStats ? (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex justify-between">
+                      <div className="h-4 bg-muted rounded w-32 animate-pulse"></div>
+                      <div className="h-4 bg-muted rounded w-12 animate-pulse"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Videos Completed</span>
+                    <span className="font-medium">{userStats?.total_completed || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Total Watch Time</span>
+                    <span className="font-medium">
+                      {userStats?.total_watch_time 
+                        ? `${Math.floor(userStats.total_watch_time / 3600)}h ${Math.floor((userStats.total_watch_time % 3600) / 60)}m`
+                        : '0h 0m'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Videos Watched</span>
+                    <span className="font-medium">{userStats?.total_videos_watched || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">In Progress</span>
+                    <span className="font-medium">{userStats?.total_in_progress || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Average Completion</span>
+                    <span className="font-medium">
+                      {userStats?.average_completion_rate 
+                        ? `${Math.round(userStats.average_completion_rate)}%`
+                        : '0%'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
 
           {/* Favorite Content */}
           <Card className="p-6">
@@ -571,6 +749,54 @@ const Profile = () => {
             </Button>
             <Button onClick={handlePasswordChange} disabled={loading}>
               Update Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Privacy Settings Dialog */}
+      <Dialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Privacy Settings</DialogTitle>
+            <DialogDescription>
+              Manage your privacy preferences and data sharing settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="profilePublic">Public Profile</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow others to view your profile
+                </p>
+              </div>
+              <Switch
+                id="profilePublic"
+                checked={formData.privacy.profilePublic}
+                onCheckedChange={(checked) => handleNestedInputChange('privacy', 'profilePublic', checked)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="showProgress">Show Learning Progress</Label>
+                <p className="text-sm text-muted-foreground">
+                  Display your course completion progress
+                </p>
+              </div>
+              <Switch
+                id="showProgress"
+                checked={formData.privacy.showProgress}
+                onCheckedChange={(checked) => handleNestedInputChange('privacy', 'showProgress', checked)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPrivacyDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePrivacySettings} disabled={loading}>
+              {loading ? 'Saving...' : 'Save Settings'}
             </Button>
           </DialogFooter>
         </DialogContent>

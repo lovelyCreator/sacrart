@@ -33,34 +33,39 @@ export const useLanguage = () => {
     loadLanguages();
   }, []);
 
-  // Sync i18n with URL locale (only update when locale actually changes)
+  // Sync i18n with URL locale (URL is the source of truth)
   useEffect(() => {
     if (!locale) return;
     
-    // Only sync if locale is different from current i18n language
-    if (locale !== i18n.language) {
-      const syncLocale = async () => {
-        try {
-          // Load translations first, then change language
-          await loadAndSetTranslations(locale, false);
-          // Ensure localStorage is updated
-          if (localStorage.getItem('i18nextLng') !== locale) {
-          localStorage.setItem('i18nextLng', locale);
-          }
-        } catch (error) {
-          console.error('Error syncing locale:', error);
-          // Still update localStorage even if backend fails
+    // Always sync URL locale to i18n (URL has priority over localStorage)
+    const syncLocale = async () => {
+      try {
+        // Update localStorage first to match URL locale
+        if (localStorage.getItem('i18nextLng') !== locale) {
           localStorage.setItem('i18nextLng', locale);
         }
-      };
-      syncLocale();
-    } else {
-      // Just ensure localStorage matches if locale already matches i18n
-      if (localStorage.getItem('i18nextLng') !== locale) {
-      localStorage.setItem('i18nextLng', locale);
+        
+        // Only change i18n language if it's different
+        if (locale !== i18n.language) {
+          // Load translations first, then change language
+          await loadAndSetTranslations(locale, false);
+          // Change i18n language to match URL locale
+          await i18n.changeLanguage(locale);
+        }
+      } catch (error) {
+        console.error('Error syncing locale:', error);
+        // Still update localStorage and i18n even if backend fails
+        localStorage.setItem('i18nextLng', locale);
+        if (locale !== i18n.language) {
+          i18n.changeLanguage(locale).catch(err => {
+            console.error('Error changing i18n language:', err);
+          });
+        }
       }
-    }
-  }, [locale, i18n.language]); // Include i18n.language to detect changes
+    };
+    
+    syncLocale();
+  }, [locale]); // Only depend on locale from URL
 
   const changeLanguage = async (lang: string) => {
     // Normalize language code to lowercase
@@ -91,7 +96,7 @@ export const useLanguage = () => {
   };
 
   return {
-    currentLanguage: locale || 'en',
+    currentLanguage: locale || 'es',
     languages,
     changeLanguage,
     loading,

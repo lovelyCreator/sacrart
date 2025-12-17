@@ -489,7 +489,7 @@ const Library = () => {
             <p className="text-muted-foreground mb-4">
               {searchTerm ? t('library.try_search') : t('library.start_exploring')}
             </p>
-            <Button onClick={() => navigateWithLocale('/explore')}>
+            <Button onClick={() => navigateWithLocale('/browse')}>
               {t('library.browse_series')}
             </Button>
           </div>
