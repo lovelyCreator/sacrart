@@ -13,7 +13,6 @@ import {
   Search,
   User,
   LogOut,
-  Globe,
   Menu,
   X,
   Play,
@@ -22,7 +21,6 @@ import {
   MessageSquare,
   HelpCircle,
   Settings,
-  ChevronDown,
   Instagram,
   Facebook,
   Youtube,
@@ -46,7 +44,7 @@ const UserLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { currentLanguage, changeLanguage } = useLanguage();
+  const { currentLanguage, changeLanguage, languages } = useLanguage();
   const { getPathWithLocale, pathname, locale } = useLocale();
   const [footerSettings, setFooterSettings] = useState<Record<string, string>>({});
 
@@ -307,6 +305,59 @@ const UserLayout = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-3 sm:gap-4">
+          {/* Language Selector - Available for both logged in and logged out */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 text-white/90 hover:text-white hover:bg-white/10 px-2 py-1.5 rounded transition-all">
+                <i className="fa-solid fa-globe text-sm"></i>
+                <span className="text-xs font-medium uppercase hidden sm:inline">
+                  {languages.find(lang => lang.code === currentLanguage)?.code?.toUpperCase() || currentLanguage.toUpperCase()}
+                </span>
+                <i className="fa-solid fa-chevron-down text-[10px]"></i>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-[#181113] border-white/10 text-white w-40">
+              {languages.length > 0 ? (
+                languages.map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10 ${
+                      currentLanguage === lang.code ? 'bg-white/5 text-primary' : ''
+                    }`}
+                  >
+                    <span className="text-base">{lang.flag || '🌐'}</span>
+                    <span className="flex-1">{lang.native || lang.name}</span>
+                    {currentLanguage === lang.code && (
+                      <i className="fa-solid fa-check text-primary text-sm"></i>
+                    )}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                // Fallback languages if API hasn't loaded yet
+                [
+                  { code: 'en', name: 'English', native: 'English', flag: '🇺🇸' },
+                  { code: 'es', name: 'Spanish', native: 'Español', flag: '🇪🇸' },
+                  { code: 'pt', name: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+                ].map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10 ${
+                      currentLanguage === lang.code ? 'bg-white/5 text-primary' : ''
+                    }`}
+                  >
+                    <span className="text-base">{lang.flag}</span>
+                    <span className="flex-1">{lang.native}</span>
+                    {currentLanguage === lang.code && (
+                      <i className="fa-solid fa-check text-primary text-sm"></i>
+                    )}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {user ? (
             <>
               {/* Tienda Button - Desktop */}
@@ -628,6 +679,39 @@ const UserLayout = () => {
               </Link> */}
             </nav>
 
+            {/* Language Selector Section */}
+            <div className="px-4 py-4 border-t border-white/10">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-300">{t('common.language', 'Idioma')}</span>
+              </div>
+              <div className="space-y-1">
+                {(languages.length > 0 ? languages : [
+                  { code: 'en', name: 'English', native: 'English', flag: '🇺🇸' },
+                  { code: 'es', name: 'Spanish', native: 'Español', flag: '🇪🇸' },
+                  { code: 'pt', name: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+                ]).map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      handleLanguageChange(lang.code);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      currentLanguage === lang.code
+                        ? 'bg-primary/20 text-white font-semibold'
+                        : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-lg">{lang.flag || '🌐'}</span>
+                    <span className="flex-1 text-left">{lang.native || lang.name}</span>
+                    {currentLanguage === lang.code && (
+                      <span className="text-primary">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* User Section at Bottom */}
             <div className="px-4 py-4 border-t border-white/10">
               <div className="flex items-center gap-3 mb-3">
@@ -784,7 +868,12 @@ const UserLayout = () => {
                 <Link to={getPathWithLocale("/profile")} className="text-gray-400 hover:text-primary text-sm transition-colors">
                   {t('footer.my_profile', 'Mi Perfil')}
                 </Link>
-                <Link to={getPathWithLocale("/library")} className="text-gray-400 hover:text-primary text-sm transition-colors">
+                <Link 
+                  to={categories.length > 0 && categories[0].id 
+                    ? getPathWithLocale(`/category/${categories[0].id}`) 
+                    : getPathWithLocale("/browse")} 
+                  className="text-gray-400 hover:text-primary text-sm transition-colors"
+                >
                   {t('footer.my_list', 'Mi Lista')}
                 </Link>
                 <Link to={getPathWithLocale("/profile")} className="text-gray-400 hover:text-primary text-sm transition-colors">

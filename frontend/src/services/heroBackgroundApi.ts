@@ -50,18 +50,27 @@ export const heroBackgroundApi = {
     const token = localStorage.getItem('auth_token');
     try {
       // Let the browser/axios set proper multipart boundaries automatically
+      // DO NOT set Content-Type header - browser will set it with boundary
       const response = await axios.post(`${API_BASE_URL}/admin/hero-backgrounds`, formData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
+          // Don't set Content-Type - let axios/browser set it with multipart/form-data boundary
         },
       });
       return response.data;
     } catch (err: any) {
+      console.error('Hero background create error:', {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        statusText: err?.response?.statusText
+      });
       const server = err?.response?.data;
       // Normalize error to surface validation messages clearly
       const msg = server?.message 
-        || (server?.errors && Object.values(server.errors)[0]?.[0])
+        || (server?.errors && Object.values(server.errors).flat().join(', '))
+        || err?.message
         || 'Upload failed';
       throw new Error(msg);
     }
@@ -73,17 +82,26 @@ export const heroBackgroundApi = {
   update: async (id: number, formData: FormData): Promise<HeroBackgroundResponse> => {
     const token = localStorage.getItem('auth_token');
     try {
+      // DO NOT set Content-Type header - browser will set it with boundary
       const response = await axios.post(`${API_BASE_URL}/admin/hero-backgrounds/${id}?_method=PUT`, formData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
+          // Don't set Content-Type - let axios/browser set it with multipart/form-data boundary
         },
       });
       return response.data;
     } catch (err: any) {
+      console.error('Hero background update error:', {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        statusText: err?.response?.statusText
+      });
       const server = err?.response?.data;
       const msg = server?.message 
-        || (server?.errors && Object.values(server.errors)[0]?.[0])
+        || (server?.errors && Object.values(server.errors).flat().join(', '))
+        || err?.message
         || 'Update failed';
       throw new Error(msg);
     }

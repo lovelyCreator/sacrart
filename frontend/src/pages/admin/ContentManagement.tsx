@@ -81,17 +81,20 @@ const ContentManagement = () => {
   const { locale: urlLocale } = useLocale();
   const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(urlLocale as 'en' | 'es' | 'pt' || 'en');
   
-  const [activeTab, setActiveTab] = useState('series');
+  const [activeTab, setActiveTab] = useState('categories');
   const [searchTerm, setSearchTerm] = useState('');
   const [series, setSeries] = useState<Series[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [filteredSeries, setFilteredSeries] = useState<Series[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isSeriesDialogOpen, setIsSeriesDialogOpen] = useState(false);
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -156,16 +159,34 @@ const ContentManagement = () => {
 
       let categoriesData: any[] = [];
 
-      // Handle categories
+      // Handle categories - Categories are separate from Series
       if (categoriesResponse.status === 'fulfilled') {
         const response = categoriesResponse.value;
         console.log('Categories API response:', response);
-        categoriesData = Array.isArray(response.data) ? response.data : response.data?.data || [];
+        if (response.success) {
+          // Handle paginated response
+          if (response.data?.data && Array.isArray(response.data.data)) {
+            categoriesData = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            categoriesData = response.data;
+          } else {
+            categoriesData = [];
+          }
+        } else {
+          categoriesData = [];
+        }
         console.log('Extracted categories data:', categoriesData);
         setCategories(categoriesData);
+        // Initialize filtered categories if we're on the categories tab
+        if (activeTab === 'categories') {
+          setFilteredCategories(categoriesData);
+        }
       } else {
         console.error('Failed to fetch categories:', categoriesResponse.reason);
         setCategories([]);
+        if (activeTab === 'categories') {
+          setFilteredCategories([]);
+        }
       }
 
       // Handle series (Note: series = category in backend)
@@ -189,12 +210,6 @@ const ContentManagement = () => {
         
         setSeries(seriesData);
         setFilteredSeries(seriesData);
-        
-        // Since series = category, also populate categories from series data if categories is empty
-        if (categoriesResponse.status !== 'fulfilled' || categoriesData.length === 0) {
-          console.log('Using series data as categories (series = category)');
-          setCategories(seriesData);
-        }
       } else {
         console.error('Failed to fetch series:', seriesResponse.reason);
         setSeries([]);
@@ -231,6 +246,19 @@ const ContentManagement = () => {
   };
 
   useEffect(() => {
+    // Filter categories
+    if (activeTab === 'categories') {
+      if (categories && categories.length > 0) {
+        const filtered = categories.filter(category => 
+          category?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (category?.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+        setFilteredCategories(filtered);
+      } else {
+        setFilteredCategories([]);
+      }
+    }
+
     // Filter series
     if (activeTab === 'series' && series) {
       const filtered = series.filter(serie => 
@@ -248,7 +276,7 @@ const ContentManagement = () => {
       );
       setFilteredVideos(filtered);
     }
-  }, [series, videos, searchTerm, activeTab]);
+  }, [categories, series, videos, searchTerm, activeTab]);
 
   const getVisibilityIcon = (visibility: string) => {
     switch (visibility) {
@@ -370,17 +398,137 @@ const ContentManagement = () => {
     setIsSeriesDialogOpen(true);
   };
 
+  const handleAddCategory = () => {
+    setSelectedCategory({
+      id: 0,
+      name: '',
+      slug: '',
+      description: '',
+      color: '',
+      icon: '',
+      image: null,
+      is_active: true,
+      sort_order: 0,
+      created_at: '',
+      updated_at: '',
+    });
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setSelectedCategory(category);
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleDeleteCategory = async (categoryId: number) => {
+    if (!window.confirm(t('admin.content_confirm_delete_category', 'Are you sure you want to delete this category?'))) {
+      return;
+    }
+
+    try {
+      const response = await categoryApi.delete(categoryId);
+      if (response.success) {
+        setCategories(prev => prev.filter(c => c.id !== categoryId));
+        setFilteredCategories(prev => prev.filter(c => c.id !== categoryId));
+        toast.success(t('admin.content_category_deleted', 'Category deleted successfully'));
+      } else {
+        toast.error(t('admin.content_category_delete_failed', 'Failed to delete category'));
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast.error(t('admin.content_category_delete_failed', 'Failed to delete category'));
+    }
+  };
+
+  const handleSaveCategory = async () => {
+    if (!selectedCategory) return;
+
+    if (!selectedCategory.name?.trim()) {
+      toast.error(t('admin.content_category_name_required', 'Category name is required'));
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      const categoryData: any = {
+        name: selectedCategory.name,
+        description: selectedCategory.description || '',
+        color: selectedCategory.color || '',
+        icon: selectedCategory.icon || '',
+        sort_order: selectedCategory.sort_order || 0,
+      };
+
+      // Handle image file upload if needed
+      let formData: FormData | null = null;
+      const categoryImage = selectedCategory.image;
+      // Check if image is an object with a 'file' property (uploaded file)
+      if (categoryImage !== null && 
+          categoryImage !== undefined &&
+          typeof categoryImage === 'object' && 
+          !Array.isArray(categoryImage) &&
+          'file' in categoryImage) {
+        const imageFile = categoryImage as { file: File };
+        formData = new FormData();
+        formData.append('name', categoryData.name);
+        if (categoryData.description) formData.append('description', categoryData.description);
+        if (categoryData.color) formData.append('color', categoryData.color);
+        if (categoryData.icon) formData.append('icon', categoryData.icon);
+        formData.append('sort_order', String(categoryData.sort_order));
+        formData.append('image_file', imageFile.file);
+      }
+
+      let response;
+      if (selectedCategory.id && selectedCategory.id > 0) {
+        // Update category
+        response = await categoryApi.update(selectedCategory.id, formData || categoryData);
+      } else {
+        // Create category
+        response = await categoryApi.create(formData || categoryData);
+      }
+
+      if (response.success) {
+        const savedCategory = response.data;
+        if (selectedCategory.id) {
+          setCategories(prev => prev.map(c => c.id === selectedCategory.id ? savedCategory : c));
+          setFilteredCategories(prev => prev.map(c => c.id === selectedCategory.id ? savedCategory : c));
+          toast.success(t('admin.content_category_updated', 'Category updated successfully'));
+        } else {
+          setCategories(prev => [savedCategory, ...prev]);
+          setFilteredCategories(prev => [savedCategory, ...prev]);
+          toast.success(t('admin.content_category_created', 'Category created successfully'));
+        }
+        setIsCategoryDialogOpen(false);
+        setSelectedCategory(null);
+      } else {
+        toast.error(t('admin.content_category_save_failed', 'Failed to save category'));
+      }
+    } catch (error) {
+      console.error('Error saving category:', error);
+      toast.error(t('admin.content_category_save_failed', 'Failed to save category'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleAddSeries = () => {
+    // Check if categories exist
+    if (categories.length === 0) {
+      toast.error(t('admin.content_no_categories_create_first', 'Please create a category first before creating a series.'));
+      setActiveTab('categories');
+      return;
+    }
+    
     setSelectedSeries({
       id: 0,
-      name: '', // Category name (since series = category)
+      name: '',
       title: '',
       slug: '',
       description: '',
       short_description: '',
       visibility: 'freemium',
       status: 'draft',
-      category_id: 1,
+      category_id: categories[0]?.id || null, // Default to first category
       instructor_id: 1,
       thumbnail: null,
       cover_image: null,
@@ -420,6 +568,12 @@ const ContentManagement = () => {
     // Validate that at least English title is provided
     if (!seriesMultilingual.title.en?.trim()) {
       toast.error('Title in English is required');
+      return;
+    }
+
+    // Validate that category is selected
+    if (!selectedSeries.category_id) {
+      toast.error(t('admin.content_category_required', 'Please select a category for this series.'));
       return;
     }
 
@@ -513,6 +667,12 @@ const ContentManagement = () => {
   };
 
   const handleAddVideo = () => {
+    // Check if series exist
+    if (series.length === 0) {
+      toast.error(t('admin.content_no_series_create_first', 'Please create a series first before creating an episode.'));
+      setActiveTab('series');
+      return;
+    }
     const defaultSeries = series.length > 0 ? series[0] : null;
     setSelectedVideo({
       id: 0,
@@ -591,10 +751,10 @@ const ContentManagement = () => {
     }
 
     // Ensure category_id is set (required by backend)
-    // In this system, series = category, so category_id should match series_id
+    // Get category_id from the selected series
     if (!selectedVideo.category_id && selectedVideo.series_id) {
       const selectedSeries = series.find(s => s.id === selectedVideo.series_id);
-      selectedVideo.category_id = selectedSeries?.id || selectedSeries?.category_id || selectedVideo.series_id;
+      selectedVideo.category_id = selectedSeries?.category_id || null;
     }
 
     // For Bunny.net-only integration, require at least an embed URL
@@ -841,21 +1001,41 @@ const ContentManagement = () => {
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('admin.common_refresh')}</span>
           </Button>
-          <Button variant="outline" onClick={handleAddVideo} size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{t('admin.content_add_episode')}</span>
-            <span className="sm:hidden">{t('admin.content_episode')}</span>
-          </Button>
-          <Button onClick={handleAddSeries} size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{t('admin.content_add_series')}</span>
-            <span className="sm:hidden">{t('admin.content_series')}</span>
-          </Button>
+          {activeTab === 'categories' && (
+            <Button onClick={handleAddCategory} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">{t('admin.content_add_category', 'Add Category')}</span>
+              <span className="sm:hidden">{t('admin.content_categories', 'Categories')}</span>
+            </Button>
+          )}
+          {activeTab === 'series' && (
+            <Button onClick={handleAddSeries} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">{t('admin.content_add_series')}</span>
+              <span className="sm:hidden">{t('admin.content_series')}</span>
+            </Button>
+          )}
+          {activeTab === 'videos' && (
+            <Button variant="outline" onClick={handleAddVideo} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">{t('admin.content_add_episode')}</span>
+              <span className="sm:hidden">{t('admin.content_episode')}</span>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
+        <Button
+          variant={activeTab === 'categories' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('categories')}
+          className="flex items-center"
+          size="sm"
+        >
+          <Folder className="mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">{t('admin.content_categories', 'Categories')}</span>
+        </Button>
         <Button
           variant={activeTab === 'series' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('series')}
@@ -889,6 +1069,161 @@ const ContentManagement = () => {
           />
         </div>
       </Card>
+
+      {/* Categories Tab */}
+      {activeTab === 'categories' && (
+        <>
+          {/* Desktop Table View */}
+          <Card className="hidden lg:block">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[300px]">{t('admin.content_table_category', 'Category')}</TableHead>
+                    <TableHead className="w-[150px]">{t('admin.content_table_description', 'Description')}</TableHead>
+                    <TableHead className="w-[100px]">{t('admin.content_table_sort_order', 'Sort Order')}</TableHead>
+                    <TableHead className="w-[120px]">{t('admin.content_table_created', 'Created')}</TableHead>
+                    <TableHead className="w-[70px]">{t('admin.content_table_actions', 'Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCategories && filteredCategories.length > 0 ? filteredCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                            {category.image ? (
+                              <img src={category.image} alt={category.name} className="w-full h-full object-cover rounded-lg" />
+                            ) : (
+                              <Folder className="h-6 w-6" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{category.name}</div>
+                            {category.color && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <div 
+                                  className="w-4 h-4 rounded-full border border-border" 
+                                  style={{ backgroundColor: category.color }}
+                                />
+                                <span className="text-xs text-muted-foreground">{category.color}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground line-clamp-2">
+                          {category.description || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{category.sort_order || 0}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center text-sm">
+                          <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                          {formatDate(category.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>{t('admin.content_actions', 'Actions')}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleEditCategory(category)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              {t('admin.content_edit', 'Edit')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteCategory(category.id!)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {t('admin.content_delete', 'Delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        {categories.length === 0 ? t('admin.content_no_categories', 'No categories found. Create your first category!') : t('admin.content_no_categories_match', 'No categories match your search criteria.')}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4">
+            {filteredCategories && filteredCategories.length > 0 ? filteredCategories.map((category) => (
+              <Card key={category.id} className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 flex-1 min-w-0">
+                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                      {category.image ? (
+                        <img src={category.image} alt={category.name} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        <Folder className="h-8 w-8" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{category.name}</h3>
+                      {category.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{category.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {formatDate(category.created_at)}
+                        </span>
+                        <span>Sort: {category.sort_order || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>{t('admin.content_actions', 'Actions')}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleEditCategory(category)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        {t('admin.content_edit', 'Edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteCategory(category.id!)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {t('admin.content_delete', 'Delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </Card>
+            )) : (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">
+                  {categories.length === 0 ? t('admin.content_no_categories', 'No categories found. Create your first category!') : t('admin.content_no_categories_match', 'No categories match your search criteria.')}
+                </p>
+              </Card>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Series Tab */}
       {activeTab === 'series' && (
@@ -1326,7 +1661,16 @@ const ContentManagement = () => {
       )}
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.content_total_categories', 'Total de Categorías')}</p>
+              <p className="text-2xl font-bold">{categories?.length || 0}</p>
+            </div>
+            <Folder className="h-8 w-8 text-primary" />
+          </div>
+        </Card>
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -1366,6 +1710,142 @@ const ContentManagement = () => {
       </div>
 
       
+
+      {/* Edit Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
+        setIsCategoryDialogOpen(open);
+        if (!open) {
+          setSelectedCategory(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory?.id ? t('admin.content_edit_category', 'Edit Category') : t('admin.content_create_category', 'Create Category')}</DialogTitle>
+            <DialogDescription>
+              {selectedCategory?.id ? t('admin.content_edit_category_desc', 'Make changes to the category here.') : t('admin.content_create_category_desc', 'Fill in the details to create a new category.')}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCategory && (
+            <div className="grid gap-4 py-4">
+              {/* Name */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="categoryName" className="text-right">
+                  {t('admin.content_label_name', 'Name')} <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="categoryName"
+                  value={selectedCategory.name || ''}
+                  onChange={(e) => setSelectedCategory({...selectedCategory, name: e.target.value})}
+                  className="col-span-3"
+                  placeholder={t('admin.content_category_name_placeholder', 'Enter category name')}
+                />
+              </div>
+              
+              {/* Description */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="categoryDescription" className="text-right pt-2">
+                  {t('admin.content_label_description', 'Description')}
+                </Label>
+                <Textarea
+                  id="categoryDescription"
+                  value={selectedCategory.description || ''}
+                  onChange={(e) => setSelectedCategory({...selectedCategory, description: e.target.value})}
+                  className="col-span-3"
+                  placeholder={t('admin.content_category_description_placeholder', 'Enter category description')}
+                  rows={4}
+                />
+              </div>
+              
+              {/* Color */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="categoryColor" className="text-right">
+                  {t('admin.content_label_color', 'Color')}
+                </Label>
+                <div className="col-span-3 flex items-center gap-2">
+                  <Input
+                    id="categoryColor"
+                    type="color"
+                    value={selectedCategory.color || '#000000'}
+                    onChange={(e) => setSelectedCategory({...selectedCategory, color: e.target.value})}
+                    className="w-20 h-10"
+                  />
+                  <Input
+                    type="text"
+                    value={selectedCategory.color || ''}
+                    onChange={(e) => setSelectedCategory({...selectedCategory, color: e.target.value})}
+                    placeholder="#000000"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+              
+              {/* Icon */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="categoryIcon" className="text-right">
+                  {t('admin.content_label_icon', 'Icon')}
+                </Label>
+                <Input
+                  id="categoryIcon"
+                  value={selectedCategory.icon || ''}
+                  onChange={(e) => setSelectedCategory({...selectedCategory, icon: e.target.value})}
+                  className="col-span-3"
+                  placeholder={t('admin.content_category_icon_placeholder', 'Icon name or class')}
+                />
+              </div>
+              
+              {/* Image Upload */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="categoryImage" className="text-right">
+                  {t('admin.content_label_image', 'Image')}
+                </Label>
+                <div className="col-span-3 space-y-2">
+                  <FileUpload
+                    type="image"
+                    accept="image/*"
+                    onFileSelect={(file) => {
+                      if (file) {
+                        setSelectedCategory({...selectedCategory, image: { file } as any});
+                      } else {
+                        setSelectedCategory({...selectedCategory, image: null});
+                      }
+                    }}
+                    label={t('admin.content_upload_image', 'Upload Image')}
+                    currentFile={typeof selectedCategory.image === 'string' ? selectedCategory.image : null}
+                  />
+                  {selectedCategory.image && typeof selectedCategory.image === 'string' && (
+                    <div className="mt-2">
+                      <img src={selectedCategory.image} alt={selectedCategory.name} className="w-32 h-32 object-cover rounded-lg" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Sort Order */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="categorySortOrder" className="text-right">
+                  {t('admin.content_label_sort_order', 'Sort Order')}
+                </Label>
+                <Input
+                  id="categorySortOrder"
+                  type="number"
+                  value={selectedCategory.sort_order || 0}
+                  onChange={(e) => setSelectedCategory({...selectedCategory, sort_order: parseInt(e.target.value) || 0})}
+                  className="col-span-3"
+                  min="0"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)} disabled={isSubmitting}>
+              {t('admin.common_cancel', 'Cancel')}
+            </Button>
+            <Button onClick={handleSaveCategory} disabled={isSubmitting}>
+              {isSubmitting ? t('admin.common_saving', 'Saving...') : (selectedCategory?.id ? t('admin.common_save_changes', 'Save Changes') : t('admin.common_create', 'Create Category'))}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Series Dialog */}
       <Dialog open={isSeriesDialogOpen} onOpenChange={(open) => {
@@ -1447,6 +1927,33 @@ const ContentManagement = () => {
                   placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
                   rows={2}
                 />
+              </div>
+              {/* Category Selection - Required */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category" className="text-right">
+                  {t('admin.content_label_category', 'Category')} <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedSeries.category_id?.toString() || ''}
+                  onValueChange={(value) => setSelectedSeries({...selectedSeries, category_id: parseInt(value)})}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder={t('admin.content_select_category', 'Select a category')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {categories.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        {t('admin.content_no_categories_available', 'No categories available. Please create a category first.')}
+                      </SelectItem>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id.toString()} className="focus:bg-accent">
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="visibility" className="text-right">
@@ -1734,7 +2241,7 @@ const ContentManagement = () => {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="videoSeries" className="text-right">
-                  Series
+                  Series <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={selectedVideo.series_id?.toString() || ''}
@@ -1749,17 +2256,25 @@ const ContentManagement = () => {
                   }}
                 >
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder={t('admin.content_label_select_series')} />
+                    <SelectValue placeholder={t('admin.content_label_select_series', 'Select a series')} />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border">
-                    {series.map((serie) => (
-                      <SelectItem key={serie.id} value={serie.id.toString()} className="focus:bg-accent">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{serie.name || 'Category'}</span>
-                          <span className="text-sm text-muted-foreground">{serie.title}</span>
-                        </div>
+                    {series.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        {t('admin.content_no_series_available', 'No series available. Please create a series first.')}
                       </SelectItem>
-                    ))}
+                    ) : (
+                      series.map((serie) => (
+                        <SelectItem key={serie.id} value={serie.id.toString()} className="focus:bg-accent">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{serie.title || serie.name}</span>
+                            {serie.description && (
+                              <span className="text-sm text-muted-foreground line-clamp-1">{serie.description}</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

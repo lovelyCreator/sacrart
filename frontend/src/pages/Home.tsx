@@ -40,6 +40,13 @@ import { feedbackApi, Feedback } from '@/services/feedbackApi';
 import { subscriptionPlanApi, SubscriptionPlan } from '@/services/subscriptionPlanApi';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
+import { useLanguage } from '@/hooks/useLanguage';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import cover1 from '@/assets/cover1.webp';
 import cover2 from '@/assets/cover2.webp';
 import cover3 from '@/assets/cover3.webp';
@@ -164,6 +171,7 @@ const Home = () => {
   const { user, isAuthenticated, updateUser, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const { navigateWithLocale, getPathWithLocale, locale } = useLocale();
+  const { currentLanguage, changeLanguage, languages } = useLanguage();
 
   // Bunny.net stream base URL for direct MP4 previews (e.g. https://your-stream-zone.b-cdn.net)
   const BUNNY_STREAM_BASE = import.meta.env.VITE_BUNNY_STREAM_URL || '';
@@ -1400,6 +1408,59 @@ const Home = () => {
               />
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Language Selector */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-1.5 text-white/90 hover:text-white hover:bg-white/10 px-2 py-1.5 rounded transition-all h-9 sm:h-10">
+                    <i className="fa-solid fa-globe text-sm"></i>
+                    <span className="text-xs font-medium uppercase hidden sm:inline">
+                      {languages.find(lang => lang.code === currentLanguage)?.code?.toUpperCase() || currentLanguage.toUpperCase()}
+                    </span>
+                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-[#181113] border-white/10 text-white w-40">
+                  {languages.length > 0 ? (
+                    languages.map((lang) => (
+                      <DropdownMenuItem
+                        key={lang.code}
+                        onClick={() => changeLanguage(lang.code)}
+                        className={`flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10 ${
+                          currentLanguage === lang.code ? 'bg-white/5 text-primary' : ''
+                        }`}
+                      >
+                        <span className="text-base">{lang.flag || '🌐'}</span>
+                        <span className="flex-1">{lang.native || lang.name}</span>
+                        {currentLanguage === lang.code && (
+                          <i className="fa-solid fa-check text-primary text-sm"></i>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    // Fallback languages if API hasn't loaded yet
+                    [
+                      { code: 'en', name: 'English', native: 'English', flag: '🇺🇸' },
+                      { code: 'es', name: 'Spanish', native: 'Español', flag: '🇪🇸' },
+                      { code: 'pt', name: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+                    ].map((lang) => (
+                      <DropdownMenuItem
+                        key={lang.code}
+                        onClick={() => changeLanguage(lang.code)}
+                        className={`flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10 ${
+                          currentLanguage === lang.code ? 'bg-white/5 text-primary' : ''
+                        }`}
+                      >
+                        <span className="text-base">{lang.flag}</span>
+                        <span className="flex-1">{lang.native}</span>
+                        {currentLanguage === lang.code && (
+                          <span className="text-primary">✓</span>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button
                 variant="outline"
                 onClick={() => navigate('/auth')}

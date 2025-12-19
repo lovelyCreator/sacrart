@@ -52,13 +52,23 @@ interface MultilingualData {
 
 // Translatable settings keys
 const TRANSLATABLE_KEYS = [
+  'hero_badge',
   'hero_title',
   'hero_subtitle',
-  'hero_cta_text',
-  'hero_cta_button_text',
-  'hero_disclaimer',
+  'hero_description',
+  'hero_stat_1_value',
+  'hero_stat_1_label',
+  'hero_stat_2_value',
+  'hero_stat_2_label',
+  'hero_stat_3_value',
+  'hero_stat_3_label',
+  'hero_stat_4_value',
+  'hero_stat_4_label',
   'about_title',
   'about_description',
+  'about_text_1',
+  'about_text_2',
+  'about_text_3',
   'testimonial_title',
   'testimonial_subtitle',
   'site_name',
@@ -87,6 +97,8 @@ const Settings = () => {
   const [fixedHeroImages, setFixedHeroImages] = useState<string[]>(Array.from({ length: HERO_SLOTS }, () => ''));
   // Store hero background IDs mapped by sort_order (slot index)
   const [heroBackgroundIds, setHeroBackgroundIds] = useState<Record<number, number>>({});
+  // Track current about image URL for display
+  const [currentAboutImage, setCurrentAboutImage] = useState<string>('');
   
   // FAQ Management State
   const [faqs, setFaqs] = useState<Faq[]>([]);
@@ -136,14 +148,82 @@ const Settings = () => {
     }
   }, [contentLocale]);
 
+  // Update currentAboutImage when settings are loaded
+  useEffect(() => {
+    const aboutImageSetting = settings.about?.find(s => s.key === 'about_image')?.value;
+    if (aboutImageSetting && aboutImageSetting.trim()) {
+      // Process URL using the same logic as getImageUrl
+      let processedUrl = '';
+      const trimmedUrl = String(aboutImageSetting).trim();
+      
+      if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        if (trimmedUrl.includes('://') && trimmedUrl.length > 7 && !trimmedUrl.includes(' ')) {
+          processedUrl = trimmedUrl.includes('?') ? `${trimmedUrl}&t=${Date.now()}` : `${trimmedUrl}?t=${Date.now()}`;
+        }
+      } else {
+        // Use buildAbsoluteUrl for relative paths
+        const abs = buildAbsoluteUrl(trimmedUrl);
+        if (abs && abs.includes('://') && abs.length > 7) {
+          processedUrl = abs.includes('?') ? `${abs}&t=${Date.now()}` : `${abs}?t=${Date.now()}`;
+        } else {
+          // Fallback: try to construct URL manually
+          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+          const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
+          if (origin && trimmedUrl.startsWith('/')) {
+            processedUrl = `${origin}${trimmedUrl}?t=${Date.now()}`;
+          }
+        }
+      }
+      
+      console.log('Setting currentAboutImage:', processedUrl || aboutImageSetting);
+      setCurrentAboutImage(processedUrl || aboutImageSetting);
+    } else {
+      setCurrentAboutImage('');
+    }
+  }, [settings.about]);
+
   // Helper to construct full URL to backend for any given path
   const buildAbsoluteUrl = (url: string) => {
-    if (!url) return '';
-    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
-    const origin = String(apiBase).replace(/\/?api\/?$/, '');
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const path = url.startsWith('/') ? url : `/${url}`;
-    return `${origin}${path}`;
+    if (!url || typeof url !== 'string' || url.trim() === '') return '';
+    
+    const trimmedUrl = url.trim();
+    
+    // If already absolute, return as-is (basic validation without URL constructor)
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      // Basic validation - check if it looks like a valid URL
+      if (trimmedUrl.includes('://') && trimmedUrl.length > 7) {
+        return trimmedUrl;
+      }
+      console.warn('Invalid absolute URL format:', trimmedUrl);
+      return '';
+    }
+    
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+      const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
+      
+      if (!origin || origin === '') {
+        console.error('Invalid API base URL');
+        return '';
+      }
+      
+      // Clean the path
+      const cleanPath = trimmedUrl.startsWith('/') ? trimmedUrl : `/${trimmedUrl}`;
+      
+      // Construct full URL
+      const fullUrl = `${origin}${cleanPath}`;
+      
+      // Basic validation - check if it looks like a valid URL
+      if (fullUrl.includes('://') && fullUrl.length > 7) {
+        return fullUrl;
+      }
+      
+      console.warn('Invalid URL constructed:', fullUrl, 'from:', url);
+      return '';
+    } catch (error) {
+      console.error('Error in buildAbsoluteUrl:', error, 'url:', url);
+      return '';
+    }
   };
 
   // Fetch hero backgrounds from database
@@ -275,12 +355,19 @@ const Settings = () => {
         TRANSLATABLE_KEYS.forEach(key => {
           // Try to get translations from settings
           const setting = Object.values(settingsData).find((s: any) => s.key === key) as any;
-          const translations = setting?.translations || {};
-          multilingualData[key] = {
-            en: translations.en || setting?.value || '',
-            es: translations.es || '',
-            pt: translations.pt || '',
-          };
+          if (setting) {
+            const translations = setting.translations || {};
+            // Preserve existing multilingual data if available, merge with fetched data
+            const existing = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+            multilingualData[key] = {
+              en: translations.en || setting.value || existing.en || '',
+              es: translations.es || existing.es || '',
+              pt: translations.pt || existing.pt || '',
+            };
+          } else {
+            // Keep existing data if setting not found
+            multilingualData[key] = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+          }
         });
         setSettingsMultilingual(multilingualData);
       }
@@ -304,9 +391,12 @@ const Settings = () => {
         'hero_cta_text',
         'hero_cta_button_text',
         'hero_disclaimer',
-        'about_title',
-        'about_description',
-        'testimonial_title',
+  'about_title',
+  'about_description',
+  'about_text_1',
+  'about_text_2',
+  'about_text_3',
+  'testimonial_title',
         'testimonial_subtitle',
         'site_name',
         'site_tagline',
@@ -387,6 +477,28 @@ const Settings = () => {
                 value: multilingualValue.en || '',
                 type: 'text',
                 group: 'footer',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+                locale: 'en',
+                translations: multilingualValue,
+              } as any);
+            }
+          }
+        });
+      }
+
+      // Handle about settings (including about_text fields)
+      if (groupName === 'about') {
+        ['about_title', 'about_description', 'about_text_1', 'about_text_2', 'about_text_3'].forEach(key => {
+          if (settingsMultilingual[key]) {
+            const multilingualValue = settingsMultilingual[key];
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: multilingualValue.en || '',
+                type: 'text',
+                group: 'about',
                 label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 description: '',
                 locale: 'en',
@@ -586,102 +698,473 @@ const Settings = () => {
 
   // Helper to construct full URL if needed (use backend origin for /storage paths)
   const getImageUrl = (url: string) => {
-    const abs = buildAbsoluteUrl(url);
-    if (!abs) return '';
-    // add cache buster to avoid stale previews
-    return abs.includes('?') ? `${abs}&t=${Date.now()}` : `${abs}?t=${Date.now()}`;
+    if (!url || typeof url !== 'string' || url.trim() === '') return '';
+    
+    const trimmedUrl = url.trim();
+    
+    // If already absolute, add cache buster and return
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      // Basic validation - check if it looks like a valid URL
+      if (trimmedUrl.includes('://') && trimmedUrl.length > 7) {
+        return trimmedUrl.includes('?') ? `${trimmedUrl}&t=${Date.now()}` : `${trimmedUrl}?t=${Date.now()}`;
+      }
+      console.warn('Invalid absolute URL format:', trimmedUrl);
+      return '';
+    }
+    
+    try {
+      const abs = buildAbsoluteUrl(trimmedUrl);
+      if (!abs || abs.trim() === '') {
+        console.warn('buildAbsoluteUrl returned empty for:', trimmedUrl);
+        return '';
+      }
+      
+      // Basic validation - check if it looks like a valid URL
+      if (!abs.includes('://') || abs.length <= 7) {
+        console.warn('Invalid URL format:', abs, 'from original:', trimmedUrl);
+        return '';
+      }
+      
+      // add cache buster to avoid stale previews
+      return abs.includes('?') ? `${abs}&t=${Date.now()}` : `${abs}?t=${Date.now()}`;
+    } catch (error) {
+      console.error('Error in getImageUrl:', error, 'url:', trimmedUrl);
+      return '';
+    }
   };
 
   // Upload a single hero image into a fixed slot and persist immediately
-  const uploadHeroSlot = async (index: number, file: File) => {
+  const uploadHeroSlot = async (index: number, file: File): Promise<string> => {
     try {
+      // Validate file
+      if (!file) {
+        throw new Error('No file selected');
+      }
+
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('File size must be less than 10MB');
+      }
+
+      // Check file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload JPEG, PNG, or WebP image');
+      }
+
+      // Validate file before creating FormData
+      if (!file || !(file instanceof File)) {
+        throw new Error('Invalid file object');
+      }
+
       const formData = new FormData();
       formData.append('name', `Hero ${index + 1}`);
       formData.append('image', file);
       formData.append('is_active', 'true');
       formData.append('sort_order', String(index));
+      
+      console.log('Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        slot: index
+      });
 
-      let response;
-      let bg;
+      let response: any;
+      let bg: any;
       
       // Check if hero background exists for this slot (by sort_order)
       const existingId = heroBackgroundIds[index];
       
-      if (existingId) {
-        // Update existing hero background
-        response = await heroBackgroundApi.update(existingId, formData);
-        if (!response.success) throw new Error('Update failed');
-        bg = Array.isArray(response.data) ? response.data[0] : response.data;
-      } else {
-        // Create new hero background if it doesn't exist
-        response = await heroBackgroundApi.create(formData);
-        if (!response.success) throw new Error('Upload failed');
-        bg = Array.isArray(response.data) ? response.data[0] : response.data;
-        // Store the new ID
-        setHeroBackgroundIds(prev => ({
-          ...prev,
-          [index]: bg.id
-        }));
+      try {
+        if (existingId) {
+          // Update existing hero background
+          console.log('Updating hero background:', existingId, 'for slot:', index);
+          response = await heroBackgroundApi.update(existingId, formData);
+          console.log('Update response:', response);
+          
+          if (!response) {
+            throw new Error('No response from server');
+          }
+          
+          if (!response.success) {
+            const errorMsg = response.message || 'Update failed';
+            throw new Error(errorMsg);
+          }
+          
+          // Handle different response structures
+          // Backend typically returns { success: true, data: HeroBackground } (single object)
+          // But TypeScript interface says data: HeroBackground[] (array)
+          if (Array.isArray(response.data)) {
+            bg = response.data[0];
+          } else if (response.data && typeof response.data === 'object') {
+            // Single object response - this is the typical case
+            if (response.data.id) {
+              // Direct HeroBackground object
+              bg = response.data;
+            } else if (response.data.data && response.data.data.id) {
+              // Nested data object
+              bg = response.data.data;
+            } else {
+              // Try to use it as-is
+              bg = response.data;
+            }
+          } else {
+            console.error('Unexpected response format:', response);
+            throw new Error('Invalid response format from update');
+          }
+          
+          // Validate bg has required fields
+          if (!bg || (!bg.image_url && !bg.image_path)) {
+            console.error('Invalid background object:', bg);
+            throw new Error('Invalid background data returned from server');
+          }
+        } else {
+          // Create new hero background if it doesn't exist
+          console.log('Creating new hero background for slot:', index);
+          try {
+            response = await heroBackgroundApi.create(formData);
+            console.log('Create response:', response);
+          } catch (createError: any) {
+            // Check if it's a URL construction error from axios
+            if (createError?.message && createError.message.includes('Failed to construct') && createError.message.includes('URL')) {
+              console.error('URL construction error in axios request. This might be due to invalid API_BASE_URL.');
+              throw new Error('Invalid API configuration. Please check your API URL settings.');
+            }
+            throw createError;
+          }
+          
+          if (!response) {
+            throw new Error('No response from server');
+          }
+          
+          if (!response.success) {
+            const errorMsg = response.message || 'Upload failed';
+            throw new Error(errorMsg);
+          }
+          
+          // Handle different response structures
+          // Backend typically returns { success: true, data: HeroBackground } (single object)
+          // But TypeScript interface says data: HeroBackground[] (array)
+          if (Array.isArray(response.data)) {
+            bg = response.data[0];
+          } else if (response.data && typeof response.data === 'object') {
+            // Single object response - this is the typical case
+            if (response.data.id) {
+              // Direct HeroBackground object
+              bg = response.data;
+            } else if (response.data.data && response.data.data.id) {
+              // Nested data object
+              bg = response.data.data;
+            } else {
+              // Try to use it as-is
+              bg = response.data;
+            }
+          } else {
+            console.error('Unexpected response format:', response);
+            throw new Error('Invalid response format from create');
+          }
+          
+          // Validate bg has required fields
+          if (!bg || (!bg.image_url && !bg.image_path)) {
+            console.error('Invalid background object:', bg);
+            throw new Error('Invalid background data returned from server');
+          }
+          
+          // Store the new ID
+          if (bg && bg.id) {
+            setHeroBackgroundIds(prev => ({
+              ...prev,
+              [index]: bg.id
+            }));
+          }
+        }
+      } catch (apiError: any) {
+        console.error('API error details:', {
+          message: apiError?.message,
+          response: apiError?.response?.data,
+          status: apiError?.response?.status,
+          statusText: apiError?.response?.statusText,
+          stack: apiError?.stack,
+          name: apiError?.name,
+          code: apiError?.code
+        });
+        
+        // Extract detailed error message
+        let errorMessage = 'Failed to upload hero background image';
+        
+        // Check if it's a URL construction error (from axios or browser)
+        const isUrlError = apiError?.message && (
+          apiError.message.includes('Failed to construct') || 
+          apiError.message.includes('Invalid URL') ||
+          apiError.message.includes('URL') && apiError.message.includes('Invalid')
+        );
+        
+        if (isUrlError) {
+          // This could be from axios trying to construct the request URL
+          // or from processing the response URL
+          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+          errorMessage = `URL construction error. Please check your API configuration. API URL: ${apiBase}`;
+          console.error('URL construction error detected. API Base URL:', apiBase);
+          console.error('This might be due to invalid API_BASE_URL or invalid URL in server response.');
+        } else if (apiError?.response?.data) {
+          const errorData = apiError.response.data;
+          errorMessage = errorData.message 
+            || (errorData.errors && Object.values(errorData.errors).flat().join(', '))
+            || errorMessage;
+        } else if (apiError?.message) {
+          errorMessage = apiError.message;
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      const rawUrl: string = bg?.image_url || bg?.image_path || '';
-      const url = getImageUrl(rawUrl);
+      if (!bg) {
+        console.error('No background data in response:', response);
+        throw new Error('No background data returned from server');
+      }
+      
+      console.log('Background object received:', bg);
+      console.log('image_url:', bg.image_url, 'Type:', typeof bg.image_url);
+      console.log('image_path:', bg.image_path, 'Type:', typeof bg.image_path);
+      
+      // Safely extract URL from response - handle all possible types without URL constructor
+      let rawUrl: string = '';
+      try {
+        if (bg.image_url !== null && bg.image_url !== undefined) {
+          rawUrl = String(bg.image_url).trim();
+        } else if (bg.image_path !== null && bg.image_path !== undefined) {
+          rawUrl = String(bg.image_path).trim();
+        }
+      } catch (e) {
+        console.error('Error extracting URL from background object:', e);
+        rawUrl = '';
+      }
+      
+      if (!rawUrl || rawUrl === '') {
+        console.error('Background object:', bg);
+        console.error('Raw URL value:', rawUrl, 'Type:', typeof rawUrl);
+        console.error('image_url:', bg.image_url, 'Type:', typeof bg.image_url);
+        console.error('image_path:', bg.image_path, 'Type:', typeof bg.image_path);
+        throw new Error('No valid image URL returned from server. Please check the server response.');
+      }
+      
+      console.log('Raw URL from server:', rawUrl);
+      
+      // Process the URL - getImageUrl now handles errors internally without throwing
+      let url: string = '';
+      
+      // If rawUrl is already absolute, use it directly with cache buster
+      if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+        // Basic validation - must contain :// and be longer than protocol
+        if (rawUrl.includes('://') && rawUrl.length > 7 && !rawUrl.includes(' ')) {
+          url = rawUrl.includes('?') ? `${rawUrl}&t=${Date.now()}` : `${rawUrl}?t=${Date.now()}`;
+          console.log('Using raw absolute URL:', url);
+        } else {
+          console.error('Invalid absolute URL format:', rawUrl);
+          throw new Error('Server returned invalid absolute URL format: ' + rawUrl.substring(0, 50));
+        }
+      } else {
+        // Process relative URL - getImageUrl won't throw, just returns empty string on error
+        url = getImageUrl(rawUrl);
+        console.log('Processed relative URL:', url);
+      }
+      
+      if (!url || url.trim() === '') {
+        console.error('Failed to process URL. Raw URL:', rawUrl, 'Type:', typeof rawUrl, 'Background object:', bg);
+        // Last resort: if rawUrl exists and looks like it could be a URL, use it as-is
+        if (rawUrl && rawUrl.length > 0 && !rawUrl.includes(' ')) {
+          // If it starts with /, it's a path - try to make it absolute
+          if (rawUrl.startsWith('/')) {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+            const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
+            if (origin && origin.length > 0) {
+              url = `${origin}${rawUrl}`;
+              console.log('Fallback: Constructed URL from path:', url);
+            }
+          } else if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+            url = rawUrl;
+            console.log('Fallback: Using raw URL without cache buster:', url);
+          }
+        }
+        
+        if (!url || url.trim() === '') {
+          throw new Error('Failed to process image URL. Server returned: "' + (rawUrl || 'empty') + '". Please try uploading again.');
+        }
+      }
 
-      // Update UI state and persist to settings
+      // Update UI state immediately with the new URL
       setFixedHeroImages(prev => {
         const latest = [...prev];
         latest[index] = url;
-        // Persist to settings
-        const heroJson = JSON.stringify(latest.map((u, i) => ({ url: u, alt: `Hero ${i + 1}`, rotation: 0, x: 0, y: 0 })));
-        settingsApi.bulkUpdate([{ key: 'hero_background_images', value: heroJson, group: 'hero' }]);
+        
+        // Persist to settings (async, don't wait)
+        const heroJson = JSON.stringify(latest.map((u, i) => ({ 
+          url: u, 
+          alt: `Hero ${i + 1}`, 
+          rotation: 0, 
+          x: 0, 
+          y: 0 
+        })));
+        settingsApi.bulkUpdate([{ key: 'hero_background_images', value: heroJson, group: 'hero' }]).catch((settingsError) => {
+          console.error('Failed to update settings:', settingsError);
+          // Don't fail the upload if settings update fails
+        });
+        
         return latest;
       });
       
-      toast.success('Hero background image updated');
+      toast.success(`Hero background image ${existingId ? 'updated' : 'uploaded'} successfully`);
+      
+      // Return the URL for FileUpload component
+      return url;
     } catch (e: any) {
       console.error('Hero slot upload failed:', e);
-      toast.error(e.message || 'Failed to update hero background');
+      const errorMessage = e?.response?.data?.message 
+        || (e?.response?.data?.errors && Object.values(e.response.data.errors).flat().join(', '))
+        || e?.message 
+        || 'Failed to update hero background. Please check your connection and try again.';
+      toast.error(errorMessage);
+      throw e; // Re-throw so FileUpload component can handle it
     }
   };
 
   // Upload About image and persist directly to site_settings (not hero_backgrounds table)
-  const uploadAboutImage = async (file: File) => {
+  const uploadAboutImage = async (file: File): Promise<string> => {
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+      // Validate file
+      if (!file || !(file instanceof File)) {
+        throw new Error('Invalid file object');
+      }
+
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('File size must be less than 10MB');
+      }
+
+      // Check file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload JPEG, PNG, or WebP image');
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
       const token = localStorage.getItem('auth_token');
+      
+      console.log('Uploading about image:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
       
       // Upload image using media endpoint (stores to storage, not hero_backgrounds table)
       const formData = new FormData();
-      formData.append('image', file); // Use 'image' key for single upload
+      formData.append('image', file);
       
-      const uploadResponse = await axios.post(`${API_BASE_URL}/media/images`, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
+      let uploadResponse;
+      try {
+        uploadResponse = await axios.post(`${API_BASE_URL}/media/images`, formData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+      } catch (uploadError: any) {
+        console.error('Media upload error:', uploadError);
+        // Check if it's a URL construction error
+        if (uploadError?.message && uploadError.message.includes('Failed to construct') && uploadError.message.includes('URL')) {
+          throw new Error('Invalid API configuration. Please check your API URL settings.');
+        }
+        const errorMsg = uploadError?.response?.data?.message 
+          || (uploadError?.response?.data?.errors && Object.values(uploadError.response.data.errors).flat().join(', '))
+          || uploadError?.message 
+          || 'Failed to upload image';
+        throw new Error(errorMsg);
+      }
+      
+      if (!uploadResponse || !uploadResponse.data) {
+        throw new Error('No response from server');
+      }
       
       if (!uploadResponse.data.success || !uploadResponse.data.data || uploadResponse.data.data.length === 0) {
-        throw new Error('Upload failed');
+        throw new Error('Upload failed: Invalid server response');
       }
       
       // Get the uploaded image URL from the response
       const uploadedImage = uploadResponse.data.data[0];
-      const imageUrl = uploadedImage.url || uploadedImage.path || '';
+      let rawImageUrl: string = '';
       
-      if (!imageUrl) {
-        throw new Error('No image URL returned from upload');
+      try {
+        if (uploadedImage.url) {
+          rawImageUrl = String(uploadedImage.url).trim();
+        } else if (uploadedImage.path) {
+          rawImageUrl = String(uploadedImage.path).trim();
+        }
+      } catch (e) {
+        console.error('Error extracting URL from upload response:', e);
+        rawImageUrl = '';
+      }
+      
+      if (!rawImageUrl || rawImageUrl === '') {
+        console.error('Upload response:', uploadResponse.data);
+        throw new Error('No valid image URL returned from server');
+      }
+      
+      console.log('Raw image URL from server:', rawImageUrl);
+      
+      // Process the URL safely
+      let processedUrl: string = '';
+      
+      // If rawImageUrl is already absolute, use it directly
+      if (rawImageUrl.startsWith('http://') || rawImageUrl.startsWith('https://')) {
+        // Basic validation - must contain :// and be longer than protocol
+        if (rawImageUrl.includes('://') && rawImageUrl.length > 7 && !rawImageUrl.includes(' ')) {
+          processedUrl = rawImageUrl.includes('?') ? `${rawImageUrl}&t=${Date.now()}` : `${rawImageUrl}?t=${Date.now()}`;
+          console.log('Using raw absolute URL:', processedUrl);
+        } else {
+          console.error('Invalid absolute URL format:', rawImageUrl);
+          throw new Error('Server returned invalid absolute URL format');
+        }
+      } else {
+        // Process relative URL - getImageUrl won't throw, just returns empty string on error
+        processedUrl = getImageUrl(rawImageUrl);
+        console.log('Processed relative URL:', processedUrl);
+      }
+      
+      if (!processedUrl || processedUrl.trim() === '') {
+        console.error('Failed to process URL. Raw URL:', rawImageUrl);
+        // Last resort: if rawImageUrl exists and looks like it could be a URL, use it as-is
+        if (rawImageUrl && rawImageUrl.length > 0 && !rawImageUrl.includes(' ')) {
+          // If it starts with /, it's a path - try to make it absolute
+          if (rawImageUrl.startsWith('/')) {
+            const origin = String(API_BASE_URL).replace(/\/?api\/?$/, '').trim();
+            if (origin && origin.length > 0) {
+              processedUrl = `${origin}${rawImageUrl}`;
+              console.log('Fallback: Constructed URL from path:', processedUrl);
+            }
+          } else if (rawImageUrl.startsWith('http://') || rawImageUrl.startsWith('https://')) {
+            processedUrl = rawImageUrl;
+            console.log('Fallback: Using raw URL without cache buster:', processedUrl);
+          }
+        }
+        
+        if (!processedUrl || processedUrl.trim() === '') {
+          throw new Error('Failed to process image URL. Server returned: "' + (rawImageUrl || 'empty') + '". Please try uploading again.');
+        }
       }
       
       // Delete old image if exists (optional cleanup)
       const currentAboutImage = settings.about?.find(s => s.key === 'about_image')?.value;
-      if (currentAboutImage && currentAboutImage !== imageUrl) {
+      if (currentAboutImage && currentAboutImage !== rawImageUrl) {
         try {
           // Extract path from URL if it's a full URL
           let pathToDelete = currentAboutImage;
           if (pathToDelete.startsWith('http://') || pathToDelete.startsWith('https://')) {
-            const urlObj = new URL(pathToDelete);
-            pathToDelete = urlObj.pathname;
+            // Extract path from URL manually without using URL constructor
+            const match = pathToDelete.match(/https?:\/\/[^\/]+(\/.*)/);
+            if (match && match[1]) {
+              pathToDelete = match[1];
+            }
             // Remove /storage prefix if present
             if (pathToDelete.startsWith('/storage/')) {
               pathToDelete = pathToDelete.substring('/storage/'.length);
@@ -689,12 +1172,15 @@ const Settings = () => {
           }
           
           // Call delete endpoint - use POST endpoint for better compatibility
-          if (pathToDelete) {
+          if (pathToDelete && pathToDelete.length > 0) {
             await axios.post(`${API_BASE_URL}/media/files/delete`, { path: pathToDelete }, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json',
               }
+            }).catch((deleteError) => {
+              // Silently fail if deletion fails (old file might not exist)
+              console.warn('Failed to delete old about image:', deleteError);
             });
           }
         } catch (deleteError) {
@@ -703,16 +1189,27 @@ const Settings = () => {
         }
       }
       
-      // Save URL to site_settings table
-      const finalUrl = buildAbsoluteUrl(imageUrl);
-      await settingsApi.bulkUpdate([{ key: 'about_image', value: imageUrl, group: 'about' }]);
-      updateSetting('about', 'about_image', imageUrl);
+      // Save URL to site_settings table (use rawImageUrl, not processedUrl, so backend can handle it)
+      await settingsApi.bulkUpdate([{ key: 'about_image', value: rawImageUrl, group: 'about' }]);
+      updateSetting('about', 'about_image', rawImageUrl);
       
-      toast.success('About image updated');
-      return finalUrl;
+      // Update local state immediately for preview (use processed URL)
+      console.log('Setting currentAboutImage after upload:', processedUrl);
+      setCurrentAboutImage(processedUrl);
+      
+      // Refresh settings to get updated value
+      await fetchSettings();
+      
+      toast.success('About image updated successfully');
+      
+      // Return processed URL for preview
+      return processedUrl;
     } catch (error: any) {
       console.error('About image upload failed:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to upload about image';
+      const errorMsg = error?.response?.data?.message 
+        || (error?.response?.data?.errors && Object.values(error.response.data.errors).flat().join(', '))
+        || error?.message 
+        || 'Failed to upload about image. Please check your connection and try again.';
       toast.error(errorMsg);
       throw error;
     }
@@ -1199,6 +1696,14 @@ const Settings = () => {
     );
   };
 
+  // Helper function to get hero field value with fallback
+  const getHeroFieldValue = (key: string) => {
+    return settingsMultilingual[key]?.[contentLocale] || 
+           (settings.hero?.find(s => s.key === key) as any)?.translations?.[contentLocale] || 
+           settings.hero?.find(s => s.key === key)?.value || 
+           '';
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -1280,25 +1785,37 @@ const Settings = () => {
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.hero.title')}</h2>
-              {settings.hero && settings.hero.length > 0 ? (
-                renderSettingsGroup('hero', settings.hero.filter(setting => setting && setting.key && !setting.key.includes('hero_background_images')))
-              ) : (
+              <div className="space-y-4">
+                {/* Language Tabs */}
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                  className="mb-4"
+                />
+                
                 <div className="space-y-4">
-                  {/* <p className="text-muted-foreground mb-4">{t('admin.settings_page.hero.no_settings') || 'No hero settings found. Create them below:'}</p> */}
-                  
-                  {/* Language Tabs */}
-                  <LanguageTabs 
-                    activeLanguage={contentLocale} 
-                    onLanguageChange={(lang) => setContentLocale(lang)}
-                    className="mb-4"
-                  />
-                  
-                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="hero_badge">Hero Badge <span className="text-muted-foreground text-xs">(e.g., "Nueva Masterclass Disponible")</span></Label>
+                      <Input
+                        id="hero_badge"
+                        value={settingsMultilingual.hero_badge?.[contentLocale] || (settings.hero?.find(s => s.key === 'hero_badge') as any)?.translations?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_badge')?.value || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            hero_badge: {
+                              ...(prev.hero_badge || { en: '', es: '', pt: '' }),
+                              [contentLocale]: e.target.value,
+                            },
+                          }));
+                        }}
+                        placeholder={`Enter hero badge text in ${contentLocale.toUpperCase()}`}
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="hero_title">Hero Title <span className="text-red-500">*</span></Label>
                       <Input
                         id="hero_title"
-                        value={settingsMultilingual.hero_title?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_title')?.value || ''}
+                        value={getHeroFieldValue('hero_title')}
                         onChange={(e) => {
                           setSettingsMultilingual(prev => ({
                             ...prev,
@@ -1307,16 +1824,15 @@ const Settings = () => {
                               [contentLocale]: e.target.value,
                             },
                           }));
-                          updateSetting('hero', 'hero_title', e.target.value);
                         }}
-                        placeholder={`Enter hero title in ${contentLocale.toUpperCase()}`}
+                        placeholder={`Enter hero title in ${contentLocale.toUpperCase()} (e.g., "EL ARTE DE")`}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="hero_subtitle">Hero Subtitle</Label>
                       <Input
                         id="hero_subtitle"
-                        value={settingsMultilingual.hero_subtitle?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_subtitle')?.value || ''}
+                        value={getHeroFieldValue('hero_subtitle')}
                         onChange={(e) => {
                           setSettingsMultilingual(prev => ({
                             ...prev,
@@ -1325,78 +1841,254 @@ const Settings = () => {
                               [contentLocale]: e.target.value,
                             },
                           }));
-                          updateSetting('hero', 'hero_subtitle', e.target.value);
                         }}
-                        placeholder={`Enter hero subtitle in ${contentLocale.toUpperCase()}`}
+                        placeholder={`Enter hero subtitle in ${contentLocale.toUpperCase()} (e.g., "LO DIVINO")`}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="hero_cta_text">Hero CTA Text</Label>
-                      <Input
-                        id="hero_cta_text"
-                        value={settingsMultilingual.hero_cta_text?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_cta_text')?.value || ''}
-                        onChange={(e) => {
-                          setSettingsMultilingual(prev => ({
-                            ...prev,
-                            hero_cta_text: {
-                              ...(prev.hero_cta_text || { en: '', es: '', pt: '' }),
-                              [contentLocale]: e.target.value,
-                            },
-                          }));
-                          updateSetting('hero', 'hero_cta_text', e.target.value);
-                        }}
-                        placeholder={`Enter hero CTA text in ${contentLocale.toUpperCase()}`}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hero_cta_button_text">Hero CTA Button Text</Label>
-                      <Input
-                        id="hero_cta_button_text"
-                        value={settingsMultilingual.hero_cta_button_text?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_cta_button_text')?.value || ''}
-                        onChange={(e) => {
-                          setSettingsMultilingual(prev => ({
-                            ...prev,
-                            hero_cta_button_text: {
-                              ...(prev.hero_cta_button_text || { en: '', es: '', pt: '' }),
-                              [contentLocale]: e.target.value,
-                            },
-                          }));
-                          updateSetting('hero', 'hero_cta_button_text', e.target.value);
-                        }}
-                        placeholder={`Enter hero CTA button text in ${contentLocale.toUpperCase()}`}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hero_price">Hero Price</Label>
-                      <Input
-                        id="hero_price"
-                        value={settings.hero?.find(s => s.key === 'hero_price')?.value || ''}
-                        onChange={(e) => updateSetting('hero', 'hero_price', e.target.value)}
-                        placeholder="€9.99/month"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hero_disclaimer">Hero Disclaimer</Label>
+                      <Label htmlFor="hero_description">Hero Description</Label>
                       <Textarea
-                        id="hero_disclaimer"
-                        value={settingsMultilingual.hero_disclaimer?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_disclaimer')?.value || ''}
+                        id="hero_description"
+                        value={getHeroFieldValue('hero_description')}
                         onChange={(e) => {
                           setSettingsMultilingual(prev => ({
                             ...prev,
-                            hero_disclaimer: {
-                              ...(prev.hero_disclaimer || { en: '', es: '', pt: '' }),
+                            hero_description: {
+                              ...(prev.hero_description || { en: '', es: '', pt: '' }),
                               [contentLocale]: e.target.value,
                             },
                           }));
-                          updateSetting('hero', 'hero_disclaimer', e.target.value);
                         }}
-                        placeholder={`Enter hero disclaimer in ${contentLocale.toUpperCase()}`}
+                        placeholder={`Enter hero description in ${contentLocale.toUpperCase()}`}
                         className="min-h-[100px]"
                       />
                     </div>
+                    
+                    {/* Statistics Section */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-lg font-semibold mb-4">Hero Statistics</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_1_value">Stat 1 Value</Label>
+                          <Input
+                            id="hero_stat_1_value"
+                            value={getHeroFieldValue('hero_stat_1_value')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_1_value: {
+                                  ...(prev.hero_stat_1_value || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 1 value (e.g., "500+")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_1_label">Stat 1 Label</Label>
+                          <Input
+                            id="hero_stat_1_label"
+                            value={getHeroFieldValue('hero_stat_1_label')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_1_label: {
+                                  ...(prev.hero_stat_1_label || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 1 label (e.g., "Horas de contenido")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_2_value">Stat 2 Value</Label>
+                          <Input
+                            id="hero_stat_2_value"
+                            value={getHeroFieldValue('hero_stat_2_value')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_2_value: {
+                                  ...(prev.hero_stat_2_value || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 2 value (e.g., "4K")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_2_label">Stat 2 Label</Label>
+                          <Input
+                            id="hero_stat_2_label"
+                            value={getHeroFieldValue('hero_stat_2_label')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_2_label: {
+                                  ...(prev.hero_stat_2_label || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 2 label (e.g., "Ultra Alta Definición")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_3_value">Stat 3 Value</Label>
+                          <Input
+                            id="hero_stat_3_value"
+                            value={getHeroFieldValue('hero_stat_3_value')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_3_value: {
+                                  ...(prev.hero_stat_3_value || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 3 value (e.g., "Escultora Ana Rey")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_3_label">Stat 3 Label</Label>
+                          <Input
+                            id="hero_stat_3_label"
+                            value={getHeroFieldValue('hero_stat_3_label')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_3_label: {
+                                  ...(prev.hero_stat_3_label || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 3 label (e.g., "Artista Principal")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_4_value">Stat 4 Value</Label>
+                          <Input
+                            id="hero_stat_4_value"
+                            value={getHeroFieldValue('hero_stat_4_value')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_4_value: {
+                                  ...(prev.hero_stat_4_value || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 4 value (e.g., "400k+")`}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="hero_stat_4_label">Stat 4 Label</Label>
+                          <Input
+                            id="hero_stat_4_label"
+                            value={getHeroFieldValue('hero_stat_4_label')}
+                            onChange={(e) => {
+                              setSettingsMultilingual(prev => ({
+                                ...prev,
+                                hero_stat_4_label: {
+                                  ...(prev.hero_stat_4_label || { en: '', es: '', pt: '' }),
+                                  [contentLocale]: e.target.value,
+                                },
+                              }));
+                            }}
+                            placeholder={`Enter stat 4 label (e.g., "Seguidores en redes")`}
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex justify-end pt-4 border-t">
                       <Button 
-                        onClick={() => handleSaveSettings('hero')}
+                        onClick={async () => {
+                          try {
+                            setSaving(true);
+                            // Save all multilingual settings
+                            const updateData: any[] = [];
+                            
+                            // Add all multilingual hero settings - preserve all language data
+                            TRANSLATABLE_KEYS.filter(key => key.startsWith('hero_')).forEach(key => {
+                              // Get current multilingual value from state, or from existing settings
+                              const currentMultilingual = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+                              const existingSetting = settings.hero?.find(s => s.key === key) as any;
+                              
+                              // Merge with existing translations to preserve all languages
+                              const mergedTranslations = {
+                                en: currentMultilingual.en || existingSetting?.translations?.en || existingSetting?.value || '',
+                                es: currentMultilingual.es || existingSetting?.translations?.es || '',
+                                pt: currentMultilingual.pt || existingSetting?.translations?.pt || '',
+                              };
+                              
+                              // Only add if there's at least one value
+                              if (mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt) {
+                                updateData.push({
+                                  key: key,
+                                  value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
+                                  type: 'text',
+                                  group: 'hero',
+                                  label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                                  description: '',
+                                  locale: 'en',
+                                  translations: mergedTranslations,
+                                });
+                              }
+                            });
+                            
+                            if (updateData.length > 0) {
+                              const response = await settingsApi.bulkUpdate(updateData, contentLocale);
+                              if (response.success) {
+                                toast.success('Hero settings updated successfully');
+                                // Refresh settings to load saved data
+                                await fetchSettings();
+                                // Also refresh hero background images
+                                const fetchHeroBackgrounds = async () => {
+                                  try {
+                                    const bgResponse = await heroBackgroundApi.getAll();
+                                    if (bgResponse.success && Array.isArray(bgResponse.data)) {
+                                      const getImageUrl = (url: string) => {
+                                        const abs = buildAbsoluteUrl(url);
+                                        if (!abs) return '';
+                                        return abs.includes('?') ? `${abs}&t=${Date.now()}` : `${abs}?t=${Date.now()}`;
+                                      };
+                                      const urls: string[] = Array.from({ length: HERO_SLOTS }, () => '');
+                                      const ids: Record<number, number> = {};
+                                      bgResponse.data.forEach((bg) => {
+                                        const sortOrder = bg.sort_order ?? 0;
+                                        if (sortOrder >= 0 && sortOrder < HERO_SLOTS) {
+                                          const url = bg.image_url || bg.image_path;
+                                          urls[sortOrder] = url ? getImageUrl(url) : '';
+                                          ids[sortOrder] = bg.id;
+                                        }
+                                      });
+                                      setFixedHeroImages(urls);
+                                      setHeroBackgroundIds(ids);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error refreshing hero backgrounds:', error);
+                                  }
+                                };
+                                await fetchHeroBackgrounds();
+                              } else {
+                                toast.error('Failed to save hero settings');
+                              }
+                            } else {
+                              toast.warning('No hero settings to save');
+                            }
+                          } catch (error: any) {
+                            console.error('Error saving hero settings:', error);
+                            toast.error(`Failed to save settings: ${error.message || 'Unknown error'}`);
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
                         disabled={saving}
                         className="flex items-center"
                       >
@@ -1409,8 +2101,7 @@ const Settings = () => {
                       </Button>
                     </div>
                   </div>
-                </div>
-              )}
+              </div>
             </Card>
 
             {/* Background Images Control (like initial) */}
@@ -1427,8 +2118,8 @@ const Settings = () => {
                       label={`Slot ${idx + 1}`}
                       onFileSelect={() => {}}
                       onFileUpload={async (file) => {
-                        await uploadHeroSlot(idx, file);
-                        return '';
+                        // uploadHeroSlot returns the URL, so we can return it directly
+                        return await uploadHeroSlot(idx, file);
                       }}
                       currentFile={url}
                     />
@@ -1451,7 +2142,7 @@ const Settings = () => {
                 label={t('admin.settings_page.about.image')}
                 onFileSelect={() => {}}
                 onFileUpload={uploadAboutImage}
-                currentFile={settings.about?.find(s => s.key === 'about_image')?.value || ''}
+                currentFile={currentAboutImage || settings.about?.find(s => s.key === 'about_image')?.value || ''}
               />
             </div>
             {settings.about && settings.about.length > 0 ? (
@@ -1481,7 +2172,7 @@ const Settings = () => {
                             [contentLocale]: e.target.value,
                           },
                         }));
-                        updateSetting('about', 'about_title', e.target.value);
+                        // Don't call updateSetting here - only update on save
                       }}
                       placeholder={`Enter about title in ${contentLocale.toUpperCase()}`}
                     />
@@ -1499,9 +2190,63 @@ const Settings = () => {
                             [contentLocale]: e.target.value,
                           },
                         }));
-                        updateSetting('about', 'about_description', e.target.value);
+                        // Don't call updateSetting here - only update on save
                       }}
                       placeholder={`Enter about description in ${contentLocale.toUpperCase()}`}
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="about_text_1">About Text 1</Label>
+                    <Textarea
+                      id="about_text_1"
+                      value={settingsMultilingual.about_text_1?.[contentLocale] || settings.about?.find(s => s.key === 'about_text_1')?.value || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          about_text_1: {
+                            ...(prev.about_text_1 || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                      }}
+                      placeholder={`Enter about text 1 in ${contentLocale.toUpperCase()}`}
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="about_text_2">About Text 2</Label>
+                    <Textarea
+                      id="about_text_2"
+                      value={settingsMultilingual.about_text_2?.[contentLocale] || settings.about?.find(s => s.key === 'about_text_2')?.value || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          about_text_2: {
+                            ...(prev.about_text_2 || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                      }}
+                      placeholder={`Enter about text 2 in ${contentLocale.toUpperCase()}`}
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="about_text_3">About Text 3</Label>
+                    <Textarea
+                      id="about_text_3"
+                      value={settingsMultilingual.about_text_3?.[contentLocale] || settings.about?.find(s => s.key === 'about_text_3')?.value || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          about_text_3: {
+                            ...(prev.about_text_3 || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                      }}
+                      placeholder={`Enter about text 3 in ${contentLocale.toUpperCase()}`}
                       className="min-h-[100px]"
                     />
                   </div>

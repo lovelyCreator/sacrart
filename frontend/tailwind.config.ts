@@ -5,6 +5,25 @@ export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
+  safelist: [
+    // Font Awesome base classes
+    'fas',
+    'far',
+    'fab',
+    'fal',
+    'fa-solid',
+    'fa-regular',
+    'fa-brands',
+    'fa-light',
+    // Font Awesome icon classes - match all fa-* patterns (including fa-solid fa-*)
+    {
+      pattern: /^fa-/,
+    },
+    // Explicitly include common icon classes to ensure they're not purged
+    {
+      pattern: /fa-(globe|chevron-down|check|star|user|tv|ticket|right-from-bracket|edit|award|arrow-up|credit-card|download|xmark|search|envelope|plus|eye|heart|play|lock)/,
+    },
+  ],
   theme: {
     container: {
       center: true,

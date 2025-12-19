@@ -363,7 +363,7 @@ const Explore = () => {
               {t('explore.new_releases', 'Novedades esta semana')}
             </h2>
           </div>
-          <div className="flex overflow-x-auto gap-4 pb-8 snap-x hide-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
+          <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
             {newReleases.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}
@@ -379,7 +379,7 @@ const Explore = () => {
               {t('explore.trending', 'Trending en SACRART')}
             </h2>
           </div>
-          <div className="flex overflow-x-auto gap-4 pb-8 snap-x hide-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
+          <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
             {trendingVideos.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}
@@ -395,7 +395,7 @@ const Explore = () => {
               {t('explore.results', 'Resultados')} ({filteredVideos.length})
             </h2>
           </div>
-          <div className="flex overflow-x-auto gap-4 pb-8 snap-x hide-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
+          <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
             {filteredVideos.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}

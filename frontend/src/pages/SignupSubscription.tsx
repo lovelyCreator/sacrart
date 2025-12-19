@@ -7,6 +7,13 @@ import { api } from "@/lib/api";
 import { subscriptionPlanApi } from "@/services/subscriptionPlanApi";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "@/hooks/useLocale";
+import { useLanguage } from "@/hooks/useLanguage";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import logoSA from '@/assets/logoSA-negro.png';
 import { settingsApi } from '@/services/settingsApi';
 
@@ -23,12 +30,13 @@ const SignupSubscription = () => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [backendPlans, setBackendPlans] = useState<any[]>([]);
-  const [footerSettings, setFooterSettings] = useState<Record<string, any>>({});
+  const [landingSettings, setLandingSettings] = useState<Record<string, any>>({});
   const navigate = useNavigate();
   const location = useLocation();
   const { register } = useAuth();
   const { t } = useTranslation();
   const { navigateWithLocale } = useLocale();
+  const { currentLanguage, changeLanguage, languages } = useLanguage();
 
   // Check if state contains signup data (email, password, name)
   const signupData = location.state as { email: string; password: string; name: string } | null;
@@ -42,20 +50,33 @@ const SignupSubscription = () => {
     }
   }, [signupData, navigate]);
 
-  // Load footer settings
+  // Load landing page settings (for footer)
   useEffect(() => {
-    const loadFooterSettings = async () => {
+    const loadLandingSettings = async () => {
       try {
-        const response = await settingsApi.getFooter();
+        const response = await settingsApi.getPublicSettings();
+        
         if (response?.success && response.data) {
-          setFooterSettings(response.data);
+          setLandingSettings(response.data);
         }
       } catch (error) {
-        console.error('Failed to load footer settings:', error);
+        console.error('Failed to load landing settings:', error);
       }
     };
-    loadFooterSettings();
+    loadLandingSettings();
   }, []);
+
+  // Helper function to get setting value
+  const getSetting = (key: string, defaultValue: string = ''): string => {
+    const value = landingSettings[key];
+    if (value && typeof value === 'string') {
+      return value;
+    }
+    if (value && typeof value === 'object') {
+      return defaultValue;
+    }
+    return defaultValue;
+  };
 
   useEffect(() => {
     // Load active plans from backend so we can map to Stripe price via plan id
@@ -319,6 +340,59 @@ const SignupSubscription = () => {
             />
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Language Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1.5 text-white/90 hover:text-white hover:bg-white/10 px-2 py-1.5 rounded transition-all h-9 sm:h-10">
+                  <i className="fa-solid fa-globe text-sm"></i>
+                  <span className="text-xs font-medium uppercase hidden sm:inline">
+                    {languages.find(lang => lang.code === currentLanguage)?.code?.toUpperCase() || currentLanguage.toUpperCase()}
+                  </span>
+                  <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#181113] border-white/10 text-white w-40">
+                {languages.length > 0 ? (
+                  languages.map((lang) => (
+                    <DropdownMenuItem
+                      key={lang.code}
+                      onClick={() => changeLanguage(lang.code)}
+                      className={`flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10 ${
+                        currentLanguage === lang.code ? 'bg-white/5 text-primary' : ''
+                      }`}
+                    >
+                      <span className="text-base">{lang.flag || '🌐'}</span>
+                      <span className="flex-1">{lang.native || lang.name}</span>
+                      {currentLanguage === lang.code && (
+                        <i className="fa-solid fa-check text-primary text-sm"></i>
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  // Fallback languages if API hasn't loaded yet
+                  [
+                    { code: 'en', name: 'English', native: 'English', flag: '🇺🇸' },
+                    { code: 'es', name: 'Spanish', native: 'Español', flag: '🇪🇸' },
+                    { code: 'pt', name: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+                  ].map((lang) => (
+                    <DropdownMenuItem
+                      key={lang.code}
+                      onClick={() => changeLanguage(lang.code)}
+                      className={`flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10 ${
+                        currentLanguage === lang.code ? 'bg-white/5 text-primary' : ''
+                      }`}
+                    >
+                      <span className="text-base">{lang.flag}</span>
+                      <span className="flex-1">{lang.native}</span>
+                      {currentLanguage === lang.code && (
+                        <span className="text-primary">✓</span>
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               variant="outline"
               onClick={() => navigate('/auth')}
@@ -500,97 +574,52 @@ const SignupSubscription = () => {
         </p>
       </main>
 
-      {/* Footer - Signout Status */}
-      <footer className="bg-black text-white pt-16 pb-8 border-t border-white/5 z-10 mt-auto">
-        <div className="max-w-[1800px] mx-auto px-6 md:px-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
-            <div className="col-span-2 md:col-span-1 lg:col-span-1">
-              <div className="w-10 h-10 bg-white rounded flex items-center justify-center mb-6">
-                <span className="text-black font-serif font-bold text-xl">S</span>
-              </div>
+      {/* Footer - Signout Status (same as home screen) */}
+      <footer className="relative z-10 mt-auto border-t border-white/5 bg-[#120d0f] py-8 sm:py-12">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+          <div className="flex flex-col items-center justify-between gap-6 sm:gap-8 md:flex-row">
+            <div className="flex items-center gap-2">
+              <img
+                alt="SACRART Logo"
+                src={logoSA}
+                className="h-6 sm:h-8 w-auto object-contain brightness-0 invert opacity-80"
+              />
             </div>
-            <div>
-              <h4 className="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">
-                {t('footer.explore', 'Explorar')}
-              </h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.modeling', 'Modelado')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.carving', 'Talla')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.polychromy', 'Policromía')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.materials', 'Materiales')}</a></li>
-              </ul>
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 md:gap-8">
+              <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                {t('footer.terms', 'Términos de uso')}
+              </a>
+              <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                {t('footer.privacy', 'Política de privacidad')}
+              </a>
+              <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                {t('footer.help', 'Centro de ayuda')}
+              </a>
+              <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                {t('footer.careers', 'Trabaja con nosotros')}
+              </a>
             </div>
-            <div>
-              <h4 className="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">
-                {t('footer.account', 'Cuenta')}
-              </h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.my_profile', 'Mi Perfil')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.my_list', 'Mi Lista')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.certificates', 'Certificados')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.subscription', 'Suscripción')}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">
-                {t('footer.help', 'Ayuda')}
-              </h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.support', 'Soporte')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.faq', 'Preguntas Frecuentes')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.contact', 'Contacto')}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">
-                {t('footer.legal', 'Legal')}
-              </h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.terms', 'Términos')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.privacy', 'Privacidad')}</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">{t('footer.cookies', 'Cookies')}</a></li>
-              </ul>
+            <div className="flex gap-3 sm:gap-4">
+              {getSetting('footer_social_facebook') && (
+                <a href={getSetting('footer_social_facebook')} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                  <span className="sr-only">Facebook</span>
+                  <svg aria-hidden="true" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path clipRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" fillRule="evenodd" />
+                  </svg>
+                </a>
+              )}
+              {getSetting('footer_social_instagram') && (
+                <a href={getSetting('footer_social_instagram')} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                  <span className="sr-only">Instagram</span>
+                  <svg aria-hidden="true" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path clipRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465C9.673 2.013 10.03 2 12.315 2zm-1.082 2.682c-2.316.05-3.085.12-3.864.417-.817.31-1.428.911-1.737 1.72-.3.771-.368 1.543-.418 3.864-.05 2.302-.05 2.977 0 5.28.05 2.316.118 3.085.418 3.864.31.817.92 1.428 1.737 1.737.77.299 1.543.367 3.864.417 2.301.05 2.977.05 5.279 0 2.317-.05 3.086-.118 3.865-.417.817-.31 1.428-.92 1.737-1.737.299-.77.367-1.543.417-3.864.05-2.301.05-2.977 0-5.279-.05-2.317-.118-3.086-.417-3.865-.31-.817-.92-1.428-1.737-1.737-.77-.299-1.543-.367-3.865-.417-2.301-.05-2.976-.05-5.279 0zm1.082 3.193a6.126 6.126 0 110 12.252 6.126 6.126 0 010-12.252zm0 2.16a3.966 3.966 0 100 7.932 3.966 3.966 0 000-7.932zm6.22-3.66a1.44 1.44 0 110 2.88 1.44 1.44 0 010-2.88z" fillRule="evenodd" />
+                  </svg>
+                </a>
+              )}
             </div>
           </div>
-          <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-6">
-              {footerSettings.footer_social_instagram && footerSettings.footer_social_instagram !== 'https://' && (
-                <a
-                  href={footerSettings.footer_social_instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-primary transition-colors"
-                  aria-label="Instagram"
-                >
-                  <i className="fa-brands fa-instagram text-lg"></i>
-                </a>
-              )}
-              {footerSettings.footer_social_facebook && footerSettings.footer_social_facebook !== 'https://' && (
-                <a
-                  href={footerSettings.footer_social_facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-primary transition-colors"
-                  aria-label="Facebook"
-                >
-                  <i className="fa-brands fa-facebook text-lg"></i>
-                </a>
-              )}
-              {footerSettings.footer_social_youtube && footerSettings.footer_social_youtube !== 'https://' && (
-                <a
-                  href={footerSettings.footer_social_youtube}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-primary transition-colors"
-                  aria-label="YouTube"
-                >
-                  <i className="fa-brands fa-youtube text-lg"></i>
-                </a>
-              )}
-            </div>
-            <div className="text-xs text-gray-600 font-medium">
-              © {new Date().getFullYear()} SACRART. {t('footer.all_rights_reserved', 'Todos los derechos reservados')}.
-            </div>
+          <div className="mt-8 text-center text-xs text-gray-600">
+            {getSetting('footer_copyright', `© ${new Date().getFullYear()} SACRART Inc. Todos los derechos reservados.`)}
           </div>
         </div>
       </footer>

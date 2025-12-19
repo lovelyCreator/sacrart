@@ -61,8 +61,18 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   // Update uploadedUrl when currentFile prop changes
   React.useEffect(() => {
-    if (currentFile) {
-      setUploadedUrl(resolveUrl(currentFile));
+    console.log('FileUpload: currentFile prop changed:', currentFile);
+    if (currentFile && currentFile.trim()) {
+      // If currentFile is already an absolute URL, use it directly
+      // Otherwise, resolve it
+      const url = currentFile.startsWith('http://') || currentFile.startsWith('https://') 
+        ? currentFile 
+        : resolveUrl(currentFile);
+      console.log('FileUpload: Setting uploadedUrl from currentFile:', currentFile, '-> resolved:', url);
+      setUploadedUrl(url);
+    } else {
+      console.log('FileUpload: currentFile is empty, clearing uploadedUrl');
+      setUploadedUrl(null);
     }
   }, [currentFile]);
 
@@ -143,7 +153,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
       }
       
       // Support both absolute URLs and relative paths from server
-      setUploadedUrl(resolveUrl(url));
+      // If url is already absolute, use it directly; otherwise resolve it
+      const finalUrl = url && (url.startsWith('http://') || url.startsWith('https://')) 
+        ? url 
+        : resolveUrl(url);
+      console.log('FileUpload: Setting uploadedUrl from upload response:', url, '-> final:', finalUrl);
+      setUploadedUrl(finalUrl);
       setUploadError(null);
       
       setTimeout(() => {
@@ -229,15 +244,24 @@ const FileUpload: React.FC<FileUploadProps> = ({
           ) : uploadedUrl ? (
             <div className="space-y-2">
               {type === 'image' ? (
-                <div className="relative w-full h-32 overflow-hidden rounded-lg">
+                <div className="relative w-full h-32 overflow-hidden rounded-lg bg-gray-100">
                   <img 
-                    src={resolveUrl(uploadedUrl || '')} 
+                    src={uploadedUrl || ''} 
                     alt={label || 'Uploaded image'} 
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      // Fallback if image fails to load
+                      // Log error for debugging
+                      console.error('Image failed to load:', uploadedUrl);
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
+                      // Show error message
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = '<p class="text-red-500 text-sm p-4">Failed to load image. URL: ' + (uploadedUrl || 'empty') + '</p>';
+                      }
+                    }}
+                    onLoad={() => {
+                      console.log('Image loaded successfully:', uploadedUrl);
                     }}
                   />
                 </div>

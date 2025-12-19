@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cinzel:wght@400;600;700&display=swap');
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+/* Font Awesome is loaded in index.html for better reliability */
 
 @tailwind base;
 @tailwind components;
@@ -382,5 +382,96 @@ All colors MUST be HSL.
   }
   .comments-scroll::-webkit-scrollbar-thumb:hover {
     background: #8a4339;
+  }
+
+  /* Episode scrollbar for explore page - horizontal scrollbar at bottom (matching code.html) */
+  .episode-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #1f2937 transparent;
+  }
+  .episode-scrollbar::-webkit-scrollbar {
+    height: 12px;
+  }
+  .episode-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .episode-scrollbar::-webkit-scrollbar-thumb {
+    background: #1f2937;
+    border-radius: 6px;
+  }
+  .episode-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+  }
+  /* Hide scrollbar buttons (forward/back arrows) */
+  .episode-scrollbar::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Support page accordion animation */
+  details > summary {
+    list-style: none;
+  }
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+  details[open] summary ~ * {
+    animation: sweep 0.3s ease-in-out;
+  }
+  @keyframes sweep {
+    0% {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .accordion-icon {
+    transition: transform 0.3s ease;
+  }
+  details[open] .accordion-icon {
+    transform: rotate(180deg);
+  }
+
+  /* Ensure Font Awesome icons display correctly */
+  .fa,
+  .fas,
+  .far,
+  .fab,
+  .fal,
+  .fa-solid,
+  .fa-regular,
+  .fa-brands,
+  .fa-light,
+  [class^="fa-"],
+  [class*=" fa-"] {
+    font-family: "Font Awesome 6 Free", "Font Awesome 6 Pro", "Font Awesome 6 Brands" !important;
+    font-weight: 900;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    line-height: 1;
+    display: inline-block;
+  }
+  
+  .fa-solid::before,
+  .fas::before {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900;
+  }
+  
+  .fa-regular::before,
+  .far::before {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 400;
+  }
+  
+  .fa-brands::before,
+  .fab::before {
+    font-family: "Font Awesome 6 Brands" !important;
+    font-weight: 400;
   }
 }

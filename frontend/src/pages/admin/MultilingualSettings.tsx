@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -36,6 +36,8 @@ const MultilingualSettings = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const languages = [
     { code: 'en', name: 'English', flag: '🇺🇸', isComplete: true },
@@ -43,71 +45,61 @@ const MultilingualSettings = () => {
     { code: 'pt', name: 'Portuguese', flag: '🇵🇹', isComplete: false }
   ];
 
-  // Mock translation data - replace with real API calls
-  const [translations, setTranslations] = useState({
-    en: {
-      'auth.welcome': 'Welcome Back',
-      'auth.signin': 'Sign In',
-      'auth.signup': 'Sign Up',
-      'auth.email': 'Email',
-      'auth.password': 'Password',
-      'auth.forgot_password': 'Forgot Password?',
-      'subscription.choose_plan': 'Choose Your Plan',
-      'subscription.basic': 'Basic',
-      'subscription.premium': 'Premium',
-      'subscription.freemium': 'Freemium',
-      'dashboard.overview': 'Dashboard Overview',
-      'dashboard.total_users': 'Total Users',
-      'dashboard.revenue': 'Revenue',
-      'content.videos': 'Videos',
-      'content.series': 'Series',
-      'content.upload': 'Upload Video',
-      'settings.general': 'General Settings',
-      'settings.profile': 'Profile Settings'
-    },
-    es: {
-      'auth.welcome': 'Bienvenido de Vuelta',
-      'auth.signin': 'Iniciar Sesión',
-      'auth.signup': 'Registrarse',
-      'auth.email': 'Correo Electrónico',
-      'auth.password': 'Contraseña',
-      'auth.forgot_password': '¿Olvidaste tu contraseña?',
-      'subscription.choose_plan': 'Elige Tu Plan',
-      'subscription.basic': 'Básico',
-      'subscription.premium': 'Premium',
-      'subscription.freemium': 'Gratuito',
-      'dashboard.overview': 'Resumen del Panel',
-      'dashboard.total_users': 'Total de Usuarios',
-      'dashboard.revenue': 'Ingresos',
-      'content.videos': 'Videos',
-      'content.series': 'Series',
-      'content.upload': 'Subir Video',
-      'settings.general': 'Configuración General',
-      'settings.profile': 'Configuración de Perfil'
-    },
-    pt: {
-      'auth.welcome': 'Bem-vindo de Volta',
-      'auth.signin': 'Entrar',
-      'auth.signup': 'Registrar',
-      'auth.email': 'Email',
-      'auth.password': 'Senha',
-      'auth.forgot_password': 'Esqueceu sua senha?',
-      'subscription.choose_plan': 'Escolha Seu Plano',
-      'subscription.basic': 'Básico',
-      'subscription.premium': 'Premium',
-      'subscription.freemium': 'Gratuito',
-      'dashboard.overview': 'Visão Geral do Painel',
-      'dashboard.total_users': 'Total de Usuários',
-      'dashboard.revenue': 'Receita',
-      'content.videos': 'Vídeos',
-      'content.series': 'Séries',
-      'content.upload': 'Enviar Vídeo',
-      'settings.general': 'Configurações Gerais',
-      'settings.profile': 'Configurações de Perfil'
-    }
+  // Real translation data from backend
+  const [translations, setTranslations] = useState<Record<string, Record<string, string>>>({
+    en: {},
+    es: {},
+    pt: {}
   });
 
-  const [editingTranslations, setEditingTranslations] = useState(translations);
+  const [editingTranslations, setEditingTranslations] = useState<Record<string, Record<string, string>>>({
+    en: {},
+    es: {},
+    pt: {}
+  });
+
+  // Fetch translations from backend
+  useEffect(() => {
+    fetchTranslations();
+  }, []);
+
+  const fetchTranslations = async () => {
+    try {
+      setLoading(true);
+      const response = await languageApi.getAllTranslations();
+      if (response.success && response.data) {
+        // Transform grouped translations into flat structure by locale
+        const translationsByLocale: Record<string, Record<string, string>> = {
+          en: {},
+          es: {},
+          pt: {}
+        };
+
+        // response.data is grouped by group, then contains translation objects
+        Object.values(response.data).forEach((group: any) => {
+          if (Array.isArray(group)) {
+            group.forEach((translation: any) => {
+              const key = translation.key || translation.translation_key;
+              const locale = translation.locale || 'en';
+              const value = translation.value || translation.translation || '';
+              
+              if (key && locale && (locale === 'en' || locale === 'es' || locale === 'pt')) {
+                translationsByLocale[locale][key] = value;
+              }
+            });
+          }
+        });
+
+        setTranslations(translationsByLocale);
+        setEditingTranslations(translationsByLocale);
+      }
+    } catch (error: any) {
+      console.error('Error fetching translations:', error);
+      toast.error('Failed to load translations');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getCompletionPercentage = (languageCode: string) => {
     const totalKeys = Object.keys(translations.en).length;

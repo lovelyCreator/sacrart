@@ -15,6 +15,13 @@ export interface User {
   subscription_started_at: string | null;
   subscription_expires_at: string | null;
   is_subscription_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  avatar?: string;
+  avatar_url?: string;
+  bio?: string;
+  website?: string;
+  social_links?: Record<string, string>;
 }
 
 interface AuthResponse {
