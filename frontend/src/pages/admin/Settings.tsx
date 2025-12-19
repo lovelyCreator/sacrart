@@ -150,12 +150,19 @@ const Settings = () => {
 
   // Update currentAboutImage when settings are loaded
   useEffect(() => {
+    // Wait for settings to be loaded
+    if (!settings || Object.keys(settings).length === 0) {
+      return;
+    }
+    
     const aboutImageSetting = settings.about?.find(s => s.key === 'about_image')?.value;
-    if (aboutImageSetting && aboutImageSetting.trim()) {
-      // Process URL using the same logic as getImageUrl
-      let processedUrl = '';
+    console.log('About image setting from backend:', aboutImageSetting, 'Settings about group:', settings.about);
+    
+    if (aboutImageSetting && String(aboutImageSetting).trim()) {
       const trimmedUrl = String(aboutImageSetting).trim();
+      let processedUrl = '';
       
+      // Process URL using the same logic as getImageUrl (but inline to avoid dependency issues)
       if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
         if (trimmedUrl.includes('://') && trimmedUrl.length > 7 && !trimmedUrl.includes(' ')) {
           processedUrl = trimmedUrl.includes('?') ? `${trimmedUrl}&t=${Date.now()}` : `${trimmedUrl}?t=${Date.now()}`;
@@ -175,12 +182,20 @@ const Settings = () => {
         }
       }
       
-      console.log('Setting currentAboutImage:', processedUrl || aboutImageSetting);
-      setCurrentAboutImage(processedUrl || aboutImageSetting);
+      console.log('Processed about image URL:', processedUrl, 'from raw:', aboutImageSetting);
+      
+      if (processedUrl) {
+        setCurrentAboutImage(processedUrl);
+      } else {
+        // Fallback: use raw URL if processing fails
+        console.warn('Failed to process about image URL, using raw:', aboutImageSetting);
+        setCurrentAboutImage(trimmedUrl);
+      }
     } else {
+      console.log('No about image setting found, clearing currentAboutImage');
       setCurrentAboutImage('');
     }
-  }, [settings.about]);
+  }, [settings, settings.about]);
 
   // Helper to construct full URL to backend for any given path
   const buildAbsoluteUrl = (url: string) => {
@@ -507,6 +522,28 @@ const Settings = () => {
             }
           }
         });
+      }
+      
+      // Handle testimonial settings
+      if (groupName === 'testimonial') {
+        ['testimonial_title', 'testimonial_subtitle'].forEach(key => {
+          if (settingsMultilingual[key]) {
+            const multilingualValue = settingsMultilingual[key];
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: multilingualValue.en || '',
+                type: 'text',
+                group: 'testimonial',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+                locale: 'en',
+                translations: multilingualValue,
+              } as any);
+            }
+          }
+        });
         
         // Handle non-translatable footer settings (social media URLs)
         ['footer_social_facebook', 'footer_social_instagram', 'footer_social_twitter'].forEach(key => {
@@ -735,298 +772,68 @@ const Settings = () => {
 
   // Upload a single hero image into a fixed slot and persist immediately
   const uploadHeroSlot = async (index: number, file: File): Promise<string> => {
-    try {
-      // Validate file
-      if (!file) {
-        throw new Error('No file selected');
-      }
+    const formData = new FormData();
+    formData.append('name', `Hero ${index + 1}`);
+    formData.append('image', file);
+    formData.append('is_active', 'true');
+    formData.append('sort_order', String(index));
 
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        throw new Error('File size must be less than 10MB');
-      }
-
-      // Check file type
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        throw new Error('Invalid file type. Please upload JPEG, PNG, or WebP image');
-      }
-
-      // Validate file before creating FormData
-      if (!file || !(file instanceof File)) {
-        throw new Error('Invalid file object');
-      }
-
-      const formData = new FormData();
-      formData.append('name', `Hero ${index + 1}`);
-      formData.append('image', file);
-      formData.append('is_active', 'true');
-      formData.append('sort_order', String(index));
-      
-      console.log('Uploading file:', {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        slot: index
-      });
-
-      let response: any;
-      let bg: any;
-      
-      // Check if hero background exists for this slot (by sort_order)
-      const existingId = heroBackgroundIds[index];
-      
-      try {
-        if (existingId) {
-          // Update existing hero background
-          console.log('Updating hero background:', existingId, 'for slot:', index);
-          response = await heroBackgroundApi.update(existingId, formData);
-          console.log('Update response:', response);
-          
-          if (!response) {
-            throw new Error('No response from server');
-          }
-          
-          if (!response.success) {
-            const errorMsg = response.message || 'Update failed';
-            throw new Error(errorMsg);
-          }
-          
-          // Handle different response structures
-          // Backend typically returns { success: true, data: HeroBackground } (single object)
-          // But TypeScript interface says data: HeroBackground[] (array)
-          if (Array.isArray(response.data)) {
-            bg = response.data[0];
-          } else if (response.data && typeof response.data === 'object') {
-            // Single object response - this is the typical case
-            if (response.data.id) {
-              // Direct HeroBackground object
-              bg = response.data;
-            } else if (response.data.data && response.data.data.id) {
-              // Nested data object
-              bg = response.data.data;
-            } else {
-              // Try to use it as-is
-              bg = response.data;
-            }
-          } else {
-            console.error('Unexpected response format:', response);
-            throw new Error('Invalid response format from update');
-          }
-          
-          // Validate bg has required fields
-          if (!bg || (!bg.image_url && !bg.image_path)) {
-            console.error('Invalid background object:', bg);
-            throw new Error('Invalid background data returned from server');
-          }
-        } else {
-          // Create new hero background if it doesn't exist
-          console.log('Creating new hero background for slot:', index);
-          try {
-            response = await heroBackgroundApi.create(formData);
-            console.log('Create response:', response);
-          } catch (createError: any) {
-            // Check if it's a URL construction error from axios
-            if (createError?.message && createError.message.includes('Failed to construct') && createError.message.includes('URL')) {
-              console.error('URL construction error in axios request. This might be due to invalid API_BASE_URL.');
-              throw new Error('Invalid API configuration. Please check your API URL settings.');
-            }
-            throw createError;
-          }
-          
-          if (!response) {
-            throw new Error('No response from server');
-          }
-          
-          if (!response.success) {
-            const errorMsg = response.message || 'Upload failed';
-            throw new Error(errorMsg);
-          }
-          
-          // Handle different response structures
-          // Backend typically returns { success: true, data: HeroBackground } (single object)
-          // But TypeScript interface says data: HeroBackground[] (array)
-          if (Array.isArray(response.data)) {
-            bg = response.data[0];
-          } else if (response.data && typeof response.data === 'object') {
-            // Single object response - this is the typical case
-            if (response.data.id) {
-              // Direct HeroBackground object
-              bg = response.data;
-            } else if (response.data.data && response.data.data.id) {
-              // Nested data object
-              bg = response.data.data;
-            } else {
-              // Try to use it as-is
-              bg = response.data;
-            }
-          } else {
-            console.error('Unexpected response format:', response);
-            throw new Error('Invalid response format from create');
-          }
-          
-          // Validate bg has required fields
-          if (!bg || (!bg.image_url && !bg.image_path)) {
-            console.error('Invalid background object:', bg);
-            throw new Error('Invalid background data returned from server');
-          }
-          
-          // Store the new ID
-          if (bg && bg.id) {
-            setHeroBackgroundIds(prev => ({
-              ...prev,
-              [index]: bg.id
-            }));
-          }
-        }
-      } catch (apiError: any) {
-        console.error('API error details:', {
-          message: apiError?.message,
-          response: apiError?.response?.data,
-          status: apiError?.response?.status,
-          statusText: apiError?.response?.statusText,
-          stack: apiError?.stack,
-          name: apiError?.name,
-          code: apiError?.code
-        });
-        
-        // Extract detailed error message
-        let errorMessage = 'Failed to upload hero background image';
-        
-        // Check if it's a URL construction error (from axios or browser)
-        const isUrlError = apiError?.message && (
-          apiError.message.includes('Failed to construct') || 
-          apiError.message.includes('Invalid URL') ||
-          apiError.message.includes('URL') && apiError.message.includes('Invalid')
-        );
-        
-        if (isUrlError) {
-          // This could be from axios trying to construct the request URL
-          // or from processing the response URL
-          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
-          errorMessage = `URL construction error. Please check your API configuration. API URL: ${apiBase}`;
-          console.error('URL construction error detected. API Base URL:', apiBase);
-          console.error('This might be due to invalid API_BASE_URL or invalid URL in server response.');
-        } else if (apiError?.response?.data) {
-          const errorData = apiError.response.data;
-          errorMessage = errorData.message 
-            || (errorData.errors && Object.values(errorData.errors).flat().join(', '))
-            || errorMessage;
-        } else if (apiError?.message) {
-          errorMessage = apiError.message;
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      if (!bg) {
-        console.error('No background data in response:', response);
-        throw new Error('No background data returned from server');
-      }
-      
-      console.log('Background object received:', bg);
-      console.log('image_url:', bg.image_url, 'Type:', typeof bg.image_url);
-      console.log('image_path:', bg.image_path, 'Type:', typeof bg.image_path);
-      
-      // Safely extract URL from response - handle all possible types without URL constructor
-      let rawUrl: string = '';
-      try {
-        if (bg.image_url !== null && bg.image_url !== undefined) {
-          rawUrl = String(bg.image_url).trim();
-        } else if (bg.image_path !== null && bg.image_path !== undefined) {
-          rawUrl = String(bg.image_path).trim();
-        }
-      } catch (e) {
-        console.error('Error extracting URL from background object:', e);
-        rawUrl = '';
-      }
-      
-      if (!rawUrl || rawUrl === '') {
-        console.error('Background object:', bg);
-        console.error('Raw URL value:', rawUrl, 'Type:', typeof rawUrl);
-        console.error('image_url:', bg.image_url, 'Type:', typeof bg.image_url);
-        console.error('image_path:', bg.image_path, 'Type:', typeof bg.image_path);
-        throw new Error('No valid image URL returned from server. Please check the server response.');
-      }
-      
-      console.log('Raw URL from server:', rawUrl);
-      
-      // Process the URL - getImageUrl now handles errors internally without throwing
-      let url: string = '';
-      
-      // If rawUrl is already absolute, use it directly with cache buster
-      if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-        // Basic validation - must contain :// and be longer than protocol
-        if (rawUrl.includes('://') && rawUrl.length > 7 && !rawUrl.includes(' ')) {
-          url = rawUrl.includes('?') ? `${rawUrl}&t=${Date.now()}` : `${rawUrl}?t=${Date.now()}`;
-          console.log('Using raw absolute URL:', url);
-        } else {
-          console.error('Invalid absolute URL format:', rawUrl);
-          throw new Error('Server returned invalid absolute URL format: ' + rawUrl.substring(0, 50));
-        }
-      } else {
-        // Process relative URL - getImageUrl won't throw, just returns empty string on error
-        url = getImageUrl(rawUrl);
-        console.log('Processed relative URL:', url);
-      }
-      
-      if (!url || url.trim() === '') {
-        console.error('Failed to process URL. Raw URL:', rawUrl, 'Type:', typeof rawUrl, 'Background object:', bg);
-        // Last resort: if rawUrl exists and looks like it could be a URL, use it as-is
-        if (rawUrl && rawUrl.length > 0 && !rawUrl.includes(' ')) {
-          // If it starts with /, it's a path - try to make it absolute
-          if (rawUrl.startsWith('/')) {
-            const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
-            const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
-            if (origin && origin.length > 0) {
-              url = `${origin}${rawUrl}`;
-              console.log('Fallback: Constructed URL from path:', url);
-            }
-          } else if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-            url = rawUrl;
-            console.log('Fallback: Using raw URL without cache buster:', url);
-          }
-        }
-        
-        if (!url || url.trim() === '') {
-          throw new Error('Failed to process image URL. Server returned: "' + (rawUrl || 'empty') + '". Please try uploading again.');
-        }
-      }
-
-      // Update UI state immediately with the new URL
-      setFixedHeroImages(prev => {
-        const latest = [...prev];
-        latest[index] = url;
-        
-        // Persist to settings (async, don't wait)
-        const heroJson = JSON.stringify(latest.map((u, i) => ({ 
-          url: u, 
-          alt: `Hero ${i + 1}`, 
-          rotation: 0, 
-          x: 0, 
-          y: 0 
-        })));
-        settingsApi.bulkUpdate([{ key: 'hero_background_images', value: heroJson, group: 'hero' }]).catch((settingsError) => {
-          console.error('Failed to update settings:', settingsError);
-          // Don't fail the upload if settings update fails
-        });
-        
-        return latest;
-      });
-      
-      toast.success(`Hero background image ${existingId ? 'updated' : 'uploaded'} successfully`);
-      
-      // Return the URL for FileUpload component
-      return url;
-    } catch (e: any) {
-      console.error('Hero slot upload failed:', e);
-      const errorMessage = e?.response?.data?.message 
-        || (e?.response?.data?.errors && Object.values(e.response.data.errors).flat().join(', '))
-        || e?.message 
-        || 'Failed to update hero background. Please check your connection and try again.';
-      toast.error(errorMessage);
-      throw e; // Re-throw so FileUpload component can handle it
+    let response;
+    let bg: any;
+    
+    const existingId = heroBackgroundIds[index];
+    
+    if (existingId) {
+      response = await heroBackgroundApi.update(existingId, formData);
+    } else {
+      response = await heroBackgroundApi.create(formData);
     }
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Upload failed');
+    }
+    
+    // Handle response structure
+    if (Array.isArray(response.data)) {
+      bg = response.data[0];
+    } else {
+      bg = response.data;
+    }
+    
+    if (!bg || (!bg.image_url && !bg.image_path)) {
+      throw new Error('No image URL returned from server');
+    }
+    
+    const rawUrl = bg.image_url || bg.image_path || '';
+    const url = getImageUrl(rawUrl);
+
+    // Update UI state
+    setFixedHeroImages(prev => {
+      const latest = [...prev];
+      latest[index] = url;
+      
+      const heroJson = JSON.stringify(latest.map((u, i) => ({ 
+        url: u, 
+        alt: `Hero ${i + 1}`, 
+        rotation: 0, 
+        x: 0, 
+        y: 0 
+      })));
+      settingsApi.bulkUpdate([{ key: 'hero_background_images', value: heroJson, group: 'hero' }]).catch(() => {});
+      
+      return latest;
+    });
+    
+    // Store ID if new
+    if (bg.id && !existingId) {
+      setHeroBackgroundIds(prev => ({
+        ...prev,
+        [index]: bg.id
+      }));
+    }
+    
+    toast.success(`Hero background image ${existingId ? 'updated' : 'uploaded'} successfully`);
+    return url;
   };
 
   // Upload About image and persist directly to site_settings (not hero_backgrounds table)
@@ -1189,20 +996,20 @@ const Settings = () => {
         }
       }
       
+      // Update local state IMMEDIATELY for preview (use processed URL) - do this BEFORE saving
+      console.log('Setting currentAboutImage after upload:', processedUrl);
+      setCurrentAboutImage(processedUrl);
+      
       // Save URL to site_settings table (use rawImageUrl, not processedUrl, so backend can handle it)
       await settingsApi.bulkUpdate([{ key: 'about_image', value: rawImageUrl, group: 'about' }]);
       updateSetting('about', 'about_image', rawImageUrl);
       
-      // Update local state immediately for preview (use processed URL)
-      console.log('Setting currentAboutImage after upload:', processedUrl);
-      setCurrentAboutImage(processedUrl);
-      
-      // Refresh settings to get updated value
-      await fetchSettings();
+      // Don't refresh settings immediately - it might reset the state
+      // The state is already updated above, and settings will be refreshed on next page load
       
       toast.success('About image updated successfully');
       
-      // Return processed URL for preview
+      // Return processed URL for preview - FileUpload will use this
       return processedUrl;
     } catch (error: any) {
       console.error('About image upload failed:', error);
@@ -2301,7 +2108,7 @@ const Settings = () => {
                           [contentLocale]: e.target.value,
                         },
                       }));
-                      updateSetting('testimonial', 'testimonial_title', e.target.value);
+                      // Don't call updateSetting here - only update on save
                     }}
                     className="w-full"
                     placeholder={`Enter testimonial title in ${contentLocale.toUpperCase()}`}
@@ -2322,7 +2129,7 @@ const Settings = () => {
                           [contentLocale]: e.target.value,
                         },
                       }));
-                      updateSetting('testimonial', 'testimonial_subtitle', e.target.value);
+                      // Don't call updateSetting here - only update on save
                     }}
                     className="w-full"
                     placeholder={`Enter testimonial subtitle in ${contentLocale.toUpperCase()}`}

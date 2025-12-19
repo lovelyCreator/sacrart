@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { videoApi } from '@/services/videoApi';
 import { toast } from 'sonner';
+import { hasMarketingConsent } from '@/utils/cookieConsent';
 
 // Declare YouTube IFrame API
 declare global {
@@ -47,6 +48,7 @@ const VideoPlayer = () => {
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [youtubePlayer, setYoutubePlayer] = useState<any>(null);
   const [youtubeAPIReady, setYoutubeAPIReady] = useState(false);
+  const [youtubeConsentChecked, setYoutubeConsentChecked] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const youtubePlayerRef = useRef<HTMLDivElement>(null);
@@ -81,8 +83,17 @@ const VideoPlayer = () => {
     return null;
   };
 
-  // Load YouTube IFrame API
+  // Load YouTube IFrame API only if user has consented to marketing cookies
   useEffect(() => {
+    // Mark that we've checked consent
+    setYoutubeConsentChecked(true);
+    
+    // Check consent before loading YouTube API
+    if (!hasMarketingConsent()) {
+      console.log('YouTube API blocked: User has not consented to marketing cookies');
+      return;
+    }
+
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
@@ -97,8 +108,35 @@ const VideoPlayer = () => {
     }
   }, []);
 
-  // Initialize YouTube player
+  // Listen for consent updates
   useEffect(() => {
+    const handleConsentUpdate = () => {
+      // Reload YouTube API if consent was just given
+      if (hasMarketingConsent() && !window.YT && youtubeVideoId) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+        window.onYouTubeIframeAPIReady = () => {
+          setYoutubeAPIReady(true);
+        };
+      }
+    };
+
+    window.addEventListener('cookieConsentUpdated', handleConsentUpdate);
+    return () => {
+      window.removeEventListener('cookieConsentUpdated', handleConsentUpdate);
+    };
+  }, [youtubeVideoId]);
+
+  // Initialize YouTube player (only if consent given)
+  useEffect(() => {
+    // Double-check consent before initializing player
+    if (!hasMarketingConsent()) {
+      return;
+    }
+
     if (youtubeAPIReady && youtubeVideoId && youtubePlayerRef.current && !youtubePlayer) {
       try {
         const player = new window.YT.Player(youtubePlayerRef.current, {
@@ -493,32 +531,60 @@ const VideoPlayer = () => {
             {hasAccess ? (
               <>
                 {youtubeVideoId ? (
-                  <>
-                    {/* YouTube Player Container - Prevent click-through */}
-                    <div 
-                      className="absolute inset-0 z-10 pointer-events-none"
-                      style={{ pointerEvents: 'none' }}
-                    >
-                      <div 
-                        ref={youtubePlayerRef}
-                        className="w-full h-full"
-                        style={{ pointerEvents: 'none' }}
-                      ></div>
+                  youtubeConsentChecked && !hasMarketingConsent() ? (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                      <div className="text-center p-8 max-w-md">
+                        <div className="mb-4">
+                          <i className="fa-solid fa-cookie text-4xl text-primary mb-4"></i>
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">
+                          {t('video.cookie_consent_required', 'Consentimiento de Cookies Requerido')}
+                        </h3>
+                        <p className="text-gray-300 mb-6">
+                          {t('video.cookie_consent_message', 
+                            'Para reproducir videos de YouTube, necesitamos su consentimiento para cookies de marketing. Por favor, acepte las cookies en el banner de cookies.'
+                          )}
+                        </p>
+                        <Button
+                          onClick={() => {
+                            // Trigger cookie banner to show
+                            localStorage.removeItem('cookie-consent');
+                            window.location.reload();
+                          }}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          {t('video.manage_cookies', 'Gestionar Cookies')}
+                        </Button>
+                      </div>
                     </div>
-                    {/* Overlay to prevent YouTube click-through */}
-                    <div 
-                      className="absolute inset-0 z-15 pointer-events-auto"
-                      onClick={(e) => {
-                        // Only allow clicks on our custom controls
-                        const target = e.target as HTMLElement;
-                        if (!target.closest('.custom-controls')) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }
-                      }}
-                      onContextMenu={(e) => e.preventDefault()}
-                    ></div>
-                  </>
+                  ) : (
+                    <>
+                      {/* YouTube Player Container - Prevent click-through */}
+                      <div 
+                        className="absolute inset-0 z-10 pointer-events-none"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        <div 
+                          ref={youtubePlayerRef}
+                          className="w-full h-full"
+                          style={{ pointerEvents: 'none' }}
+                        ></div>
+                      </div>
+                      {/* Overlay to prevent YouTube click-through */}
+                      <div 
+                        className="absolute inset-0 z-15 pointer-events-auto"
+                        onClick={(e) => {
+                          // Only allow clicks on our custom controls
+                          const target = e.target as HTMLElement;
+                          if (!target.closest('.custom-controls')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }
+                        }}
+                        onContextMenu={(e) => e.preventDefault()}
+                      ></div>
+                    </>
+                  )
                 ) : video.bunny_embed_url || video.bunny_player_url ? (
                   <iframe
                     src={video.bunny_embed_url || video.bunny_player_url}

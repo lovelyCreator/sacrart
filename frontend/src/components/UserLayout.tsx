@@ -217,12 +217,16 @@ const UserLayout = () => {
                 onMouseEnter={() => setCategoriesDropdownOpen(true)}
                 onMouseLeave={() => setCategoriesDropdownOpen(false)}
               >
-                <button 
+                <Link
+                  to={categories.length > 0 && categories[0].id 
+                    ? getPathWithLocale(`/category/${categories[0].id}`)
+                    : getPathWithLocale('/browse')
+                  }
                   className="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors flex items-center gap-1"
                 >
                   {t('common.categories', 'Categorías')}
                   <i className="fa-solid fa-chevron-down text-[10px]"></i>
-                </button>
+                </Link>
                 {categoriesDropdownOpen && categories.length > 0 && (
                   <div 
                     className="absolute top-full left-0 pt-2 w-56 z-50"
@@ -533,20 +537,30 @@ const UserLayout = () => {
 
               {/* Categories with Dropdown */}
               <div className="relative">
-                <button
-                  onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    categoriesDropdownOpen
-                      ? 'bg-primary/20 text-white'
-                      : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center">
+                <div className="flex items-center w-full">
+                  <Link
+                    to={categories.length > 0 && categories[0].id 
+                      ? getPathWithLocale(`/category/${categories[0].id}`)
+                      : getPathWithLocale('/browse')
+                    }
+                    onClick={() => setSidebarOpen(false)}
+                    className="flex-1 flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition-all"
+                  >
                     <BookOpen className="mr-3 h-5 w-5" />
                     {t('common.categories', 'Categorías')}
-                  </div>
-                  <i className={`fa-solid fa-chevron-down text-xs transition-transform ${categoriesDropdownOpen ? 'rotate-180' : ''}`}></i>
-                </button>
+                  </Link>
+                  {categories.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCategoriesDropdownOpen(!categoriesDropdownOpen);
+                      }}
+                      className="px-2 py-2.5 text-gray-300 hover:text-white transition-colors"
+                    >
+                      <i className={`fa-solid fa-chevron-down text-xs transition-transform ${categoriesDropdownOpen ? 'rotate-180' : ''}`}></i>
+                    </button>
+                  )}
+                </div>
                 {categoriesDropdownOpen && categories.length > 0 && (
                   <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-4">
                     {categories.map((category, index) => (

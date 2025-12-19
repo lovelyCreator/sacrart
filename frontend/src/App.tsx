@@ -24,6 +24,8 @@ import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
 import SacrartKids from "./pages/SacrartKids";
+import CookiePolicy from "./pages/CookiePolicy";
+import CookieConsentBanner from "./components/CookieConsentBanner";
 import AdminRoutes from "./pages/admin/AdminRoutes";
 import NotFound from "./pages/NotFound";
 import { SupportTicketsProvider } from "./contexts/SupportTicketsContext";
@@ -65,8 +67,10 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+
           <SupportTicketsProvider>
           <BrowserRouter>
+            <CookieConsentBanner />
             <Routes>
               {/* Landing page (before auth) - Index will redirect to /es if authenticated */}
               <Route path="/" element={<Index />} />
@@ -143,6 +147,7 @@ const App = () => (
                     <SacrartKids />
                   </ProtectedRoute>
                 } />
+                <Route path="politica-de-cookies" element={<CookiePolicy />} />
               </Route>
 
               {/* Admin Routes (with locale prefix, but outside UserLayout to avoid header) */}
@@ -166,10 +171,12 @@ const App = () => (
               <Route path="/profile" element={<Navigate to="/en/profile" replace />} />
               <Route path="/support" element={<Navigate to="/en/support" replace />} />
               <Route path="/subscription" element={<Navigate to="/en/subscription" replace />} />
+              <Route path="/politica-de-cookies" element={<Navigate to="/en/politica-de-cookies" replace />} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <CookieConsentBanner />
           </BrowserRouter>
           </SupportTicketsProvider>
         </TooltipProvider>
