@@ -243,7 +243,7 @@ const Library = () => {
               <p className="text-xs text-muted-foreground mb-2">{categoryName}</p>
             )}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{formatTime(item.time_watched || 0)} / {formatTime(item.video?.duration || item.video_duration || 0)}</span>
+              <span>{formatTime(item.time_watched || 0)} / {formatTime(item.video?.duration || 0)}</span>
               <span>{item.last_watched_at ? getTimeAgo(item.last_watched_at) : ''}</span>
             </div>
           </div>

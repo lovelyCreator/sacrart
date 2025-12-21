@@ -20,11 +20,21 @@ import SeriesDetail from "./pages/SeriesDetail";
 import CategoryDetail from "./pages/CategoryDetail";
 import VideoPlayer from "./pages/VideoPlayer";
 import EpisodeDetail from "./pages/EpisodeDetail";
+import EpisodeShop from "./pages/EpisodeShop";
 import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
 import SacrartKids from "./pages/SacrartKids";
 import CookiePolicy from "./pages/CookiePolicy";
+import LegalNotice from "./pages/LegalNotice";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Reels from "./pages/Reels";
+import ReelDetail from "./pages/ReelDetail";
+import DirectosArchive from "./pages/DirectosArchive";
+import ChallengeArchive from "./pages/ChallengeArchive";
+import Rewind from "./pages/Rewind";
+import RewindEpisodes from "./pages/RewindEpisodes";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import AdminRoutes from "./pages/admin/AdminRoutes";
 import NotFound from "./pages/NotFound";
@@ -70,7 +80,7 @@ const App = () => (
 
           <SupportTicketsProvider>
           <BrowserRouter>
-            <CookieConsentBanner />
+            {/* <CookieConsentBanner /> */}
             <Routes>
               {/* Landing page (before auth) - Index will redirect to /es if authenticated */}
               <Route path="/" element={<Index />} />
@@ -122,6 +132,11 @@ const App = () => (
                     <EpisodeDetail />
                   </ProtectedRoute>
                 } />
+                <Route path="episode-shop/:id" element={
+                  <ProtectedRoute>
+                    <EpisodeShop />
+                  </ProtectedRoute>
+                } />
                 <Route path="library" element={
                   <ProtectedRoute>
                     <Library />
@@ -147,7 +162,42 @@ const App = () => (
                     <SacrartKids />
                   </ProtectedRoute>
                 } />
+                <Route path="reels" element={
+                  <ProtectedRoute>
+                    <Reels />
+                  </ProtectedRoute>
+                } />
+                <Route path="reel/:id" element={
+                  <ProtectedRoute>
+                    <ReelDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="directos" element={
+                  <ProtectedRoute>
+                    <DirectosArchive />
+                  </ProtectedRoute>
+                } />
+                <Route path="challenges" element={
+                  <ProtectedRoute>
+                    <ChallengeArchive />
+                  </ProtectedRoute>
+                } />
+                <Route path="rewind" element={
+                  <ProtectedRoute>
+                    <Rewind />
+                  </ProtectedRoute>
+                } />
+                <Route path="rewind/:id" element={
+                  <ProtectedRoute>
+                    <RewindEpisodes />
+                  </ProtectedRoute>
+                } />
                 <Route path="politica-de-cookies" element={<CookiePolicy />} />
+                <Route path="aviso-legal" element={<LegalNotice />} />
+                <Route path="terminos-y-condiciones" element={<TermsAndConditions />} />
+                <Route path="terminos" element={<TermsAndConditions />} />
+                <Route path="politica-de-privacidad" element={<PrivacyPolicy />} />
+                <Route path="privacidad" element={<PrivacyPolicy />} />
               </Route>
 
               {/* Admin Routes (with locale prefix, but outside UserLayout to avoid header) */}
@@ -167,16 +217,29 @@ const App = () => (
               <Route path="/category/:id" element={<RedirectWithParams />} />
               <Route path="/video/:id" element={<RedirectWithParams />} />
               <Route path="/episode/:id" element={<RedirectWithParams />} />
+              <Route path="/episode-shop/:id" element={<RedirectWithParams />} />
               <Route path="/library" element={<Navigate to="/en/library" replace />} />
               <Route path="/profile" element={<Navigate to="/en/profile" replace />} />
               <Route path="/support" element={<Navigate to="/en/support" replace />} />
               <Route path="/subscription" element={<Navigate to="/en/subscription" replace />} />
+              <Route path="/kids" element={<Navigate to="/en/kids" replace />} />
+              <Route path="/reels" element={<Navigate to="/en/reels" replace />} />
+              <Route path="/reel/:id" element={<RedirectWithParams />} />
+              <Route path="/directos" element={<Navigate to="/en/directos" replace />} />
+              <Route path="/challenges" element={<Navigate to="/en/challenges" replace />} />
+              <Route path="/rewind" element={<Navigate to="/en/rewind" replace />} />
+              <Route path="/rewind/:id" element={<RedirectWithParams />} />
               <Route path="/politica-de-cookies" element={<Navigate to="/en/politica-de-cookies" replace />} />
+              <Route path="/aviso-legal" element={<Navigate to="/en/aviso-legal" replace />} />
+              <Route path="/terminos-y-condiciones" element={<Navigate to="/en/terminos-y-condiciones" replace />} />
+              <Route path="/terminos" element={<Navigate to="/en/terminos" replace />} />
+              <Route path="/politica-de-privacidad" element={<Navigate to="/en/politica-de-privacidad" replace />} />
+              <Route path="/privacidad" element={<Navigate to="/en/privacidad" replace />} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <CookieConsentBanner />
+            {/* <CookieConsentBanner /> */}
           </BrowserRouter>
           </SupportTicketsProvider>
         </TooltipProvider>

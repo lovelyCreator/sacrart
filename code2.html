@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es"><head>
+<html class="dark" lang="es"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Soporte | SACRART</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&amp;family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<title>SACRART - Archivo de Directos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script>
         tailwind.config = {
@@ -13,305 +13,420 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: "#C5A065", 
-                        terracotta: "#A05245", 
-                        "background-deep": "#0A0A0A",
-                        "surface-dark": "#141414",
-                        "surface-light": "#ffffff",
-                        "sidebar": "#151515"
+                        primary: "#A05245",
+                        "background-light": "#f4f4f5",
+                        "background-dark": "#0A0A0A", // Deep Charcoal as requested
+                        "surface-dark": "#18181b",
+                        "border-dark": "#27272a",
+                        "twitch-purple": "#9146FF", // Twitch purple color for the archive badge
                     },
                     fontFamily: {
-                        display: ["'Playfair Display'", "serif"],
-                        sans: ["'Inter'", "sans-serif"],
-                        serif: ["'Cinzel'", "serif"],
+                        sans: ["Inter", "sans-serif"],
+                        display: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
                     },
                 },
             },
         };
     </script>
 <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0A0A0A;
-        }
-        .text-shadow {
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
         ::-webkit-scrollbar {
             width: 8px;
+            height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #0A0A0A; 
+            background: #0f0f0f; 
         }
         ::-webkit-scrollbar-thumb {
-            background: #333; 
+            background: #3f3f46; 
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #555; 
-        }.custom-select {
-            background-image: none;
+            background: #52525b; 
         }
-        details > summary {
-            list-style: none;
+        body {
+            background-color: #0A0A0A;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
         }
-        details > summary::-webkit-details-marker {
+        .header-gradient {
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+        }
+        .hero-gradient {
+             background: linear-gradient(to top, #0A0A0A 0%, rgba(10,10,10,0.8) 40%, rgba(10,10,10,0.3) 100%);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
             display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .card-gradient {
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+        }.sticky-filters {
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
     </style>
 </head>
-<body class="bg-background-deep text-white min-h-screen flex flex-col font-sans antialiased transition-colors duration-300">
-<header class="w-full z-50 bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0">
-<div class="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
-<div class="flex items-center gap-8">
-<a class="flex-shrink-0" href="#">
-<div class="w-8 h-8 bg-white rounded flex items-center justify-center">
-<span class="text-black font-serif font-bold text-lg">S</span>
-</div>
+<body class="bg-[#0A0A0A] text-gray-100 transition-colors duration-300 antialiased dark font-sans">
+<header class="fixed top-0 w-full z-50 header-gradient border-b border-white/5 pb-2">
+<div class="container mx-auto px-6 md:px-12 h-20 flex items-center justify-between">
+<div class="flex items-center gap-12">
+<a class="flex items-center gap-3 group" href="#">
+<div class="w-8 h-8 bg-[#e8e6e3] rounded-[2px] flex items-center justify-center text-black font-serif font-bold text-lg">S</div>
 </a>
-<nav class="hidden lg:flex items-center gap-6 text-[11px] tracking-widest font-medium text-gray-300">
-<a class="hover:text-white transition-colors" href="#">INICIO</a>
-<div class="relative group">
-<button class="flex items-center gap-1 hover:text-white transition-colors">
-                            CATEGORÍAS <span class="material-icons text-[14px]">expand_more</span>
-</button>
+<nav class="hidden lg:flex items-center gap-8 text-[11px] font-bold tracking-widest text-gray-300 uppercase">
+<a class="hover:text-white transition-colors" href="#">Inicio</a>
+<div class="relative group cursor-pointer flex items-center gap-1 hover:text-white transition-colors">
+<span>Categorías</span>
+<span class="material-icons-outlined text-[14px]">expand_more</span>
 </div>
-<a class="hover:text-white transition-colors" href="#">SEGUIR VIENDO</a>
-<a class="hover:text-white transition-colors" href="#">BROWSE</a>
-<a class="hover:text-white transition-colors" href="#">DIRECTOS</a>
-<a class="flex items-center gap-1 hover:text-white transition-colors" href="#">
-                        SACRART KIDS <span class="material-icons text-[12px] text-gray-500">lock</span>
+<a class="hover:text-white transition-colors" href="#">Seguir viendo</a>
+<a class="hover:text-white transition-colors" href="#">Browse</a>
+<a class="text-white hover:text-primary transition-colors" href="#">Directos</a>
+<a class="hover:text-white transition-colors flex items-center gap-1" href="#">
+                        Sacrart Kids <span class="material-icons-outlined text-[10px]">lock</span>
 </a>
 </nav>
 </div>
-<div class="flex items-center gap-4">
-<a class="hidden md:block px-4 py-1.5 border border-white/20 rounded text-[11px] font-semibold hover:bg-white hover:text-black transition-all tracking-wider uppercase" href="#">
+<div class="flex items-center gap-6">
+<button class="hidden md:block bg-white/10 border border-transparent text-[10px] font-bold px-4 py-1.5 rounded-[2px] hover:bg-white/20 transition-all uppercase tracking-widest text-white">
                     Tienda
-                </a>
-<div class="relative hidden sm:block group">
-<span class="absolute inset-y-0 left-3 flex items-center text-gray-400 group-focus-within:text-white">
-<span class="material-icons text-[18px]">search</span>
-</span>
-<input class="bg-[#1f1f1f] border-none rounded-full py-1.5 pl-10 pr-4 text-sm w-40 focus:w-64 transition-all duration-300 text-gray-200 placeholder-gray-500 focus:ring-1 focus:ring-white/20" placeholder="Buscar..." type="text"/>
+                </button>
+<div class="cursor-pointer flex items-center gap-1 text-gray-300 hover:text-white transition-colors">
+<span class="material-icons-outlined text-[20px]">language</span>
+<span class="material-icons-outlined text-[16px]">expand_more</span>
 </div>
-<button class="w-8 h-8 rounded-full bg-yellow-600 overflow-hidden border border-white/10 hover:border-white/50 transition-colors">
-<img alt="Perfil" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBC-799CkQ4x6MRc6QU_Us8nP-RRhuzLphtiuofkURLkMDumxxmfO1-yCSeMG1hy6Mgo019DvEOc2Xc4lkwNYzkMrVKqYSFM4QwBsy4sDnY9GX6FSFqMklEmJCFZnITOcV4xg8ScvbsvUVB_ZR1lnT5qigeoAfZjSyBu6kAL-1ygrZadG7avcpmNLirELnubXbZyWr3eixMYdTNqVqEp-p9_Q2PYVFN5Wg8PuFOrXnAg6lXTrFUYibxG6xeIAPAnRn60MzqKCPW10"/>
+<button class="w-8 h-8 rounded-full bg-gray-700 overflow-hidden border border-white/10 hover:border-white/50 transition-colors">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzZtN-G2IMJFH74wVaOmaw60Bi4jiSGSekztAvZVy66vKC2VOqVTS6h8AScsKU5sYJk7n_eNpnHQd-XQyN3oH80EI2Qjno8-57fVlDvoryE1mDrcLwmwys92Cb5e7NCmFbUTCrNv1Jp1Gv6u9MLxuNM9tJx6XOduW2yzWCeCCntpKBmARANp7M4t7VWjprGMjtbEPL4-FEXg9VjVs7nrOx-AKe9G28JdqrDBCGFAS3VFqOWnPTiIyF_wjEGrBfKQH0eK1-PhCosDo"/>
 </button>
 </div>
 </div>
 </header>
-<main class="flex-grow w-full flex flex-col lg:flex-row max-w-[1800px] mx-auto min-h-[calc(100vh-64px)]">
-<aside class="w-full lg:w-72 bg-[#151515] border-r border-white/5 flex-shrink-0 flex flex-col">
-<div class="p-8 flex flex-col items-center text-center border-b border-white/5">
-<div class="w-20 h-20 rounded-full p-1 border border-white/10 mb-4 relative group">
-<img alt="Perfil" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBC-799CkQ4x6MRc6QU_Us8nP-RRhuzLphtiuofkURLkMDumxxmfO1-yCSeMG1hy6Mgo019DvEOc2Xc4lkwNYzkMrVKqYSFM4QwBsy4sDnY9GX6FSFqMklEmJCFZnITOcV4xg8ScvbsvUVB_ZR1lnT5qigeoAfZjSyBu6kAL-1ygrZadG7avcpmNLirELnubXbZyWr3eixMYdTNqVqEp-p9_Q2PYVFN5Wg8PuFOrXnAg6lXTrFUYibxG6xeIAPAnRn60MzqKCPW10"/>
-<div class="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-<span class="material-symbols-outlined text-white text-sm">edit</span>
+<main class="min-h-screen bg-[#0A0A0A]">
+<section class="relative w-full h-[65vh] md:h-[75vh] flex items-end">
+<div class="absolute inset-0 w-full h-full">
+<img alt="Último Directo Background" class="w-full h-full object-cover object-center opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMZhDDcsel6a1WgvjKZWCFLRXLmkapbjVJZeicftHc7y0hIzDDFexHh8SchWbWGz8j82USorqIv1EtpmLMmC9GX9nhi_r6vd-4mAod4x5WejnMWOYavp0LJgY__Bg82wt-FPIXh-2uqoCKz-tGSKucNYp7Hzxa8SPDhrRYSmD6XwRnlpPOVQn1nSdcYKGudtJKgEaeAd6ksJTwZvVPH6xJvPvFArggfURHD1zwuok1ocWy6_d7zTMiejODuIOUdbUh25da_hlmFIE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/60 to-transparent"></div>
 </div>
+<div class="container mx-auto px-6 md:px-12 relative z-10 pb-16 md:pb-24">
+<div class="max-w-3xl">
+<div class="flex items-center gap-3 mb-4">
+<span class="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
+<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                            Live Replay
+                        </span>
+<span class="text-gray-300 text-xs font-medium tracking-wide">Emitido hace 2 días</span>
 </div>
-<h2 class="text-white font-serif text-lg font-semibold tracking-wide mb-1">Alejandro Magno</h2>
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-primary text-[14px]">stars</span>
-<span class="text-primary text-[10px] font-bold uppercase tracking-widest">Plan Aprendiz</span>
-</div>
-</div>
-<nav class="flex-grow py-6 px-4 space-y-1">
-<a class="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-md border-l-2 border-transparent hover:border-white/20 transition-all group" href="#">
-<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">person</span>
-<span class="text-xs font-medium uppercase tracking-wider">Mi Cuenta</span>
-</a>
-<a class="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-md border-l-2 border-transparent hover:border-white/20 transition-all group" href="#">
-<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">smart_display</span>
-<span class="text-xs font-medium uppercase tracking-wider">Mi Actividad</span>
-</a>
-<a class="flex items-center gap-4 px-4 py-3 bg-terracotta/10 text-terracotta rounded-md border-l-2 border-terracotta transition-all group" href="#">
-<span class="material-symbols-outlined text-[20px]">confirmation_number</span>
-<span class="text-xs font-bold uppercase tracking-wider">Soporte</span>
-</a>
-</nav>
-<div class="p-4 border-t border-white/5">
-<a class="flex items-center gap-4 px-4 py-3 text-gray-500 hover:text-red-400 transition-colors" href="#">
-<span class="material-symbols-outlined text-[20px]">logout</span>
-<span class="text-xs font-medium uppercase tracking-wider">Cerrar Sesión</span>
-</a>
-</div>
-</aside>
-<div class="flex-grow p-6 lg:p-12 xl:p-16 relative">
-<div class="max-w-4xl mx-auto space-y-12">
-<div class="space-y-6">
-<h1 class="text-3xl font-serif text-white">¿Necesitas ayuda, Alejandro?</h1>
-<div class="relative w-full">
-<span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-<span class="material-symbols-outlined text-gray-500 text-xl">search</span>
-</span>
-<input class="w-full bg-[#151515] border border-white/10 rounded-lg py-4 pl-12 pr-4 text-white placeholder-gray-500 focus:border-terracotta focus:ring-1 focus:ring-terracotta transition-all text-base" placeholder="Busca tu duda (ej: Factura, Vídeo no carga...)" type="text"/>
-</div>
-</div>
-<section>
-<h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-<span class="w-1.5 h-1.5 bg-white rounded-full"></span>
-                        Preguntas Frecuentes
-                    </h3>
-<div class="bg-[#151515] border border-white/5 rounded-lg divide-y divide-white/5">
-<details class="group">
-<summary class="flex justify-between items-center p-5 cursor-pointer hover:bg-white/5 transition-colors">
-<span class="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">¿Cómo cambio mi tarjeta de crédito?</span>
-<span class="material-symbols-outlined text-gray-500 group-hover:text-terracotta transition-colors transform group-open:rotate-45">add</span>
-</summary>
-<div class="px-5 pb-5 pt-0 text-sm text-gray-400 leading-relaxed">
-                                Puedes actualizar tu método de pago desde la sección "Mi Cuenta" bajo el apartado de Suscripción.
-                            </div>
-</details>
-<details class="group">
-<summary class="flex justify-between items-center p-5 cursor-pointer hover:bg-white/5 transition-colors">
-<span class="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">No puedo descargar mi certificado.</span>
-<span class="material-symbols-outlined text-gray-500 group-hover:text-terracotta transition-colors transform group-open:rotate-45">add</span>
-</summary>
-<div class="px-5 pb-5 pt-0 text-sm text-gray-400 leading-relaxed">
-                                Los certificados se desbloquean automáticamente al completar el 100% de las lecciones del curso.
-                            </div>
-</details>
-<details class="group">
-<summary class="flex justify-between items-center p-5 cursor-pointer hover:bg-white/5 transition-colors">
-<span class="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">¿Cómo funcionan los envíos de los Kits?</span>
-<span class="material-symbols-outlined text-gray-500 group-hover:text-terracotta transition-colors transform group-open:rotate-45">add</span>
-</summary>
-<div class="px-5 pb-5 pt-0 text-sm text-gray-400 leading-relaxed">
-                                Realizamos envíos internacionales. El tiempo de entrega varía según tu región, generalmente entre 5 y 10 días hábiles.
-                            </div>
-</details>
-<details class="group">
-<summary class="flex justify-between items-center p-5 cursor-pointer hover:bg-white/5 transition-colors">
-<span class="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">El vídeo se corta o no carga bien.</span>
-<span class="material-symbols-outlined text-gray-500 group-hover:text-terracotta transition-colors transform group-open:rotate-45">add</span>
-</summary>
-<div class="px-5 pb-5 pt-0 text-sm text-gray-400 leading-relaxed">
-                                Comprueba tu conexión a internet. Recomendamos una velocidad mínima de 10 Mbps para contenido en HD.
-                            </div>
-</details>
-</div>
-</section>
-<section>
-<div class="flex items-center justify-between mb-6">
-<h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-<span class="w-1.5 h-1.5 bg-terracotta rounded-full"></span>
-                        Tus Consultas Recientes
-                    </h3>
-</div>
-<div class="flex flex-col gap-4">
-<div class="bg-[#151515] border border-white/5 rounded-lg p-5 flex items-center justify-between hover:bg-white/5 transition-colors group">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded bg-white/5 flex items-center justify-center text-gray-400 group-hover:text-terracotta transition-colors">
-<span class="material-symbols-outlined text-lg">confirmation_number</span>
-</div>
-<div>
-<div class="flex items-center gap-2 mb-0.5">
-<span class="text-sm font-semibold text-white">Error en vídeo Talla</span>
-<span class="text-[10px] text-gray-500">#102</span>
-</div>
-<p class="text-xs text-gray-400">Última actualización: Hace 2 días</p>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<span class="inline-flex items-center px-2.5 py-1 rounded border border-green-500/20 bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider">
-                                    Resuelto
-                                </span>
-<span class="material-icons text-gray-600 group-hover:text-white text-lg">chevron_right</span>
-</div>
-</div>
-<div class="bg-[#151515] border border-white/5 rounded-lg p-5 flex items-center justify-between hover:bg-white/5 transition-colors group">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded bg-white/5 flex items-center justify-center text-gray-400 group-hover:text-terracotta transition-colors">
-<span class="material-symbols-outlined text-lg">help</span>
-</div>
-<div>
-<div class="flex items-center gap-2 mb-0.5">
-<span class="text-sm font-semibold text-white">Duda sobre materiales</span>
-<span class="text-[10px] text-gray-500">#105</span>
-</div>
-<p class="text-xs text-gray-400">Última actualización: Hace 4 horas</p>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<span class="inline-flex items-center px-2.5 py-1 rounded border border-yellow-500/20 bg-yellow-500/10 text-yellow-500 text-[10px] font-bold uppercase tracking-wider">
-                                    Pendiente
-                                </span>
-<span class="material-icons text-gray-600 group-hover:text-white text-lg">chevron_right</span>
-</div>
+<h1 class="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
+                        Último Directo: <br/> Modelado de Manos en Vivo
+                    </h1>
+<p class="text-gray-300 text-sm md:text-base mb-8 max-w-xl leading-relaxed drop-shadow-md">
+                        Acompaña al maestro en esta sesión intensiva de 4 horas donde exploramos la anatomía detallada de las manos para imaginería procesional, desde el boceto hasta el modelado final en arcilla.
+                    </p>
+<button class="group bg-primary hover:bg-red-700 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:shadow-primary/20 hover:-translate-y-0.5">
+<span class="material-icons-outlined text-xl">play_arrow</span>
+<span>Ver Repetición (2h 15m)</span>
+</button>
 </div>
 </div>
 </section>
-<div class="pt-4 flex justify-end">
-<button class="fixed bottom-8 right-8 z-40 md:static md:w-auto shadow-lg shadow-terracotta/20 px-6 py-4 bg-terracotta hover:bg-[#8e493c] text-white rounded-full md:rounded-lg text-xs font-bold uppercase tracking-widest transition-all hover:scale-105 flex items-center gap-3">
-<span class="material-icons text-lg">mail_outline</span>
-<span>Abrir Nueva Consulta</span>
+<div class="sticky top-20 z-40 w-full sticky-filters shadow-lg">
+<div class="container mx-auto px-6 md:px-12 py-4">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2 md:pb-0">
+<div class="relative group">
+<button class="flex items-center gap-2 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-white text-xs font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap">
+                            Era: Todos
+                            <span class="material-icons-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex items-center gap-2 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-gray-300 hover:text-white text-xs font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap">
+                            Año: 2025
+                            <span class="material-icons-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex items-center gap-2 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-gray-300 hover:text-white text-xs font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap">
+                            Tema: Talla
+                            <span class="material-icons-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+</div>
+<div class="flex items-center border-b border-white/10 focus-within:border-white/50 transition-colors py-1 w-full md:w-64">
+<input class="bg-transparent border-none text-sm text-white placeholder-gray-500 w-full focus:ring-0 px-2" placeholder="Buscar en archivo..." type="text"/>
+<button class="text-gray-400 hover:text-white transition-colors">
+<span class="material-icons-outlined">search</span>
 </button>
 </div>
 </div>
 </div>
+</div>
+<div class="pt-8 pb-16 space-y-12">
+<section class="container mx-auto px-6 md:px-12">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                        Esta Temporada (2025)
+                        <span class="bg-primary/20 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-primary/20">Nuevo</span>
+</h2>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-icons-outlined text-white text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-icons-outlined text-white text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="flex overflow-x-auto gap-5 pb-8 snap-x scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
+<div class="min-w-[300px] w-[300px] md:min-w-[360px] md:w-[360px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5">
+<img alt="Sesión de Dorado al Agua" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCz-JY5eNmo8tfkSba0gDg3aUmNZ2E__Hj8PNpsZ1n0rIIQhB-U6Q7UlC0NExpCE_3jhtYsTvWE9XaG4AcRnXcWdlWmsOuCk-hLDmKus2WRJT8ThQdUw5xBv8t-o9kpx85-pxHRhGhSR2fcsGYd9WEjNWqSV7LueHwUDZedpst2Dsx5cF3-OAxEgclphqPVES69-C4bOVSofokPjVAP9S_vzN_yxBY8AnOkQOuGiAr_zZS8N2RPIQwD9_vciiKh9ZlPuiSl-j8_nds"/>
+<div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+<div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-800/50">
+<div class="h-full bg-red-600 w-3/4"></div>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide">04:12:30</span>
+</div>
+<div class="mt-3 flex gap-3 items-start">
+<div class="w-9 h-9 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden border border-white/10">
+<img alt="Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzZtN-G2IMJFH74wVaOmaw60Bi4jiSGSekztAvZVy66vKC2VOqVTS6h8AScsKU5sYJk7n_eNpnHQd-XQyN3oH80EI2Qjno8-57fVlDvoryE1mDrcLwmwys92Cb5e7NCmFbUTCrNv1Jp1Gv6u9MLxuNM9tJx6XOduW2yzWCeCCntpKBmARANp7M4t7VWjprGMjtbEPL4-FEXg9VjVs7nrOx-AKe9G28JdqrDBCGFAS3VFqOWnPTiIyF_wjEGrBfKQH0eK1-PhCosDo"/>
+</div>
+<div>
+<h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors leading-snug line-clamp-2">Sesión de Dorado al Agua: Técnicas Avanzadas</h3>
+<p class="text-[11px] text-gray-400 mt-1 font-medium">Sacrart Live • Hace 1 semana</p>
+<p class="text-[10px] text-gray-500 mt-0.5">Técnica Mixta</p>
+</div>
+</div>
+</div>
+<div class="min-w-[300px] w-[300px] md:min-w-[360px] md:w-[360px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5">
+<img alt="Esculpido de Rostros" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkR3KB3Aqrb3iDGX_42lGW_qR_9M37TxlApGanq2ASnmZ78rFMlf0temTR3hSehtVmPSrXn_fLyWxygsO2WnMcdSlf6SLVtyIrfZhgR_dynDGDas3aA0KFBjzaN3q9ZHworHEZVAM4NQBUtszvJN_EgDJgqZc7euqKYp1760G7hCap9orIsiLbR2m0h0xmlboxm7R6ygsk1wA2KHa7IJpw2ARnVE2OYxxBupmfIObgiWul9IPxf9Umpa25_1tbPEMrlHLY24jA-Kk"/>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide">02:45:10</span>
+</div>
+<div class="mt-3 flex gap-3 items-start">
+<div class="w-9 h-9 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden border border-white/10">
+<img alt="Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzZtN-G2IMJFH74wVaOmaw60Bi4jiSGSekztAvZVy66vKC2VOqVTS6h8AScsKU5sYJk7n_eNpnHQd-XQyN3oH80EI2Qjno8-57fVlDvoryE1mDrcLwmwys92Cb5e7NCmFbUTCrNv1Jp1Gv6u9MLxuNM9tJx6XOduW2yzWCeCCntpKBmARANp7M4t7VWjprGMjtbEPL4-FEXg9VjVs7nrOx-AKe9G28JdqrDBCGFAS3VFqOWnPTiIyF_wjEGrBfKQH0eK1-PhCosDo"/>
+</div>
+<div>
+<h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors leading-snug line-clamp-2">Esculpido de Rostros: Expresiones de Dolor</h3>
+<p class="text-[11px] text-gray-400 mt-1 font-medium">Sacrart Live • Hace 2 semanas</p>
+<p class="text-[10px] text-gray-500 mt-0.5">Modelado</p>
+</div>
+</div>
+</div>
+<div class="min-w-[300px] w-[300px] md:min-w-[360px] md:w-[360px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5">
+<img alt="Policromía Base" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlCr8WBLicJAFIaw81BiPHai1ghInX976r9R6mhm_iatw6Ln1jI82GjAx4Vt_mrmMomoCppsJYy_HhQQFu4Wl5qvxMn7460vPTpH0KOgm9zz4QnokgYH4hSEAm_OpLuXw71X5h1thlomaJ_Twgo6p6g608zgVjfv7m1epyB87uZf33Lq2prN77XyuhuzgmGo9YPv_WmWE_aIivrOEQfGmYbGDBWww_FTDFkw5Em1XLPiMJCtjxLb0hQfd4lrFplhDPT8He2199W9o"/>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide">03:15:00</span>
+</div>
+<div class="mt-3 flex gap-3 items-start">
+<div class="w-9 h-9 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden border border-white/10">
+<img alt="Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzZtN-G2IMJFH74wVaOmaw60Bi4jiSGSekztAvZVy66vKC2VOqVTS6h8AScsKU5sYJk7n_eNpnHQd-XQyN3oH80EI2Qjno8-57fVlDvoryE1mDrcLwmwys92Cb5e7NCmFbUTCrNv1Jp1Gv6u9MLxuNM9tJx6XOduW2yzWCeCCntpKBmARANp7M4t7VWjprGMjtbEPL4-FEXg9VjVs7nrOx-AKe9G28JdqrDBCGFAS3VFqOWnPTiIyF_wjEGrBfKQH0eK1-PhCosDo"/>
+</div>
+<div>
+<h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors leading-snug line-clamp-2">Preparación de la Policromía Base</h3>
+<p class="text-[11px] text-gray-400 mt-1 font-medium">Sacrart Live • Hace 3 semanas</p>
+<p class="text-[10px] text-gray-500 mt-0.5">Policromía</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="container mx-auto px-6 md:px-12">
+<div class="flex items-center gap-3 mb-6">
+<h2 class="text-xl font-bold text-white tracking-tight">Los Clásicos de Twitch (Archivo)</h2>
+<div class="bg-[#9146FF]/10 border border-[#9146FF]/30 px-2 py-0.5 rounded flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 bg-[#9146FF] rounded-sm"></span>
+<span class="text-[9px] font-bold text-[#9146FF] uppercase tracking-wider">Vintage Era</span>
+</div>
+</div>
+<div class="flex overflow-x-auto gap-4 pb-8 snap-x scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
+<div class="min-w-[260px] w-[260px] md:min-w-[280px] md:w-[280px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5 filter sepia-[0.2]">
+<img alt="Twitch Stream 1" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCf-T3rOvtygGQ2-EV7myH40U1ASaoqowU8SGxXjGx-MDLo9_ztIIS1VprsjwPgg_p4Txqj95tQkd4hj8n4hPaZTOrzNHPJErqLfhs_XKYZYS4cMngoUq1u5DbZoACZl4tmDFAoLKLitGydCf-NPAO8PGM2ch2N7TpdVnDnuqR1abzoUsEMDSGzuhQKl-ysoOU-KGB5h0GJERMa6bD_pUVcwILRFdb1MQNxWMVvYfiKuqPV4xbNkQKYOz_Jkxew_W1TwSJ0gtKDjKs"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute top-2 left-2 text-[#9146FF] opacity-80">
+<span class="material-icons-outlined text-sm">history</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide font-mono text-[#9146FF]">06:22:15</span>
+</div>
+<div class="mt-2.5 px-0.5">
+<h3 class="font-bold text-[13px] text-gray-200 group-hover:text-[#9146FF] transition-colors leading-snug line-clamp-2">Maratón de Tallado: San Juan Evangelista (Parte 1)</h3>
+<p class="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-wide">
+                        20 de Oct, 2021
+                    </p>
+</div>
+</div>
+<div class="min-w-[260px] w-[260px] md:min-w-[280px] md:w-[280px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5 filter sepia-[0.2]">
+<img alt="Twitch Stream 2" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhhJRmcUsgeZiHL7BrFr6bldxdE8wSXheRYr55_IYYo7A6gsWiuLZC3FGl3Cbfy5-t4VU6eEmRH0AN853iQIqlKKAAh6bXwtNFseAS8YwRQqEvb84hc6BcZqbIGefaB1LLJsa_CCu29tnUGT5PAk9HN8UqQ1UB-xaHzjSsmymUKjLYNIas4PY5mjaxgmzgnL_Y6OMzqSM0OIZaq1IpeEquM6cgNeGQxSLOzAfcYQvgxDLzlBHeSzCm5Fmgja5nE-vAToq12xqTdJE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute top-2 left-2 text-[#9146FF] opacity-80">
+<span class="material-icons-outlined text-sm">history</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide font-mono text-[#9146FF]">04:15:30</span>
+</div>
+<div class="mt-2.5 px-0.5">
+<h3 class="font-bold text-[13px] text-gray-200 group-hover:text-[#9146FF] transition-colors leading-snug line-clamp-2">Charlando mientras lijamos: Preguntas y Respuestas</h3>
+<p class="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-wide">
+                        15 de Sep, 2021
+                    </p>
+</div>
+</div>
+<div class="min-w-[260px] w-[260px] md:min-w-[280px] md:w-[280px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5 filter sepia-[0.2]">
+<img alt="Twitch Stream 3" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKRLISel3h5VL_e5nssTddYUBO4tufqN9vr18Srt0GCuH7kgvLFHjl_O0s23wij4Cp8MtYdw_EHi7On-c3XcFSmTXzwyqyJgvZ-K2sf1HWW8tpMiqa07IWQNO34YTWZx5tpTdXPaWyS7Tr2fEk8w7yB8KvVnywTvVTJJWE9gqEkdeWfiTrjGDoR2JOySAaECEjIbrpa5CsJAtxGBJ58rlEcb3lKGgvPNWMbe3-iLts-Ke7kn7KPrfRRt0mZc7h8Vssk-Yu8zuM2lU"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute top-2 left-2 text-[#9146FF] opacity-80">
+<span class="material-icons-outlined text-sm">history</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide font-mono text-[#9146FF]">03:45:00</span>
+</div>
+<div class="mt-2.5 px-0.5">
+<h3 class="font-bold text-[13px] text-gray-200 group-hover:text-[#9146FF] transition-colors leading-snug line-clamp-2">Restauración en Vivo: Día 3</h3>
+<p class="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-wide">
+                        02 de Ago, 2021
+                    </p>
+</div>
+</div>
+<div class="min-w-[260px] w-[260px] md:min-w-[280px] md:w-[280px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5 filter sepia-[0.2]">
+<img alt="Twitch Stream 4" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvq0GaPm8Mcr9zNyVl_lsVxXQVGB4fBnkNccBGHEN-Nf0F1_UH60puC34xbOOa41NqgPYH9wzBBdgFayZH-CHrEiyhKtxguh4rNTkDZoL5W_dWyE51HRmgKuiyTrMju57e7Fnx03AH2rvj7VOipo0AkjyEFJb9pNawRKGIavxBMMDY4S-9-Dt6SbAw4aSW5bCMt_yrghY77qbf-CQKgOekF7knutOZ3DZ2uBH60ZTm0Z2-qR0_ZLQNPYx7KyVFkwnK5wI4fFK7EnQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute top-2 left-2 text-[#9146FF] opacity-80">
+<span class="material-icons-outlined text-sm">history</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide font-mono text-[#9146FF]">05:10:45</span>
+</div>
+<div class="mt-2.5 px-0.5">
+<h3 class="font-bold text-[13px] text-gray-200 group-hover:text-[#9146FF] transition-colors leading-snug line-clamp-2">Especial 1000 Seguidores: Bocetando Ideas</h3>
+<p class="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-wide">
+                        12 de Jul, 2021
+                    </p>
+</div>
+</div>
+</div>
+</section>
+<section class="container mx-auto px-6 md:px-12">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-bold text-white tracking-tight">Charlas y Preguntas</h2>
+</div>
+<div class="flex overflow-x-auto gap-5 pb-8 snap-x scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
+<div class="min-w-[300px] w-[300px] md:min-w-[360px] md:w-[360px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5">
+<img alt="Charla 1" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 grayscale-[0.3] group-hover:grayscale-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSLKKtCqMTsuyD0S1pj08mlHVweYVrGf4eSwH1IgPS8vbWnYWzqX5kG8AyqtLyr0mECnFpU5zfY_WwoXp4frZqDby__gIzDi_j8kVz56xZk42svhle1wZ5F8EsZx7p0tketpz0Cbfhb_O3TkZ9iCuPCVp6gDA5L_5iqHIGE1sXshai5oqdEIycPDUkUrHhmSyMHtyCBQ0xhRSSxC3cabdVnjYd_BPUwPST6wesV7yImsdQo-l1ILhBW3K4wdupC9HEfAWM4S1Sbxk"/>
+<div class="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+<span class="material-icons-outlined text-white/50 text-4xl group-hover:text-primary transition-colors">mic</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide">01:30:00</span>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors leading-snug line-clamp-2">El Futuro de la Imaginería: Mesa Redonda</h3>
+<p class="text-[11px] text-gray-400 mt-1 font-medium">Podcast Visual • Hace 2 meses</p>
+</div>
+</div>
+<div class="min-w-[300px] w-[300px] md:min-w-[360px] md:w-[360px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5">
+<img alt="Charla 2" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 grayscale-[0.3] group-hover:grayscale-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXQOqYFKLcJYz_R4dV_IwZs7TyojSaqZ5XHq7Bo730bjeFuyHfaK_N2ZQEPzjKSPX2Uezk5Y5Kqvi0Yvp-SvYAU-f7gdlhyTC9QSkz-ks2BSgxfffv6tpl59_R0tgcdKcdBMk891rpauGurSTe9ny8UltoOQNTbx6y3P5H8M7ejb193aGan1hMd_0_loks_sXFd2jjOmzQ1tBat-QTkhVNRcrHkIP27digEcGvIbHfi_Jlr7Cs6aBLtS0UxrFFKwpTYxeHIOa8jxw"/>
+<div class="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+<span class="material-icons-outlined text-white/50 text-4xl group-hover:text-primary transition-colors">mic</span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-800/50">
+<div class="h-full bg-red-600 w-1/2"></div>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide">02:15:20</span>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors leading-snug line-clamp-2">Q&amp;A con Suscriptores: Dudas Técnicas</h3>
+<p class="text-[11px] text-gray-400 mt-1 font-medium">Just Chatting • Hace 3 meses</p>
+</div>
+</div>
+<div class="min-w-[300px] w-[300px] md:min-w-[360px] md:w-[360px] snap-start group relative cursor-pointer">
+<div class="aspect-video overflow-hidden rounded-[4px] relative bg-[#18181b] shadow-lg border border-white/5">
+<img alt="Charla 3" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 grayscale-[0.3] group-hover:grayscale-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKRLISel3h5VL_e5nssTddYUBO4tufqN9vr18Srt0GCuH7kgvLFHjl_O0s23wij4Cp8MtYdw_EHi7On-c3XcFSmTXzwyqyJgvZ-K2sf1HWW8tpMiqa07IWQNO34YTWZx5tpTdXPaWyS7Tr2fEk8w7yB8KvVnywTvVTJJWE9gqEkdeWfiTrjGDoR2JOySAaECEjIbrpa5CsJAtxGBJ58rlEcb3lKGgvPNWMbe3-iLts-Ke7kn7KPrfRRt0mZc7h8Vssk-Yu8zuM2lU"/>
+<div class="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+<span class="material-icons-outlined text-white/50 text-4xl group-hover:text-primary transition-colors">mic</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-wide">01:45:00</span>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors leading-snug line-clamp-2">Entrevista a Maestro Tallista Invitado</h3>
+<p class="text-[11px] text-gray-400 mt-1 font-medium">Entrevistas • Hace 4 meses</p>
+</div>
+</div>
+</div>
+</section>
+</div>
 </main>
-<footer class="bg-black text-white pt-16 pb-8 border-t border-white/5 z-10">
-<div class="max-w-[1800px] mx-auto px-6 md:px-12">
-<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
-<div class="col-span-2 md:col-span-1 lg:col-span-1">
-<div class="w-10 h-10 bg-white rounded flex items-center justify-center mb-6">
-<span class="text-black font-serif font-bold text-xl">S</span>
+<footer class="bg-[#050505] border-t border-white/5 py-16 text-sm">
+<div class="container mx-auto px-6 md:px-12">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
+<div class="flex flex-col gap-6">
+<div class="w-8 h-8 bg-[#e8e6e3] rounded-[2px] flex items-center justify-center text-black font-serif font-bold text-lg mb-2">S</div>
+<p class="text-gray-400 text-xs leading-relaxed max-w-[250px]">
+                        La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.
+                    </p>
+<div class="flex gap-4 mt-2">
+<a class="text-white hover:text-primary transition-colors" href="#">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path></svg>
+</a>
+<a class="text-white hover:text-primary transition-colors" href="#">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"></path></svg>
+</a>
+<a class="text-white hover:text-primary transition-colors" href="#">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg>
+</a>
+<a class="text-white hover:text-primary transition-colors" href="#">
+<span class="material-icons-outlined text-xl">alternate_email</span>
+</a>
 </div>
 </div>
 <div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Explorar</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Modelado</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Talla</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Policromía</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Materiales</a></li>
+<h4 class="text-[11px] font-extrabold text-white uppercase tracking-widest mb-6">Explorar</h4>
+<ul class="flex flex-col gap-3 text-xs font-medium text-gray-400">
+<li><a class="hover:text-white transition-colors" href="#">Modelado</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Talla</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Policromía</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Materiales</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Cuenta</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Mi Perfil</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Mi Lista</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Certificados</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Suscripción</a></li>
+<h4 class="text-[11px] font-extrabold text-white uppercase tracking-widest mb-6">Cuenta</h4>
+<ul class="flex flex-col gap-3 text-xs font-medium text-gray-400">
+<li><a class="hover:text-white transition-colors" href="#">Mi Perfil</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Mi Lista</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Certificados</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Suscripción</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Ayuda</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Soporte</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Preguntas Frecuentes</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Contacto</a></li>
-</ul>
-</div>
-<div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Legal</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Términos</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Privacidad</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Cookies</a></li>
+<h4 class="text-[11px] font-extrabold text-white uppercase tracking-widest mb-6">Ayuda</h4>
+<ul class="flex flex-col gap-3 text-xs font-medium text-gray-400">
+<li><a class="hover:text-white transition-colors" href="#">Soporte</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Preguntas Frecuentes</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Contacto</a></li>
 </ul>
 </div>
 </div>
-<div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
-<div class="flex items-center gap-6">
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">photo_camera</span>
-</a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">public</span>
-</a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">music_note</span>
-</a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">play_arrow</span>
-</a>
-</div>
-<div class="text-xs text-gray-600 font-medium">
-                    © 2023 SACRART. Todos los derechos reservados.
-                </div>
+<div class="mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] text-gray-600 font-medium tracking-wide">
+<div class="text-center md:text-left">
+                © 2023 SACRART. Todos los derechos reservados.
+            </div>
+<ul class="flex gap-6">
+<li><a class="hover:text-white transition-colors" href="#">Términos</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Privacidad</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Cookies</a></li>
+</ul>
 </div>
 </div>
 </footer>
+
 </body></html>

@@ -2,8 +2,8 @@
 <html lang="es"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Perfil de Usuario | SACRART</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<title>Reproductor: Virgen de Filipinas | SACRART</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&amp;family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
@@ -18,13 +18,15 @@
                         "background-deep": "#0A0A0A",
                         "surface-dark": "#141414",
                         "surface-light": "#ffffff",
-                        "sidebar": "#151515"
                     },
                     fontFamily: {
                         display: ["'Playfair Display'", "serif"],
                         sans: ["'Inter'", "sans-serif"],
                         serif: ["'Cinzel'", "serif"],
                     },
+                    aspectRatio: {
+                        'vertical': '9 / 16',
+                    }
                 },
             },
         };
@@ -33,270 +35,316 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0A0A0A;
-        }
-        .text-shadow {
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-        ::-webkit-scrollbar {
-            width: 8px;
+        }::-webkit-scrollbar {
+            width: 6px;
         }
         ::-webkit-scrollbar-track {
             background: #0A0A0A; 
         }
         ::-webkit-scrollbar-thumb {
             background: #333; 
-            border-radius: 4px;
+            border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
             background: #555; 
-        }.custom-select {
-            background-image: none;
         }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }.tab-btn {
+            position: relative;
+            color: #9CA3AF;
+            transition: all 0.3s ease;
+        }
+        .tab-btn:hover {
+            color: #D1D5DB;
+        }
+        .tab-btn.active {
+            color: #ffffff;
+        }
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: transparent;
+            transition: background-color 0.3s ease;
+        }
+        .tab-btn.active::after {
+            background-color: #A05245;}
     </style>
+<script>
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Show selected content
+            document.getElementById(tabId + '-content').classList.add('active');
+            // Activate button
+            document.getElementById(tabId + '-btn').classList.add('active');
+        }
+    </script>
 </head>
-<body class="bg-background-deep text-white min-h-screen flex flex-col font-sans antialiased transition-colors duration-300">
-<header class="w-full z-50 bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0">
-<div class="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
+<body class="bg-background-deep text-white min-h-screen flex flex-col font-sans antialiased">
+<header class="w-full z-50 bg-[#0A0A0A] border-b border-white/5 sticky top-0">
+<div class="max-w-[1920px] mx-auto px-6 h-16 flex items-center justify-between">
 <div class="flex items-center gap-8">
 <a class="flex-shrink-0" href="#">
 <div class="w-8 h-8 bg-white rounded flex items-center justify-center">
 <span class="text-black font-serif font-bold text-lg">S</span>
 </div>
 </a>
-<nav class="hidden lg:flex items-center gap-6 text-[11px] tracking-widest font-medium text-gray-300">
+<nav class="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.15em] font-medium text-gray-400">
 <a class="hover:text-white transition-colors" href="#">INICIO</a>
 <div class="relative group">
-<button class="flex items-center gap-1 hover:text-white transition-colors">
+<button class="flex items-center gap-1 hover:text-white transition-colors tracking-[0.15em]">
                             CATEGORÍAS <span class="material-icons text-[14px]">expand_more</span>
 </button>
 </div>
-<a class="hover:text-white transition-colors" href="#">SEGUIR VIENDO</a>
-<a class="hover:text-white transition-colors" href="#">BROWSE</a>
-<a class="hover:text-white transition-colors" href="#">DIRECTOS</a>
-<a class="flex items-center gap-1 hover:text-white transition-colors" href="#">
-                        SACRART KIDS <span class="material-icons text-[12px] text-gray-500">lock</span>
-</a>
+<a class="hover:text-white transition-colors" href="#">REWIND</a>
+<a class="hover:text-white transition-colors" href="#">MASTERCLASS</a>
 </nav>
 </div>
-<div class="flex items-center gap-4">
-<a class="hidden md:block px-4 py-1.5 border border-white/20 rounded text-[11px] font-semibold hover:bg-white hover:text-black transition-all tracking-wider uppercase" href="#">
-                    Tienda
+<div class="flex items-center gap-6">
+<a class="hidden md:block text-[11px] font-bold tracking-widest text-terracotta uppercase hover:text-white transition-colors" href="#">
+                    Suscríbete
                 </a>
-<div class="relative hidden sm:block group">
-<span class="absolute inset-y-0 left-3 flex items-center text-gray-400 group-focus-within:text-white">
-<span class="material-icons text-[18px]">search</span>
-</span>
-<input class="bg-[#1f1f1f] border-none rounded-full py-1.5 pl-10 pr-4 text-sm w-40 focus:w-64 transition-all duration-300 text-gray-200 placeholder-gray-500 focus:ring-1 focus:ring-white/20" placeholder="Buscar..." type="text"/>
-</div>
-<button class="w-8 h-8 rounded-full bg-yellow-600 overflow-hidden border border-white/10 hover:border-white/50 transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-icons text-gray-400 hover:text-white cursor-pointer text-[20px]">search</span>
+<button class="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:border-white/50 transition-colors">
 <img alt="Perfil" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBC-799CkQ4x6MRc6QU_Us8nP-RRhuzLphtiuofkURLkMDumxxmfO1-yCSeMG1hy6Mgo019DvEOc2Xc4lkwNYzkMrVKqYSFM4QwBsy4sDnY9GX6FSFqMklEmJCFZnITOcV4xg8ScvbsvUVB_ZR1lnT5qigeoAfZjSyBu6kAL-1ygrZadG7avcpmNLirELnubXbZyWr3eixMYdTNqVqEp-p9_Q2PYVFN5Wg8PuFOrXnAg6lXTrFUYibxG6xeIAPAnRn60MzqKCPW10"/>
 </button>
 </div>
 </div>
+</div>
 </header>
-<main class="flex-grow w-full flex flex-col lg:flex-row max-w-[1800px] mx-auto min-h-[calc(100vh-64px)]">
-<aside class="w-full lg:w-72 bg-[#151515] border-r border-white/5 flex-shrink-0 flex flex-col">
-<div class="p-8 flex flex-col items-center text-center border-b border-white/5">
-<div class="w-20 h-20 rounded-full p-1 border border-white/10 mb-4 relative group">
-<img alt="Perfil" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBC-799CkQ4x6MRc6QU_Us8nP-RRhuzLphtiuofkURLkMDumxxmfO1-yCSeMG1hy6Mgo019DvEOc2Xc4lkwNYzkMrVKqYSFM4QwBsy4sDnY9GX6FSFqMklEmJCFZnITOcV4xg8ScvbsvUVB_ZR1lnT5qigeoAfZjSyBu6kAL-1ygrZadG7avcpmNLirELnubXbZyWr3eixMYdTNqVqEp-p9_Q2PYVFN5Wg8PuFOrXnAg6lXTrFUYibxG6xeIAPAnRn60MzqKCPW10"/>
-<div class="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-<span class="material-symbols-outlined text-white text-sm">edit</span>
+<main class="flex-grow w-full relative flex h-[calc(100vh-64px)] overflow-hidden">
+<div class="absolute inset-0 z-0">
+<div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&amp;w=1887&amp;auto=format&amp;fit=crop')] bg-cover bg-center opacity-20 blur-2xl scale-110"></div>
+<div class="absolute inset-0 bg-[#0A0A0A]/80"></div>
 </div>
+<div class="relative z-10 w-[40%] h-full flex items-center justify-center p-8 lg:p-12 border-r border-white/5">
+<div class="relative aspect-[9/16] h-full max-h-[85vh] bg-black rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 group">
+<img alt="Sculptor hands" class="w-full h-full object-cover opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiC80BcTVlylGCSZgjuwyNrqbuShVQf7AM_SzfPoM1-OmXd6iRVjrGypxMtC2sppSnAjlf9qfzApl3LuMWD4pZFG4TSRJ3R82RwWp6pLSSM62ZMpVjSSbICX90EyxZbipi8m0bnlOz6h_MZmfILsuc8gq4XI7KgC3neBlEEufC-M0DZoO0tWanZKE20nk3a3vrP3RewSOWelST7t5RJoscoAXip8y5bSKxT7915df2tTTRkC9izGEFdkI9r_u3qlp8ppzZR3o6lpQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20"></div>
+<div class="absolute top-6 right-6 flex items-center gap-2">
+<span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+<span class="text-[10px] font-bold tracking-widest uppercase text-white/90">REWIND 4K</span>
 </div>
-<h2 class="text-white font-serif text-lg font-semibold tracking-wide mb-1">Alejandro Magno</h2>
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-primary text-[14px]">stars</span>
-<span class="text-primary text-[10px] font-bold uppercase tracking-widest">Plan Aprendiz</span>
-</div>
-</div>
-<nav class="flex-grow py-6 px-4 space-y-1">
-<a class="flex items-center gap-4 px-4 py-3 bg-terracotta/10 text-terracotta rounded-md border-l-2 border-terracotta transition-all group" href="#">
-<span class="material-symbols-outlined text-[20px]">person</span>
-<span class="text-xs font-bold uppercase tracking-wider">Mi Cuenta</span>
-</a>
-<a class="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-md border-l-2 border-transparent hover:border-white/20 transition-all group" href="#">
-<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">smart_display</span>
-<span class="text-xs font-medium uppercase tracking-wider">Mi Actividad</span>
-</a>
-<a class="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-md border-l-2 border-transparent hover:border-white/20 transition-all group" href="#">
-<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">confirmation_number</span>
-<span class="text-xs font-medium uppercase tracking-wider">Soporte</span>
-</a>
-</nav>
-<div class="p-4 border-t border-white/5">
-<a class="flex items-center gap-4 px-4 py-3 text-gray-500 hover:text-red-400 transition-colors" href="#">
-<span class="material-symbols-outlined text-[20px]">logout</span>
-<span class="text-xs font-medium uppercase tracking-wider">Cerrar Sesión</span>
-</a>
-</div>
-</aside>
-<div class="flex-grow p-6 lg:p-12 xl:p-16 relative">
-<div class="max-w-4xl mx-auto space-y-12">
-<div class="flex items-end justify-between border-b border-white/10 pb-6">
-<div>
-<h1 class="text-3xl font-serif text-white mb-2">Mi Cuenta</h1>
-<p class="text-gray-400 text-sm">Gestiona tus preferencias regionales y suscripción.</p>
-</div>
-</div>
-<section>
-<h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-<span class="w-1.5 h-1.5 bg-white rounded-full"></span>
-                        Configuración Regional
-                    </h3>
-<div class="bg-[#151515] border border-white/5 rounded-lg p-6 lg:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-<div>
-<label class="block text-sm font-medium text-white mb-1">Idioma de la Plataforma / Language</label>
-<p class="text-xs text-gray-500">Esta preferencia se guardará en tu perfil automáticamente.</p>
-</div>
-<div class="relative w-full md:w-72">
-<select class="custom-select w-full bg-[#0A0A0A] border border-white/10 rounded px-4 py-3 text-sm text-white focus:border-terracotta focus:ring-1 focus:ring-terracotta appearance-none cursor-pointer">
-<option selected="" value="es">🇪🇸 Español (Predeterminado)</option>
-<option value="en">🇺🇸 English</option>
-</select>
-<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-<span class="material-symbols-outlined text-sm">expand_more</span>
-</div>
-</div>
-</div>
-</section>
-<section>
-<h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-<span class="w-1.5 h-1.5 bg-terracotta rounded-full"></span>
-                        Mi Suscripción
-                    </h3>
-<div class="bg-gradient-to-br from-[#121212] to-[#0f0f0f] border-l-4 border-terracotta rounded-r-lg p-6 lg:p-8 relative overflow-hidden shadow-lg group">
-<div class="absolute top-0 right-0 w-64 h-full bg-terracotta/5 skew-x-12 pointer-events-none transition-all duration-500 group-hover:bg-terracotta/10"></div>
-<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
-<div>
-<div class="flex items-center gap-3 mb-2">
-<span class="px-2 py-0.5 bg-terracotta/20 border border-terracotta/30 rounded text-[10px] font-bold text-terracotta uppercase tracking-wider">Activo</span>
-</div>
-<h4 class="text-2xl font-serif text-white mb-3">PLAN: APRENDIZ</h4>
-<div class="flex items-center gap-2 text-primary/90">
-<span class="material-symbols-outlined text-lg">military_tech</span>
-<p class="text-sm font-medium">Miembro desde: Mayo 2025 (8 Meses)</p>
-</div>
-</div>
-<div class="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4">
-<button class="px-5 py-2.5 bg-terracotta hover:bg-[#8e493c] text-white text-xs font-bold uppercase tracking-widest rounded shadow-lg shadow-terracotta/20 hover:shadow-terracotta/40 transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-lg">upgrade</span>
-                                    Actualizar Plan
-                                </button>
-<button class="px-5 py-2.5 bg-[#222] hover:bg-[#333] border border-white/10 text-gray-300 hover:text-white text-xs font-bold uppercase tracking-widest rounded transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-lg">credit_card</span>
-                                    Actualizar Tarjeta
-                                </button>
-<button class="px-5 py-2.5 bg-white hover:bg-gray-200 text-black text-xs font-bold uppercase tracking-widest rounded shadow-lg shadow-white/5 hover:shadow-white/10 transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-lg">download</span>
-                                    Descargar Facturas
-                                </button>
-</div>
-</div>
-<div class="mt-8 pt-6 border-t border-white/5">
-<button class="flex items-center gap-2 text-xs text-gray-500 hover:text-red-400 uppercase tracking-wider font-medium transition-colors">
-<span class="material-symbols-outlined text-lg">cancel</span>
-                                Cancelar Suscripción
-                            </button>
-</div>
-</div>
-</section>
-<section>
-<h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-<span class="w-1.5 h-1.5 bg-gray-500 rounded-full"></span>
-                        Datos de Acceso
-                    </h3>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<div>
-<label class="block text-xs text-gray-400 mb-2 uppercase tracking-wide">Email</label>
-<div class="relative group">
-<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-<span class="material-symbols-outlined text-gray-500 group-focus-within:text-terracotta transition-colors text-lg">mail</span>
-</span>
-<input class="w-full bg-[#151515] border border-white/10 rounded px-3 py-3 pl-10 text-sm text-white focus:border-terracotta/50 focus:ring-1 focus:ring-terracotta/50 placeholder-gray-600 transition-colors" type="email" value="alex.magno@example.com"/>
-<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-<span class="material-symbols-outlined text-gray-600 text-sm">edit</span>
-</div>
-</div>
-</div>
-<div>
-<label class="block text-xs text-gray-400 mb-2 uppercase tracking-wide">Contraseña</label>
-<div class="relative group">
-<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-<span class="material-symbols-outlined text-gray-500 group-focus-within:text-terracotta transition-colors text-lg">lock</span>
-</span>
-<input class="w-full bg-[#151515] border border-white/10 rounded px-3 py-3 pl-10 text-sm text-white focus:border-terracotta/50 focus:ring-1 focus:ring-terracotta/50 placeholder-gray-600 transition-colors" type="password" value="********"/>
-<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-white transition-colors">
-<span class="text-[10px] uppercase font-bold">Cambiar</span>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+<button class="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-terracotta hover:scale-105 transition-all">
+<span class="material-icons text-white text-3xl">play_arrow</span>
 </button>
 </div>
+<div class="absolute bottom-0 left-0 right-0 p-6">
+<div class="w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer group/progress">
+<div class="w-[30%] h-full bg-terracotta rounded-full relative">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity shadow-lg"></div>
 </div>
 </div>
-</section>
+<div class="flex items-center justify-between text-white">
+<div class="flex items-center gap-4">
+<button class="hover:text-terracotta transition-colors"><span class="material-icons">pause</span></button>
+<button class="hover:text-terracotta transition-colors"><span class="material-icons">replay_10</span></button>
+<span class="text-xs font-mono text-gray-300">04:20 / 14:00</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:text-terracotta transition-colors"><span class="material-icons">subtitles</span></button>
+<button class="hover:text-terracotta transition-colors"><span class="material-icons">settings</span></button>
+<button class="hover:text-terracotta transition-colors"><span class="material-icons">fullscreen</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="relative z-10 w-[60%] h-full bg-[#0A0A0A] flex flex-col">
+<div class="px-12 pt-12 pb-2">
+<div class="flex items-center gap-3 mb-3">
+<span class="px-2 py-1 bg-white/5 border border-white/10 rounded text-[9px] font-bold tracking-widest uppercase text-terracotta">Serie Original</span>
+<span class="text-[10px] font-bold tracking-widest uppercase text-gray-500">Temporada 1</span>
+</div>
+<h1 class="font-display text-4xl lg:text-5xl font-bold text-white mb-2 leading-tight">Virgen de Filipinas</h1>
+<h2 class="text-lg text-gray-400 font-light flex items-center gap-2">
+<span class="text-terracotta font-serif">Capítulo 1:</span> Preparación del bloque
+                </h2>
+</div>
+<div class="px-12 mt-8 border-b border-white/10 flex items-center gap-8">
+<button class="pb-4 text-xs font-bold tracking-[0.15em] uppercase tab-btn" id="episodios-btn" onclick="switchTab('episodios')">
+                    Episodios
+                </button>
+<button class="pb-4 text-xs font-bold tracking-[0.15em] uppercase tab-btn active" id="transcripcion-btn" onclick="switchTab('transcripcion')">
+                    Transcripción
+                </button>
+</div>
+<div class="flex-1 overflow-y-auto relative">
+<div class="tab-content active h-full" id="transcripcion-content">
+<div class="px-12 py-10 space-y-8 max-w-3xl">
+<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
+<span class="font-mono text-xs text-terracotta pt-1 font-medium">04:15</span>
+<p class="text-base text-gray-300 font-light leading-relaxed">
+                                Para el dorado, es fundamental la temperatura. La madera respira, se expande y contrae con el calor del taller.
+                            </p>
+</div>
+<div class="group flex gap-6 relative">
+<div class="absolute -left-12 top-0 bottom-0 w-1 bg-terracotta rounded-r"></div>
+<span class="font-mono text-xs text-white pt-1 font-bold">04:20</span>
+<p class="text-lg text-white font-normal leading-relaxed">
+                                Así que vamos a calentarla al baño maría. Es un proceso delicado, casi alquímico, donde el material cambia de estado ante nuestros ojos.
+                            </p>
+</div>
+<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
+<span class="font-mono text-xs text-gray-500 pt-1">04:25</span>
+<p class="text-base text-gray-300 font-light leading-relaxed">
+                                Si hierve, perderá su fuerza adhesiva. Se volverá quebradiza y el oro no se fijará como debe sobre la superficie preparada.
+                            </p>
+</div>
+<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
+<span class="font-mono text-xs text-gray-500 pt-1">04:32</span>
+<p class="text-base text-gray-300 font-light leading-relaxed">
+                                Observad la consistencia. Debe fluir como miel caliente, ni muy líquida ni muy espesa. Es el punto exacto que buscamos.
+                            </p>
+</div>
+<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
+<span class="font-mono text-xs text-gray-500 pt-1">04:45</span>
+<p class="text-base text-gray-300 font-light leading-relaxed">
+                                Aplicamos la primera capa con suavidad. El pincel apenas roza la madera, depositando la mezcla en los poros abiertos.
+                            </p>
+</div>
+<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
+<span class="font-mono text-xs text-gray-500 pt-1">05:10</span>
+<p class="text-base text-gray-300 font-light leading-relaxed">
+                                El silencio es necesario aquí. Cualquier distracción podría arruinar horas de preparación. La concentración debe ser absoluta.
+                            </p>
+</div>
+</div>
+<div class="sticky bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#0A0A0A] to-transparent pointer-events-none"></div>
+</div>
+<div class="tab-content h-full" id="episodios-content">
+<div class="px-12 py-8">
+<div class="flex items-start gap-5 py-6 border-b border-white/5 group cursor-pointer">
+<div class="relative w-32 aspect-video bg-gray-800 rounded overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfVwUXwgwRAlS2plDTJgs1CJTZJ3yvHnMANdGF4-3ISudArCzHbhSUbfmNggHC48HiPpPYYrRxqR0RTy42aIQPPc5BluN_1QuW9XzeEA5ZdAFgYmenG8qM_Uuz8lpLGf7l9BpKq7EzUuFTa4b8qdD0fqN-FKohJgUISnmtC6cxV-TyoyxOFgz2esFgGVy2yVhMnWYuCrqDColAFcWjd2kfn2cyg47MopO0NiAre9E2_sI4ArpNJ7RpylxGWdVK9J5fi0GPv4WDRCI"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-icons text-terracotta">equalizer</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-terracotta font-bold text-sm">01. Preparación del bloque</h3>
+<span class="text-[10px] font-mono text-gray-500">14:00</span>
+</div>
+<p class="text-xs text-gray-400 line-clamp-2 leading-relaxed">Selección de la madera de cedro y primeros trazos de simetría para definir la postura sagrada.</p>
+</div>
+</div>
+<div class="flex items-start gap-5 py-6 border-b border-white/5 group cursor-pointer hover:bg-white/5 transition-colors -mx-4 px-4 rounded-lg">
+<div class="relative w-32 aspect-video bg-gray-800 rounded overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDg8XvYRaYq6Ejq58JJCxwVDX5CLbZw0pxuykWOPrfrZ6NFnZqQ_EL-JIX03MDeNbLHi573ZBEKHAXLs8JpozEa0gO9x9Q0YHH5Uu9CGNsVIUheEkSZxC7zElyMkJBHXV_JlbOqXthUlfJR-AoVy9mNWzYlsS_Ln5ZwWTW5qVU1_TOAkpHBrZDwKvOdHj85OfCYJljGJU-lSgkwCQC6Oi1GhmJ-05vgvppjvdGw4bWA1v6qRagWWNKWLdFZkY3-3BC6mzUJP9QE2y4"/>
+<div class="absolute inset-0 bg-black/50 group-hover:bg-black/20 transition-colors"></div>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-white text-2xl">play_circle_outline</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-white group-hover:text-terracotta transition-colors font-medium text-sm">02. El Desbastado</h3>
+<span class="text-[10px] font-mono text-gray-500">18:30</span>
+</div>
+<p class="text-xs text-gray-500 group-hover:text-gray-400 line-clamp-2 leading-relaxed">El uso de la gubia para eliminar el material sobrante y encontrar la forma latente.</p>
+</div>
+</div>
+<div class="flex items-start gap-5 py-6 border-b border-white/5 group cursor-pointer hover:bg-white/5 transition-colors -mx-4 px-4 rounded-lg">
+<div class="relative w-32 aspect-video bg-gray-800 rounded overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlXYp0aa7KPiJgwFm4fa8VBzfEXGYwed-bhWgE-QoozBBkhswBVcza1rk1K4_C5tfC9K8DOVyhPPJwAOhtzT3pfg-UnPjcWw0t74aF2flPjxAVA03rHCuAf3Vl1fTAmssnQxa50hHUAhcXi7lQa2_ExBQkAjk6sya4oIkbGwLU3Xkqo3MFCJpEqJ2SNU_YHU6pRARq2npX67d3JUvvCCECWLoubG4l5s9UHTqSoWfVqTc8p-Ec3RrcMYynUWgpdHNIUQLiuwU4WQk"/>
+<div class="absolute inset-0 bg-black/50 group-hover:bg-black/20 transition-colors"></div>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-white text-2xl">play_circle_outline</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-white group-hover:text-terracotta transition-colors font-medium text-sm">03. Definición de Volúmenes</h3>
+<span class="text-[10px] font-mono text-gray-500">22:15</span>
+</div>
+<p class="text-xs text-gray-500 group-hover:text-gray-400 line-clamp-2 leading-relaxed">Modelando los pliegues del manto y la expresión facial con herramientas de precisión.</p>
+</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </main>
-<footer class="bg-black text-white pt-16 pb-8 border-t border-white/5 z-10">
-<div class="max-w-[1800px] mx-auto px-6 md:px-12">
-<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
-<div class="col-span-2 md:col-span-1 lg:col-span-1">
+<footer class="bg-[#050505] text-white pt-16 pb-8 border-t border-white/5 z-20 relative hidden lg:block">
+<div class="max-w-[1920px] mx-auto px-12">
+<div class="grid grid-cols-5 gap-12 mb-16">
+<div class="col-span-1">
 <div class="w-10 h-10 bg-white rounded flex items-center justify-center mb-6">
 <span class="text-black font-serif font-bold text-xl">S</span>
 </div>
+<p class="text-gray-500 text-xs leading-relaxed max-w-[200px]">
+                        La plataforma definitiva para los amantes del arte sacro. Documentales, masterclasses y archivo histórico.
+                    </p>
 </div>
 <div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Explorar</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Modelado</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Talla</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Policromía</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Materiales</a></li>
+<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Explorar</h4>
+<ul class="space-y-3 text-xs text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Novedades</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Más vistos</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Colecciones</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Artistas</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Cuenta</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Mi Perfil</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Mi Lista</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Certificados</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Suscripción</a></li>
+<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Comunidad</h4>
+<ul class="space-y-3 text-xs text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Blog</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Eventos</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Foro</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Prensa</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Ayuda</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Soporte</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Preguntas Frecuentes</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Contacto</a></li>
-</ul>
-</div>
-<div>
-<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Legal</h4>
-<ul class="space-y-3 text-sm text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Términos</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Privacidad</a></li>
+<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Legal</h4>
+<ul class="space-y-3 text-xs text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Términos de uso</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Política de privacidad</a></li>
 <li><a class="hover:text-primary transition-colors" href="#">Cookies</a></li>
 </ul>
 </div>
+<div>
+<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Síguenos</h4>
+<div class="flex gap-4">
+<a class="text-gray-400 hover:text-white transition-colors" href="#"><i class="material-icons text-sm">facebook</i></a>
+<a class="text-gray-400 hover:text-white transition-colors" href="#"><i class="material-icons text-sm">photo_camera</i></a>
+<a class="text-gray-400 hover:text-white transition-colors" href="#"><i class="material-icons text-sm">smart_display</i></a>
 </div>
-<div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
-<div class="flex items-center gap-6">
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">photo_camera</span>
-</a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">public</span>
-</a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">music_note</span>
-</a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#">
-<span class="material-icons text-lg">play_arrow</span>
-</a>
 </div>
-<div class="text-xs text-gray-600 font-medium">
+</div>
+<div class="pt-8 border-t border-white/5 flex justify-between items-center">
+<div class="text-[10px] text-gray-600 font-medium">
                     © 2023 SACRART. Todos los derechos reservados.
                 </div>
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-[10px] text-gray-400 uppercase tracking-widest">Sistemas Operativos</span>
+</div>
 </div>
 </div>
 </footer>
+<footer class="bg-black text-white py-8 border-t border-white/5 lg:hidden z-10 relative">
+<div class="px-6 flex flex-col items-center gap-6">
+<div class="text-[10px] text-gray-600 font-medium text-center">
+                © 2023 SACRART.
+            </div>
+</div>
+</footer>
+
 </body></html>

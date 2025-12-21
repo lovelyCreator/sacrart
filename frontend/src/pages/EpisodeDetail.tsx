@@ -69,12 +69,21 @@ const EpisodeDetail = () => {
           setCategory(videoData.category);
         }
         
-        // Parse downloadable resources
+        // Parse downloadable resources and check for shop type
         if (videoData.downloadable_resources) {
           try {
             const resources = typeof videoData.downloadable_resources === 'string'
               ? JSON.parse(videoData.downloadable_resources)
               : videoData.downloadable_resources;
+            
+            // Check if this is a shop episode type
+            if (typeof resources === 'object' && resources !== null && !Array.isArray(resources)) {
+              if (resources.episode_type === 'shop' || resources.shop_product || resources.shop_url) {
+                // Redirect to shop page
+                navigateWithLocale(`/episode-shop/${videoData.id}`);
+                return;
+              }
+            }
             
             if (Array.isArray(resources)) {
               setDownloadableResources(resources);
@@ -82,6 +91,12 @@ const EpisodeDetail = () => {
           } catch (e) {
             console.error('Error parsing downloadable_resources:', e);
           }
+        }
+        
+        // Also check tags for shop type
+        if (videoData.tags && Array.isArray(videoData.tags) && videoData.tags.includes('shop')) {
+          navigateWithLocale(`/episode-shop/${videoData.id}`);
+          return;
         }
 
         // Check for transcription in description or downloadable_resources

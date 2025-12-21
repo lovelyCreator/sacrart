@@ -81,6 +81,36 @@ class VideoController extends Controller
             });
         }
 
+        // Filter by tags
+        if ($request->has('tags')) {
+            $tags = is_array($request->get('tags')) 
+                ? $request->get('tags') 
+                : explode(',', $request->get('tags'));
+            
+            $query->where(function ($q) use ($tags) {
+                foreach ($tags as $tag) {
+                    $tag = trim($tag);
+                    if (!empty($tag)) {
+                        // Search for tag in JSON array - use LIKE for better compatibility
+                        $q->orWhere('tags', 'like', '%"' . addslashes($tag) . '"%')
+                          ->orWhere('tags', 'like', '%' . addslashes($tag) . '%');
+                    }
+                }
+            });
+        }
+
+        // Filter by single tag (for convenience)
+        if ($request->has('tag')) {
+            $tag = trim($request->get('tag'));
+            if (!empty($tag)) {
+                $query->where(function ($q) use ($tag) {
+                    // Use LIKE for better MySQL compatibility
+                    $q->where('tags', 'like', '%"' . addslashes($tag) . '"%')
+                      ->orWhere('tags', 'like', '%' . addslashes($tag) . '%');
+                });
+            }
+        }
+
         // Sorting
         $sortBy = $request->get('sort_by', 'sort_order');
         $sortOrder = $request->get('sort_order', 'asc');

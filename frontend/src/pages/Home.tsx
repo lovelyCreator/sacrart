@@ -2234,7 +2234,15 @@ const Home = () => {
             ].map((format, index) => (
               <div
                 key={format.title}
-                onClick={() => navigateWithLocale('/browse')}
+                onClick={() => {
+                  if (format.title === 'Reels') {
+                    navigateWithLocale('/reels');
+                  } else if (format.title === 'Rewind') {
+                    navigateWithLocale('/rewind');
+                  } else {
+                    navigateWithLocale('/browse');
+                  }
+                }}
                 className="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]"
               >
                 <div

@@ -40,6 +40,13 @@
     "create": "Crear",
     "update": "Actualizar"
   },
+  "notFound": {
+    "title": "Esta obra aún no está terminada.",
+    "description": "Parece que la página que buscas no existe, se ha movido o todavía está en el taller de nuestros maestros.",
+    "backHome": "VOLVER AL INICIO",
+    "needHelp": "¿Necesitas ayuda?",
+    "contactSupport": "Contacta con Soporte"
+  },
   "hero": {
     "title": "Maestría en Escultura",
     "subtitle": "Presencia la artesanía detrás de increíbles técnicas de escultura y procesos de restauración",
@@ -290,6 +297,23 @@
     "failed_dislike_video": "Fallo al dar no me gusta al video",
     "failed_submit_feedback": "Fallo al enviar feedback",
     "description_required": "Descripción es obligatoria",
+    "play": "Reproducir",
+    "download_materials": "Descargar Materiales",
+    "transcription": "Transcripción",
+    "comments": "Comentarios",
+    "add_comment": "Añade un comentario...",
+    "related_videos": "Vídeos Relacionados",
+    "comment_added": "Comentario añadido",
+    "comment_failed": "Error al añadir comentario"
+  },
+  "episode": {
+    "workshop_materials": "Materiales de este taller",
+    "complete_kit": "Kit Completo",
+    "includes": "Incluye:",
+    "go_to_shop": "Ir a tienda",
+    "shop_url_not_available": "URL de tienda no disponible"
+  },
+  "video": {
     "na": "N/A",
     "browser_no_video_support": "Tu navegador no admite la etiqueta de video.",
     "download_materials": "DESCARGAR MATERIALES",
@@ -337,29 +361,83 @@
     "manage_cookies": "Gestionar Cookies"
   },
   "cookie_policy": {
-    "title": "Política de Cookies",
-    "what_are_cookies": "¿Qué son las cookies?",
-    "what_are_cookies_desc": "Las cookies son pequeños archivos de texto que se almacenan en su dispositivo cuando visita un sitio web. Estas cookies nos ayudan a proporcionar, proteger y mejorar nuestros servicios, personalizar contenido y anuncios, y analizar el tráfico del sitio.",
-    "how_we_use": "¿Cómo utilizamos las cookies?",
-    "how_we_use_desc": "Utilizamos cookies para diversos fines, incluyendo:",
-    "use_1": "Proporcionar y mantener nuestros servicios",
-    "use_2": "Analizar cómo los usuarios utilizan nuestro sitio web",
-    "use_3": "Personalizar contenido y experiencias",
-    "use_4": "Mejorar la funcionalidad y el rendimiento",
-    "types": "Tipos de cookies que utilizamos",
-    "necessary": "Cookies Necesarias",
-    "necessary_desc": "Estas cookies son esenciales para el funcionamiento del sitio web y no se pueden desactivar. Incluyen cookies de sesión, autenticación y seguridad.",
-    "analytics": "Cookies de Análisis",
-    "analytics_desc": "Utilizamos Google Analytics para entender cómo los visitantes interactúan con nuestro sitio web. Estas cookies recopilan información de forma anónima sobre el uso del sitio.",
-    "marketing": "Cookies de Marketing",
-    "marketing_desc": "Estas cookies se utilizan para mostrar anuncios relevantes y medir la efectividad de nuestras campañas publicitarias.",
-    "youtube": "Cookies de YouTube",
-    "youtube_desc": "Cuando reproducimos videos de YouTube en nuestro sitio, YouTube puede establecer cookies para rastrear la visualización y personalizar la experiencia.",
-    "manage": "Gestionar sus preferencias de cookies",
-    "manage_desc": "Puede gestionar sus preferencias de cookies en cualquier momento haciendo clic en el botón \"Configurar\" en el banner de cookies o visitando la configuración de cookies en su navegador.",
-    "contact": "Contacto",
-    "contact_desc": "Si tiene preguntas sobre nuestra política de cookies, puede contactarnos a través de nuestra página de soporte.",
-    "last_updated": "Última actualización:"
+    "title": "POLÍTICA DE COOKIES",
+    "subtitle": "Información detallada sobre el uso de cookies en SACRART, su gestión y tus derechos.",
+    "last_update": "Última actualización:",
+    "last_update_date": "Noviembre 2023",
+    "intro": {
+      "p1": "En",
+      "p1_cont": "(en adelante, \"la Plataforma\") utilizamos cookies para permitir el funcionamiento correcto del servicio de streaming, gestionar las sesiones de usuario, facilitar la navegación y analizar cómo los usuarios interactúan con nuestro contenido.",
+      "p2": "El objetivo de esta política es informarle de forma clara y detallada sobre qué es una cookie, cuál es su propósito, qué tipo de cookies utilizamos y cómo puede configurarlas o deshabilitarlas."
+    },
+    "section1": {
+      "title": "¿QUÉ SON LAS COOKIES?",
+      "p1": "Una cookie es un pequeño archivo de texto que se almacena en su navegador cuando visita casi cualquier página web. Su utilidad es que la web sea capaz de recordar su visita cuando vuelva a navegar por esa página. Las cookies suelen almacenar información de carácter técnico, preferencias personales, personalización de contenidos, estadísticas de uso, enlaces a redes sociales, acceso a cuentas de usuario, etc.",
+      "context_title": "Contexto SACRART",
+      "context_desc": "En una plataforma de streaming como SACRART, las cookies son esenciales para, por ejemplo, recordar que usted ha iniciado sesión y no pedirle la contraseña cada vez que cambia de vídeo, o recordar en qué punto dejó de ver una película para retomarla ahí."
+    },
+    "section2": {
+      "title": "TIPOS DE COOKIES UTILIZADAS",
+      "by_entity": "Según la entidad que las gestiona",
+      "own_cookies": "Cookies propias:",
+      "own_cookies_desc": "Son aquellas que se envían a su equipo desde nuestros propios equipos o dominios y desde el que prestamos el servicio que nos solicita.",
+      "third_party": "Cookies de terceros:",
+      "third_party_desc": "Son aquellas que se envían a su equipo desde un equipo o dominio que no es gestionado por nosotros, sino por otra entidad colaboradora (como Google Analytics, YouTube o Stripe).",
+      "by_purpose": "Según su finalidad",
+      "technical": "Cookies técnicas (Necesarias)",
+      "technical_desc": "Son aquéllas que le permiten la navegación a través de la Plataforma y la utilización de las diferentes opciones o servicios que en ella existan. Por ejemplo, identificar la sesión, acceder a la zona de miembros, recordar elementos de un pedido o seguridad. Sin estas cookies, la Plataforma no puede funcionar correctamente.",
+      "personalization": "Cookies de personalización",
+      "personalization_desc": "Permiten al usuario acceder al servicio con características generales predefinidas como el idioma, el volumen del reproductor o el punto de reproducción donde se quedó.",
+      "analytics": "Cookies de análisis",
+      "analytics_desc": "Nos permiten cuantificar el número de usuarios y realizar la medición y análisis estadístico de la utilización del servicio para mejorar la oferta de contenidos."
+    },
+    "section3": {
+      "title": "RELACIÓN DE COOKIES UTILIZADAS",
+      "intro": "A continuación, se detallan las cookies que se utilizan en esta Plataforma:",
+      "note": "Nota: Esta lista es meramente informativa y puede variar en función de las actualizaciones de las herramientas de terceros."
+    },
+    "section4": {
+      "title": "ACEPTACIÓN, RECHAZO O CONFIGURACIÓN",
+      "p1": "Al acceder por primera vez a la Plataforma, se le muestra un aviso de cookies donde se le informa de cómo puede prestar o rechazar su consentimiento.",
+      "p2": "Puede usted permitir, bloquear o eliminar las cookies instaladas en su equipo mediante la configuración de las opciones del navegador instalado en su ordenador.",
+      "warning": "Atención:",
+      "p2_cont": "si desactiva las cookies técnicas necesarias, es posible que no pueda acceder a la zona de miembros ni ver los contenidos correctamente."
+    },
+    "section5": {
+      "title": "ACTUALIZACIÓN DE LA POLÍTICA",
+      "p1": "Es posible que actualicemos la Política de Cookies de nuestra Plataforma, por ello le recomendamos revisar esta política cada vez que acceda a nuestro sitio web con el objetivo de estar adecuadamente informado sobre cómo y para qué usamos las cookies."
+    },
+    "table": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "provider": "Proveedor",
+      "purpose": "Propósito",
+      "duration": "Duración",
+      "technical": "Técnica",
+      "personalization": "Personalización",
+      "security": "Seguridad",
+      "analytics": "Análisis",
+      "functional": "Funcional",
+      "session_desc": "Identificador de sesión. Esencial para mantener al usuario logueado.",
+      "session_persistent": "Sesión / Persistente",
+      "player_desc": "Almacena preferencias del reproductor como volumen o calidad.",
+      "persistent": "Persistente",
+      "stripe_desc": "Procesamiento seguro de pagos y prevención de fraude.",
+      "year_session": "1 año / Sesión",
+      "ga_desc": "Informes estadísticos anónimos de uso.",
+      "ga_duration": "2 años / 24h / 1min",
+      "youtube_desc": "Rastreo de vistas de videos incrustados y ancho de banda.",
+      "youtube_duration": "Sesión a 2 años",
+      "cdn_desc": "Optimización de CDN y seguridad de entrega de video.",
+      "cdn_duration": "~1 año"
+    },
+    "browsers": {
+      "chrome": "Google Chrome",
+      "firefox": "Mozilla Firefox",
+      "safari": "Safari",
+      "edge": "Microsoft Edge",
+      "view_support": "Ver soporte"
+    }
   },
   "cookie_banner": {
     "title": "Política de Cookies",
@@ -1268,7 +1346,322 @@
     "join_description": "Únete a miles de entusiastas del arte descubriendo contenido increíble de escultura y restauración.",
     "browse_all_videos": "Explorar Todos los Videos",
     "view_pricing_plans": "Ver Planes de Precios",
-    "copyright": "© 2025 <0>{{name}}</0> por Ana Rey. Todos los derechos reservados."
+    "copyright": "© 2025 <0>{{name}}</0> por Ana Rey. Todos los derechos reservados.",
+    "explore": "Explorar",
+    "account": "Cuenta",
+    "help": "Ayuda",
+    "legal": "Legal",
+    "legal_notice": "Aviso Legal",
+    "terms": "Términos",
+    "privacy": "Privacidad",
+    "cookies": "Cookies",
+    "modeling": "Modelado",
+    "carving": "Talla",
+    "polychromy": "Policromia",
+    "materials": "Materiales",
+    "my_profile": "Mi Perfil",
+    "my_list": "Mi Lista",
+    "certificates": "Certificados",
+    "subscription": "Suscripción",
+    "support": "Soporte",
+    "faq": "Preguntas Frecuentes",
+    "contact": "Contacto",
+    "description": "La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.",
+    "reels": {
+      "subtitle": "Tu enciclopedia visual de arte sacro en formato vertical.",
+      "subtitle2": "Trucos, historias y momentos del taller.",
+      "search_placeholder": "Busca una técnica, material o curiosidad...",
+      "see_all": "Ver todo",
+      "no_results": "No se encontraron reels con estos criterios.",
+      "error_load": "Error al cargar los reels"
+    },
+    "rewind": {
+      "archive": "El Archivo",
+      "subtitle": "Explora la historia del taller año a año. El proceso sin filtros.",
+      "all": "Todos",
+      "no_series": "No hay series disponibles.",
+      "error_load": "Error al cargar las series",
+      "series_not_found": "Serie no encontrada",
+      "back_to_rewind": "Volver a Rewind",
+      "masterclass": "Masterclass",
+      "series_short": "Serie de {count} Cap.",
+      "series_medium": "Serie de {count} Cap.",
+      "series_long": "Serie de {count} Cap.",
+      "load_older": "Cargar Años Anteriores",
+      "watching_now": "Viendo Ahora",
+      "chapter": "Capítulo {current} de {total}",
+      "documentary": "Documental",
+      "my_list": "Mi Lista",
+      "like": "Me gusta",
+      "dislike": "No me gusta",
+      "episodes_list": "Lista de Episodios",
+      "chapters": "Capítulos",
+      "chapters_list": "Lista de Capítulos",
+      "episode": "Episodio",
+      "next": "Siguiente",
+      "coming_soon": "Próximamente"
+    },
+    "all_rights_reserved": "Todos los derechos reservados."
+  },
+  "legal_notice": {
+    "title": "Aviso Legal",
+    "section1": {
+      "title": "1. DATOS IDENTIFICATIVOS",
+      "p1": "En cumplimiento con el deber de información recogido en artículo 10 de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y del Comercio Electrónico (LSSI-CE), a continuación se reflejan los siguientes datos:",
+      "p2": "La titular del dominio web www.sacrart.com es:",
+      "name": "Nombre:",
+      "name_value": "Ana Rey Martínez (en adelante, la PROPIETARIA).",
+      "nif": "N.I.F.:",
+      "address": "Domicilio:",
+      "address_value": "Ctra. Marquesado C/Gaviota 11138 Puerto Real (Cádiz).",
+      "email": "Correo electrónico de contacto:",
+      "phone": "Teléfono:",
+      "p3": "Asimismo, se informa de que los precios de los productos o servicios mostrados en este sitio web incluyen el Impuesto sobre el Valor Añadido (IVA), a menos que se indique expresamente lo contrario."
+    },
+    "section2": {
+      "title": "2. USUARIOS",
+      "p1": "El acceso y/o uso de este portal de la PROPIETARIA atribuye la condición de USUARIO, que acepta, desde dicho acceso y/o uso, las Condiciones Generales de Uso aquí reflejadas. Las citadas Condiciones serán de aplicación independientemente de las Condiciones Generales de Contratación que en su caso resulten de obligado cumplimiento."
+    },
+    "section3": {
+      "title": "3. USO DEL PORTAL",
+      "p1": "www.sacrart.com proporciona el acceso a multitud de informaciones, servicios, programas o datos (en adelante, \"los contenidos\") en Internet pertenecientes a la PROPIETARIA o a sus licenciantes a los que el USUARIO pueda tener acceso. El USUARIO asume la responsabilidad del uso del portal. Dicha responsabilidad se extiende al registro que fuese necesario para acceder a determinados servicios o contenidos.",
+      "p2": "En dicho registro el USUARIO será responsable de aportar información veraz y lícita. Como consecuencia de este registro, al USUARIO se le puede proporcionar una contraseña de la que será responsable, comprometiéndose a hacer un uso diligente y confidencial de la misma. El USUARIO se compromete a hacer un uso adecuado de los contenidos y servicios que la PROPIETARIA ofrece a través de su portal y con carácter enunciativo pero no limitativo, a no emplearlos para:",
+      "li1": "(i) incurrir en actividades ilícitas, ilegales o contrarias a la buena fe y al orden público;",
+      "li2": "(ii) difundir contenidos o propaganda de carácter racista, xenófobo, pornográfico-ilegal, de apología del terrorismo o atentatorio contra los derechos humanos;",
+      "li3": "(iii) provocar daños en los sistemas físicos y lógicos de la PROPIETARIA, de sus proveedores o de terceras personas, introducir o difundir en la red virus informáticos o cualesquiera otros sistemas físicos o lógicos que sean susceptibles de provocar los daños anteriormente mencionados;",
+      "li4": "(iv) intentar acceder y, en su caso, utilizar las cuentas de correo electrónico de otros usuarios y modificar o manipular sus mensajes."
+    },
+    "section4": {
+      "title": "4. PROPIEDAD INTELECTUAL E INDUSTRIAL",
+      "p1": "La PROPIETARIA por sí o como cesionaria, es titular de todos los derechos de propiedad intelectual e industrial de su página web, así como de los elementos contenidos en la misma (a título enunciativo: imágenes, sonido, audio, vídeo, software o textos; marcas o logotipos, combinaciones de colores, estructura y diseño, selección de materiales usados, programas de ordenador necesarios para su funcionamiento, acceso y uso, etc.), titularidad de la PROPIETARIA o bien de sus licenciantes.",
+      "p2": "Todos los derechos reservados. En virtud de lo dispuesto en los artículos 8 y 32.1, párrafo segundo, de la Ley de Propiedad Intelectual, quedan expresamente prohibidas la reproducción, la distribución y la comunicación pública, incluida su modalidad de puesta a disposición, de la totalidad o parte de los contenidos de esta página web, con fines comerciales, en cualquier soporte y por cualquier medio técnico, sin la autorización de la PROPIETARIA. El USUARIO se compromete a respetar los derechos de Propiedad Intelectual e Industrial titularidad de la PROPIETARIA."
+    },
+    "section5": {
+      "title": "5. EXCLUSIÓN DE GARANTÍAS Y RESPONSABILIDAD",
+      "p1": "La PROPIETARIA no se hace responsable, en ningún caso, de los daños y perjuicios de cualquier naturaleza que pudieran ocasionar, a título enunciativo: errores u omisiones en los contenidos, falta de disponibilidad del portal o la transmisión de virus o programas maliciosos o lesivos en los contenidos, a pesar de haber adoptado todas las medidas tecnológicas necesarias para evitarlo."
+    },
+    "section6": {
+      "title": "6. MODIFICACIONES",
+      "p1": "La PROPIETARIA se reserva el derecho de efectuar sin previo aviso las modificaciones que considere oportunas en su portal, pudiendo cambiar, suprimir o añadir tanto los contenidos y servicios que se presten a través de la misma como la forma en la que éstos aparezcan presentados o localizados en su portal."
+    },
+    "section7": {
+      "title": "7. ENLACES",
+      "p1": "En el caso de que en www.sacrart.com se dispusiesen enlaces o hipervínculos hacía otros sitios de Internet, la PROPIETARIA no ejercerá ningún tipo de control sobre dichos sitios y contenidos. En ningún caso la PROPIETARIA asumirá responsabilidad alguna por los contenidos de algún enlace perteneciente a un sitio web ajeno, ni garantizará la disponibilidad técnica, calidad, fiabilidad, exactitud, amplitud, veracidad, validez y constitucionalidad de cualquier material o información contenida en ninguno de dichos hipervínculos u otros sitios de Internet.",
+      "p2": "Igualmente la inclusión de estas conexiones externas no implicará ningún tipo de asociación, fusión o participación con las entidades conectadas."
+    },
+    "section8": {
+      "title": "8. DERECHO DE EXCLUSIÓN",
+      "p1": "La PROPIETARIA se reserva el derecho a denegar o retirar el acceso a portal y/o los servicios ofrecidos sin necesidad de preaviso, a instancia propia o de un tercero, a aquellos usuarios que incumplan las presentes Condiciones Generales de Uso."
+    },
+    "section9": {
+      "title": "9. GENERALIDADES",
+      "p1": "La PROPIETARIA perseguirá el incumplimiento de las presentes condiciones así como cualquier utilización indebida de su portal ejerciendo todas las acciones civiles y penales que le puedan corresponder en derecho."
+    },
+    "section10": {
+      "title": "10. LEGISLACIÓN APLICABLE Y JURISDICCIÓN",
+      "p1": "La relación entre la PROPIETARIA y el USUARIO se regirá por la normativa española vigente y cualquier controversia se someterá a los Juzgados y tribunales de la ciudad de Cádiz (salvo en los casos en que la normativa de consumo establezca otro fuero distinto para el usuario consumidor)."
+    }
+  },
+  "terms": {
+    "title": "Términos y Condiciones Generales de Contratación",
+    "contents": "Contenidos",
+    "back_home": "Volver al inicio",
+    "last_update": "Última actualización:",
+    "section1": {
+      "title": "Identificación del Titular y Objeto",
+      "p1": "Las presentes Condiciones Generales de Contratación (en adelante, \"Condiciones\") regulan la relación comercial entre",
+      "p1_cont": "(en adelante, \"la PROPIETARIA\" o \"SACRART\"), con N.I.F. 75768495D y domicilio en Ctra. Marquesado C/Gaviota 11138 Puerto Real (Cádiz), y los usuarios (en adelante, \"el CLIENTE\") que adquieran productos o servicios a través del sitio web",
+      "p2": "Puede contactar con nosotros a través del correo electrónico:",
+      "p3": "La adquisición de cualquiera de los productos o servicios (membresías) ofrecidos en esta web implica la aceptación plena y sin reservas de todas y cada una de las presentes Condiciones, que el CLIENTE declara haber leído y entendido antes de finalizar el proceso de compra."
+    },
+    "section2": {
+      "title": "Descripción de los Servicios y Productos",
+      "intro": "SACRART es una plataforma que ofrece un doble servicio:",
+      "streaming_title": "Servicio de Streaming (Membresía)",
+      "streaming_desc": "Acceso digital bajo demanda a un catálogo de contenidos audiovisuales (vídeos) relacionados con el arte sacro, mediante el pago de una suscripción periódica.",
+      "shop_title": "Tienda Online",
+      "shop_desc": "Venta de productos físicos relacionados con la temática de la plataforma."
+    },
+    "section3": {
+      "title": "Precios e Impuestos",
+      "p1": "Todos los precios mostrados en la web están indicados en Euros (€) e incluyen el Impuesto sobre el Valor Añadido (IVA) vigente en España que sea procedente aplicar en cada momento.",
+      "p2": "En el caso de venta de productos físicos a países fuera de la Unión Europea, los precios finales podrían no incluir IVA, pero el CLIENTE será responsable de los posibles aranceles, impuestos de aduana o tasas de importación que aplique el país de destino al recibir el paquete.",
+      "p3": "SACRART se reserva el derecho a modificar sus precios en cualquier momento. No obstante, los productos o suscripciones se facturarán al precio en vigor en el momento del registro del pedido o de la renovación de la suscripción."
+    },
+    "section4": {
+      "title": "Proceso de Compra y Formas de Pago",
+      "p1": "Para realizar una compra o suscribirse, el CLIENTE deberá registrarse en la plataforma y seguir el procedimiento de compra online, facilitando los datos requeridos y seleccionando el método de pago.",
+      "p2": "La forma de pago aceptada es Tarjeta de crédito o débito, procesada de forma segura a través de la pasarela de pagos externa Stripe. SACRART no almacena los datos completos de la tarjeta del CLIENTE.",
+      "p3": "Al finalizar la compra, el CLIENTE recibirá un correo electrónico de confirmación con los detalles de su pedido o suscripción."
+    },
+    "section5": {
+      "title": "Condiciones Específicas del Servicio de Membresía",
+      "sub1_title": "5.1. Planes y Duración",
+      "sub1_desc": "SACRART ofrece diferentes planes de suscripción (ej. Mensual, Trimestral). El acceso a los contenidos es inmediato tras la confirmación del pago.",
+      "sub2_title": "5.2. Renovación Automática",
+      "sub2_desc": "Las suscripciones son autorrenovables. Esto significa que, al finalizar el periodo contratado (un mes o un trimestre), se cobrará automáticamente el importe del siguiente periodo en la tarjeta facilitada por el CLIENTE, salvo que este haya cancelado su suscripción previamente.",
+      "sub3_title": "5.3. Cancelación de la Suscripción",
+      "sub3_desc": "El CLIENTE puede cancelar la renovación automática de su suscripción en cualquier momento y de forma sencilla a través de su perfil de usuario en la plataforma (botón \"Cancelar suscripción\" o similar).",
+      "sub3_effect_title": "Efectos de la cancelación:",
+      "sub3_effect_desc": "Si el CLIENTE cancela su suscripción, seguirá teniendo acceso a los contenidos hasta la finalización del periodo de facturación que ya haya pagado. Al terminar dicho periodo, el acceso se cortará y no se realizarán más cobros. No se realizan reembolsos parciales por periodos no disfrutados si se cancela a mitad de ciclo."
+    },
+    "section6": {
+      "title": "Condiciones Específicas de la Tienda Online",
+      "sub1_title": "6.1. Envíos",
+      "sub1_p1": "SACRART realiza envíos a nivel internacional. Los gastos de envío no están incluidos en el precio del producto y son variables en función del destino y peso del pedido. El coste exacto del envío se calculará y mostrará al CLIENTE antes de finalizar la compra.",
+      "sub1_note": "Los plazos de entrega son estimaciones y pueden variar según el destino y la empresa de transporte."
+    },
+    "section7": {
+      "title": "Política de Devoluciones y Derecho de Desistimiento",
+      "sub1_title": "7.1. Para Productos Físicos (Tienda Online)",
+      "sub1_p1": "De conformidad con la normativa vigente (Ley General para la Defensa de los Consumidores y Usuarios), el CLIENTE tiene derecho a desistir de su compra (devolver el producto sin dar explicaciones) en un plazo de 14 días naturales desde la recepción del pedido.",
+      "procedure": "Procedimiento",
+      "procedure_desc": "Notificarlo por email a",
+      "procedure_desc_cont": "dentro del plazo indicado.",
+      "conditions": "Condiciones",
+      "conditions_desc": "El producto debe estar en perfecto estado, sin usar y en su embalaje original.",
+      "return_costs": "Gastos de devolución",
+      "return_costs_desc": "El CLIENTE asumirá los costes directos de devolución (gastos de envío) de los bienes a nuestras instalaciones.",
+      "refund": "Reembolso",
+      "refund_desc": "Una vez verificado, SACRART devolverá el importe (menos gastos de envío originales extra) en un máximo de 14 días al mismo método de pago.",
+      "sub2_title": "7.2. Excepción al Derecho de Desistimiento (Contenido Digital)",
+      "sub2_important": "INFORMACIÓN MUY IMPORTANTE SOBRE SUSCRIPCIONES:",
+      "sub2_p1": "El servicio de membresía de SACRART consiste en el suministro de contenido digital (vídeos en streaming) que no se presta en soporte material.",
+      "sub2_p2": "De acuerdo con el artículo 103 apartado m) de la Ley General para la Defensa de los Consumidores y Usuarios, el derecho de desistimiento de 14 días",
+      "sub2_not_applicable": "NO SERÁ APLICABLE",
+      "sub2_p2_cont": "a los contratos de suministro de contenido digital una vez que la ejecución haya comenzado.",
+      "sub2_clause_title": "Cláusula de Aceptación:",
+      "sub2_clause_desc": "Por tanto, el CLIENTE reconoce y acepta expresamente que, en el momento en que inicie la reproducción de cualquier vídeo (haga clic en \"play\") dentro de la plataforma tras el pago, perderá su derecho de desistimiento y no podrá solicitar la devolución del importe del periodo contratado, al haberse iniciado la ejecución del servicio con su consentimiento previo."
+    },
+    "section8": {
+      "title": "Garantías",
+      "p1": "Los productos físicos vendidos en la tienda online cuentan con la garantía legal de conformidad prevista en la normativa vigente para consumidores. En caso de producto defectuoso, SACRART procederá a la reparación, sustitución, rebaja del precio o resolución del contrato, gestiones que serán gratuitas para el CLIENTE."
+    },
+    "section9": {
+      "title": "Ley Aplicable y Jurisdicción",
+      "p1": "Estas Condiciones se regirán o interpretarán conforme a la legislación española en aquello que no esté expresamente establecido.",
+      "p2": "En caso de controversia, y si el CLIENTE tiene la condición de consumidor conforme a la normativa, las partes se someterán a los Juzgados y Tribunales del domicilio del consumidor. Si el usuario no tiene la condición de consumidor, las partes se someten a los Juzgados y Tribunales de la ciudad de Cádiz (España), con renuncia expresa a cualquier otro fuero que pudiera corresponderles.",
+      "p3": "Asimismo, como entidad adherida a Confianza Online y en los términos de su Código Ético, en caso de controversias relativas a la contratación y publicidad online, protección de datos y protección de menores, el usuario podrá acudir al sistema de resolución extrajudicial de controversias de Confianza Online",
+      "odr_title": "Plataforma Europea de Resolución de Litigios en Línea",
+      "odr_desc": "La Comisión Europea facilita una plataforma de resolución de litigios en línea:"
+    }
+  },
+  "privacy": {
+    "title": "POLÍTICA DE PRIVACIDAD",
+    "index": "Índice",
+    "last_update": "Última actualización:",
+    "last_update_date": "Octubre 2023",
+    "intro": {
+      "p1": "La presente Política de Privacidad establece los términos en que",
+      "p1_cont": "usa y protege la información que es proporcionada por sus usuarios al momento de utilizar su sitio web. Esta compañía está comprometida con la seguridad de los datos de sus usuarios.",
+      "p2": "Esta Política de Privacidad puede cambiar con el tiempo o ser actualizada, por lo que le recomendamos y enfatizamos revisar continuamente esta página para asegurarse de que está de acuerdo con dichos cambios."
+    },
+    "section1": {
+      "title": "Responsable",
+      "title_full": "RESPONSABLE DEL TRATAMIENTO DE DATOS",
+      "question": "¿Quién es el responsable del tratamiento de sus datos personales?",
+      "identity": "Identidad del Responsable:",
+      "identity_desc": "Ana Rey Martínez (en adelante, \"la PROPIETARIA\" o \"SACRART\").",
+      "nif": "N.I.F.:",
+      "address": "Dirección postal:",
+      "address_desc": "Ctra. Marquesado C/Gaviota 11138 Puerto Real (Cádiz)",
+      "email": "Correo electrónico:",
+      "activity": "Actividad:",
+      "activity_desc": "Plataforma de membresía, venta de productos/servicios y creación de contenido."
+    },
+    "section2": {
+      "title": "Finalidad",
+      "title_full": "FINALIDAD Y LEGITIMACIÓN DEL TRATAMIENTO",
+      "question": "¿Para qué utilizamos sus datos personales y por qué es legal hacerlo?",
+      "intro": "En SACRART tratamos la información que nos facilitan las personas interesadas con las siguientes finalidades, dependiendo de cómo interactúe con la web:",
+      "purpose": "Finalidad:",
+      "legitimation": "Legitimación:",
+      "subsection_a": {
+        "title": "A) Si utiliza el formulario de contacto o el sistema de tickets de soporte:",
+        "purpose": "Atender su solicitud, duda, queja o sugerencia y darle respuesta.",
+        "legitimation": "Su consentimiento expreso al marcar la casilla de aceptación de la política de privacidad antes de enviar el formulario."
+      },
+      "subsection_b": {
+        "title": "B) Si se registra como usuario en la plataforma, adquiere una membresía o realiza una compra en la tienda:",
+        "purpose": "Gestionar su alta como usuario, procesar los pagos de las membresías o productos, gestionar el acceso a los contenidos restringidos (vídeos, cursos), gestionar la facturación y la relación contractual.",
+        "legitimation": "La ejecución de un contrato en el que el interesado es parte (Términos y Condiciones de contratación) y el cumplimiento de obligaciones legales (fiscales y contables)."
+      },
+      "subsection_c": {
+        "title": "C) Si se suscribe a nuestro boletín (newsletter):",
+        "purpose": "Enviarle comunicaciones electrónicas (correos) con novedades, artículos del blog, ofertas comerciales de nuestros productos o servicios y contenido exclusivo.",
+        "legitimation": "Su consentimiento expreso al marcar la casilla correspondiente en los formularios de suscripción."
+      },
+      "subsection_d": {
+        "title": "D) Si deja comentarios en los vídeos o el blog:",
+        "purpose": "Gestionar y publicar su comentario en la plataforma para fomentar la participación de la comunidad.",
+        "legitimation": "Su consentimiento al enviar el comentario."
+      },
+      "subsection_e": {
+        "title": "E) Análisis de navegación (Google Analytics):",
+        "purpose": "Analizar cómo los usuarios utilizan el sitio web para mejorar la experiencia de usuario y nuestros servicios, mediante el uso de cookies.",
+        "legitimation": "Su consentimiento al aceptar las cookies analíticas en el banner de cookies (ver Política de Cookies)."
+      }
+    },
+    "section3": {
+      "title": "Conservación",
+      "title_full": "PLAZO DE CONSERVACIÓN DE LOS DATOS",
+      "question": "¿Por cuánto tiempo conservaremos sus datos?",
+      "item1_title": "Datos de suscriptores a la newsletter y usuarios de contacto:",
+      "item1_desc": "Se conservarán mientras no solicite su supresión o revoque su consentimiento para el envío de comunicaciones.",
+      "item2_title": "Datos de clientes/miembros (datos fiscales y de facturación):",
+      "item2_desc": "Se conservarán durante el tiempo necesario para cumplir con las obligaciones legales correspondientes (generalmente, 5 años según el Código Civil y 6 años según el Código de Comercio para libros contables).",
+      "item3_title": "Datos de usuarios registrados:",
+      "item3_desc": "Mientras mantenga su cuenta activa en la plataforma. Si decide darse de baja, sus datos serán bloqueados y posteriormente eliminados tras los plazos legales de prescripción de responsabilidades."
+    },
+    "section4": {
+      "title": "Destinatarios",
+      "title_full": "DESTINATARIOS DE LOS DATOS",
+      "question": "¿A quién se comunican sus datos?",
+      "intro": "Para poder prestar los servicios estrictamente necesarios para el desarrollo de la actividad, compartimos datos con los siguientes prestadores de servicios bajo sus correspondientes condiciones de privacidad:",
+      "hosting_title": "Hosting (Alojamiento web)",
+      "hosting_desc": "La web está alojada en los servidores de Hostinger International Ltd., ubicados en la Unión Europea.",
+      "email_title": "Plataforma de Email Marketing",
+      "email_desc": "Utilizamos MailerLite para el envío de boletines. Es una empresa ubicada en la Unión Europea (Lituania).",
+      "payment_title": "Pasarela de Pago",
+      "payment_desc": "Los pagos de membresías y productos se procesan a través de Stripe. Sus datos bancarios son tratados directamente por Stripe en entornos seguros; SACRART no tiene acceso a los datos completos de su tarjeta. Stripe Payments Europe, Ltd. es su entidad en la UE.",
+      "analytics_title": "Análisis web:",
+      "analytics_desc": "Se utilizan los servicios de análisis de Google Analytics (Google Ireland Limited).",
+      "legal_title": "Obligaciones legales:",
+      "legal_desc": "Sus datos podrán ser cedidos a la Agencia Tributaria, bancos u otras administraciones públicas en los casos en que exista una obligación legal para la PROPIETARIA.",
+      "transfers_title": "Transferencias Internacionales",
+      "transfers_desc": "Algunos de los proveedores mencionados (como Stripe o Google) tienen sus matrices en Estados Unidos. Aunque sus filiales europeas gestionan los datos, pueden producirse transferencias internacionales. Dichas transferencias se realizan bajo garantías adecuadas, como las Cláusulas Contractuales Tipo aprobadas por la Comisión Europea o el Marco de Privacidad de Datos UE-EE.UU. (Data Privacy Framework)."
+    },
+    "section5": {
+      "title": "Derechos",
+      "title_full": "DERECHOS DE LOS USUARIOS",
+      "question": "¿Cuáles son sus derechos cuando nos facilita sus datos?",
+      "intro": "Cualquier persona tiene derecho a obtener confirmación sobre si en SACRART estamos tratando datos personales que les conciernan, o no.",
+      "intro2": "Las personas interesadas tienen derecho a:",
+      "right1": "Solicitar el acceso a los datos",
+      "right2": "Solicitar su rectificación o supresión",
+      "right3": "Solicitar la limitación de su tratamiento",
+      "right4": "Oponerse al tratamiento",
+      "right5": "Solicitar la portabilidad de los datos",
+      "right6": "Retirar el consentimiento prestado",
+      "exercise": "Para ejercer estos derechos, el usuario puede enviar un correo electrónico a",
+      "exercise_cont": "adjuntando una copia de su DNI o documento equivalente para acreditar su identidad, e indicando qué derecho desea ejercer.",
+      "complaint": "Asimismo, el interesado tiene derecho a presentar una reclamación ante la autoridad de control competente (en España, la Agencia Española de Protección de Datos - www.aepd.es) si considera que el tratamiento no se ajusta a la normativa vigente."
+    },
+    "section6": {
+      "title": "Menores",
+      "title_full": "MENORES DE EDAD",
+      "content": "La web de SACRART no se dirige a menores de edad. El titular de la web declina cualquier responsabilidad por el incumplimiento de este requisito por parte de los usuarios. Para registrarse o comprar en la plataforma, el usuario debe tener al menos 18 años o contar con la autorización de sus tutores legales."
+    },
+    "section7": {
+      "title": "Veracidad",
+      "title_full": "EXACTITUD Y VERACIDAD DE LOS DATOS",
+      "content": "El usuario es el único responsable de la veracidad y corrección de los datos que remita a SACRART, exonerando a la PROPIETARIA de cualquier responsabilidad al respecto. Los usuarios garantizan y responden, en cualquier caso, de la exactitud, vigencia y autenticidad de los datos personales facilitados, y se comprometen a mantenerlos debidamente actualizados."
+    },
+    "section8": {
+      "title": "Seguridad",
+      "title_full": "MEDIDAS DE SEGURIDAD",
+      "content": "SACRART ha adoptado las medidas de seguridad técnicas y organizativas necesarias para garantizar la seguridad de sus datos personales y evitar su alteración, pérdida y tratamiento y/o acceso no autorizado, habida cuenta del estado de la tecnología, la naturaleza de los datos almacenados y los riesgos a que están expuestos, ya provengan de la acción humana o del medio físico o natural."
+    }
   },
   "category": {
     "main_category": "Categoría Principal",

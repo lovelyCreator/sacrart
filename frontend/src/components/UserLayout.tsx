@@ -48,34 +48,6 @@ const UserLayout = () => {
   const { getPathWithLocale, pathname, locale } = useLocale();
   const [footerSettings, setFooterSettings] = useState<Record<string, string>>({});
 
-  // Handler for Directos - navigate to first video
-  const handleDirectosClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      // Fetch the first published video
-      const response = await videoApi.getPublic({ 
-        status: 'published',
-        per_page: 1,
-        sort_by: 'created_at',
-        sort_order: 'desc'
-      });
-      
-      const videosData = Array.isArray(response.data) 
-        ? response.data 
-        : response.data?.data || [];
-      
-      if (videosData.length > 0) {
-        navigate(getPathWithLocale(`/video/${videosData[0].id}`));
-      } else {
-        // Fallback: navigate to browse if no videos found
-        navigate(getPathWithLocale("/browse"));
-      }
-    } catch (error) {
-      console.error('Error fetching video for Directos:', error);
-      // Fallback: navigate to browse on error
-      navigate(getPathWithLocale("/browse"));
-    }
-  };
 
   // Fetch footer settings from backend
   useEffect(() => {
@@ -284,15 +256,14 @@ const UserLayout = () => {
                 {t('common.browse', 'Browse')}
               </Link>
               
-              <a
-                href="#"
-                onClick={handleDirectosClick}
+              <Link
+                to={getPathWithLocale("/directos")}
                 className={`text-xs font-bold uppercase tracking-wider transition-colors ${
-                  isActive('/video') ? 'text-white' : 'text-gray-300 hover:text-white'
+                  isActive('/directos') ? 'text-white' : 'text-gray-300 hover:text-white'
                 }`}
               >
                 {t('common.live', 'Directos')}
-              </a>
+              </Link>
               
               <Link 
                 to={getPathWithLocale("/kids")}
@@ -623,22 +594,18 @@ const UserLayout = () => {
                 {t('common.browse', 'Browse')}
               </Link>
 
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSidebarOpen(false);
-                  handleDirectosClick(e);
-                }}
+              <Link
+                to={getPathWithLocale("/directos")}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive('/video')
+                  isActive('/directos')
                     ? 'bg-primary/20 text-white font-semibold'
                     : 'text-gray-300 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 <Play className="mr-3 h-5 w-5" />
                 {t('common.live', 'Directos')}
-              </a>
+              </Link>
 
               <Link 
                 to={getPathWithLocale("/kids")}
@@ -911,15 +878,18 @@ const UserLayout = () => {
               </div>
               <div className="flex flex-col gap-3">
                 <h4 className="font-bold text-white text-sm uppercase tracking-wider mb-1">{t('footer.legal', 'Legal')}</h4>
-                <a href="#" className="text-gray-400 hover:text-primary text-sm transition-colors">
+                <Link to={getPathWithLocale("/aviso-legal")} className="text-gray-400 hover:text-primary text-sm transition-colors">
+                  {t('footer.legal_notice', 'Aviso Legal')}
+                </Link>
+                <Link to={getPathWithLocale("/terminos-y-condiciones")} className="text-gray-400 hover:text-primary text-sm transition-colors">
                   {t('footer.terms', 'Términos')}
-                </a>
-                <a href="#" className="text-gray-400 hover:text-primary text-sm transition-colors">
+                </Link>
+                <Link to={getPathWithLocale("/politica-de-privacidad")} className="text-gray-400 hover:text-primary text-sm transition-colors">
                   {t('footer.privacy', 'Privacidad')}
-                </a>
-                <a href="#" className="text-gray-400 hover:text-primary text-sm transition-colors">
+                </Link>
+                <Link to={getPathWithLocale("/politica-de-cookies")} className="text-gray-400 hover:text-primary text-sm transition-colors">
                   {t('footer.cookies', 'Cookies')}
-                </a>
+                </Link>
               </div>
             </div>
           </div>

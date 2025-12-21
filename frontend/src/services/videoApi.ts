@@ -434,6 +434,8 @@ export const videoApi = {
     sort_by?: string;
     sort_order?: string;
     per_page?: number;
+    tag?: string;
+    tags?: string[];
   }) {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
@@ -443,6 +445,10 @@ export const videoApi = {
     if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    if (params?.tag) queryParams.append('tag', params.tag);
+    if (params?.tags && params.tags.length > 0) {
+      queryParams.append('tags', params.tags.join(','));
+    }
     
     const response = await fetch(`${API_BASE_URL}/videos?${queryParams}`, {
       headers: getAuthHeaders(),

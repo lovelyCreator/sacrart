@@ -384,6 +384,15 @@ All colors MUST be HSL.
     background: #8a4339;
   }
 
+  /* Wood-gold gradient text for 404 page */
+  .wood-gold-text {
+    background: linear-gradient(135deg, #dcb980 0%, #C5A065 25%, #8B5E3C 50%, #5c3e24 75%, #3e2b1b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+
   /* Episode scrollbar for explore page - horizontal scrollbar at bottom (matching code.html) */
   .episode-scrollbar {
     scrollbar-width: thin;
@@ -407,6 +416,15 @@ All colors MUST be HSL.
     display: none;
     width: 0;
     height: 0;
+  }
+
+  /* No scrollbar - hide scrollbar but keep scrolling */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   /* Support page accordion animation */
