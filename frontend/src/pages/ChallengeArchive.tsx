@@ -108,6 +108,20 @@ const ChallengeArchive = () => {
           // Set active challenge (first one)
           if (challengeList.length > 0) {
             setActiveChallenge(challengeList[0]);
+          } else {
+            // Add sample active challenge if no challenges found
+            const sampleActiveChallenge: Challenge = {
+              id: 999,
+              title: 'Reto del Mes: Expresividad y Tensión Muscular',
+              month: 'Enero',
+              thumbnail: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+              isActive: true,
+              isCompleted: false,
+              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              description: 'Este mes nos centramos en la expresividad y tensión muscular. Ana Rey te guiará en el proceso de construcción anatómica. Participa enviando tu propuesta y comparte tu proceso creativo con la comunidad.',
+            };
+            setActiveChallenge(sampleActiveChallenge);
+            challengeList.unshift(sampleActiveChallenge);
           }
 
           // Add placeholder for upcoming challenges
@@ -115,6 +129,49 @@ const ChallengeArchive = () => {
                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
           const currentMonth = new Date().getMonth();
           
+          // Add sample challenges if list is empty or too short
+          if (challengeList.length === 0 || (challengeList.length === 1 && challengeList[0].id === 999)) {
+            const sampleChallenges: Challenge[] = [
+              {
+                id: 998,
+                title: 'Reto de Diciembre: Policromía Tradicional',
+                month: 'Diciembre',
+                thumbnail: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                isActive: false,
+                isCompleted: true,
+                endDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+                description: 'Exploración de técnicas tradicionales de policromía y dorado.',
+              },
+              {
+                id: 997,
+                title: 'Reto de Noviembre: Modelado de Texturas',
+                month: 'Noviembre',
+                thumbnail: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                isActive: false,
+                isCompleted: true,
+                endDate: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+                description: 'Trabajo con diferentes texturas y superficies en el modelado.',
+              },
+              {
+                id: 996,
+                title: 'Reto de Octubre: Anatomía Expresiva',
+                month: 'Octubre',
+                thumbnail: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                isActive: false,
+                isCompleted: true,
+                endDate: new Date(Date.now() - 70 * 24 * 60 * 60 * 1000).toISOString(),
+                description: 'Estudio de la anatomía humana en expresiones y gestos.',
+              },
+            ];
+            
+            // Add sample challenges after the active one
+            if (challengeList.length > 0 && challengeList[0].id === 999) {
+              challengeList.push(...sampleChallenges);
+            } else {
+              challengeList.push(...sampleChallenges);
+            }
+          }
+
           // Fill remaining slots with placeholders
           while (challengeList.length < 4) {
             const monthIndex = (currentMonth + challengeList.length) % 12;
@@ -174,60 +231,74 @@ const ChallengeArchive = () => {
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased">
       {/* Hero Section */}
-      <section className="relative w-full h-[85vh] flex items-end">
+      <section className="relative w-full h-[65vh] md:h-[75vh] flex items-end">
         <div className="absolute inset-0 w-full h-full">
           {activeThumbnail ? (
             <img
               alt="Challenge Briefing"
-              className="w-full h-full object-cover object-center opacity-70"
+              className="w-full h-full object-cover object-center opacity-60"
               src={activeThumbnail}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900"></div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/70 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/60 to-transparent"></div>
         </div>
         <div className="container mx-auto px-6 md:px-12 relative z-10 pb-16 md:pb-24">
-          <div className="max-w-4xl">
-            {activeChallenge && (
+          <div className="max-w-3xl">
+            {activeChallenge ? (
               <>
-                <div className="flex items-center gap-3 mb-6 animate-pulse">
-                  <span className="inline-flex items-center gap-2 bg-red-600/90 text-white text-[11px] font-bold px-3 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/30">
-                    <span className="w-2 h-2 rounded-full bg-white"></span>
-                    En Directo: Presentación del Reto
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                    Reto Activo
                   </span>
+                  {daysRemaining > 0 && (
+                    <span className="text-gray-300 text-xs font-medium tracking-wide">
+                      {daysRemaining} días restantes
+                    </span>
+                  )}
                 </div>
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-4 leading-none tracking-tight drop-shadow-2xl">
-                  {activeChallenge.title.split(':')[0]}:<br /> 
-                  <span className="text-gray-200">{activeChallenge.title.split(':')[1] || activeChallenge.title}</span>
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
+                  {activeChallenge.title || 'Reto del Mes'}
                 </h1>
-                <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8 mb-10">
-                  <div className="flex items-center gap-2 text-[#A05245] font-bold tracking-widest uppercase text-sm">
-                    <Timer className="h-4 w-4" />
-                    <span>Tienes {daysRemaining} días para participar</span>
-                  </div>
-                  <div className="h-px w-12 bg-white/20 hidden md:block"></div>
-                  <p className="text-gray-300 text-sm md:text-base max-w-lg leading-relaxed drop-shadow-md">
-                    {activeChallenge.description || 'Este mes nos centramos en la expresividad y tensión muscular. Ana Rey te guiará en el proceso de construcción anatómica.'}
-                  </p>
-                </div>
+                <p className="text-gray-300 text-sm md:text-base mb-8 max-w-xl leading-relaxed drop-shadow-md">
+                  {activeChallenge.description || 'Este mes nos centramos en la expresividad y tensión muscular. Ana Rey te guiará en el proceso de construcción anatómica.'}
+                </p>
                 <div className="flex flex-wrap gap-4">
                   <button
                     onClick={() => setShowUploadModal(true)}
-                    className="group bg-white hover:bg-gray-200 text-black px-8 py-4 rounded-[4px] font-bold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:-translate-y-0.5"
+                    className="group bg-[#A05245] hover:bg-red-700 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:shadow-[#A05245]/20 hover:-translate-y-0.5"
                   >
-                    <Camera className="h-6 w-6" />
+                    <Camera className="h-5 w-5" />
                     <span>Subir mi Propuesta</span>
                   </button>
-                  <button
-                    onClick={() => activeChallenge.id > 0 && navigateWithLocale(`/video/${activeChallenge.id}`)}
-                    className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-[4px] font-bold text-sm md:text-base flex items-center gap-3 transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    <Play className="h-6 w-6 fill-white" />
-                    <span>Ver Briefing del Reto</span>
-                  </button>
+                  {activeChallenge.id > 0 && (
+                    <button
+                      onClick={() => navigateWithLocale(`/video/${activeChallenge.id}`)}
+                      className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                      <Play className="h-5 w-5 fill-white" />
+                      <span>Ver Briefing del Reto</span>
+                    </button>
+                  )}
                 </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                    Retos
+                  </span>
+                </div>
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
+                  Retos Creativos
+                </h1>
+                <p className="text-gray-300 text-sm md:text-base mb-8 max-w-xl leading-relaxed drop-shadow-md">
+                  Participa en nuestros retos mensuales y comparte tu proceso creativo con la comunidad. Cada mes exploramos nuevas técnicas y desafíos artísticos.
+                </p>
               </>
             )}
           </div>

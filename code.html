@@ -2,7 +2,7 @@
 <html lang="es"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Reproductor: Virgen de Filipinas | SACRART</title>
+<title>Reels &amp; Pinceladas | SACRART</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&amp;family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
@@ -35,315 +35,405 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0A0A0A;
-        }::-webkit-scrollbar {
-            width: 6px;
         }
-        ::-webkit-scrollbar-track {
+        .text-shadow {
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }.scrolling-wrapper::-webkit-scrollbar {
+            height: 6px;
+        }
+        .scrolling-wrapper::-webkit-scrollbar-track {
             background: #0A0A0A; 
         }
-        ::-webkit-scrollbar-thumb {
+        .scrolling-wrapper::-webkit-scrollbar-thumb {
             background: #333; 
-            border-radius: 3px;
+            border-radius: 4px;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555; 
+        .scrolling-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #A05245; 
         }
-        .tab-content {
+        .wood-gold-text {
+            background: linear-gradient(135deg, #dcb980 0%, #C5A065 25%, #8B5E3C 50%, #5c3e24 75%, #3e2b1b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }.scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
-        .tab-content.active {
-            display: block;
-        }.tab-btn {
-            position: relative;
-            color: #9CA3AF;
-            transition: all 0.3s ease;
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
-        .tab-btn:hover {
-            color: #D1D5DB;
-        }
-        .tab-btn.active {
-            color: #ffffff;
-        }
-        .tab-btn::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: transparent;
-            transition: background-color 0.3s ease;
-        }
-        .tab-btn.active::after {
-            background-color: #A05245;}
     </style>
-<script>
-        function switchTab(tabId) {
-            // Hide all contents
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.remove('active');
-            });
-            // Deactivate all buttons
-            document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('active');
-            });
-            // Show selected content
-            document.getElementById(tabId + '-content').classList.add('active');
-            // Activate button
-            document.getElementById(tabId + '-btn').classList.add('active');
-        }
-    </script>
 </head>
-<body class="bg-background-deep text-white min-h-screen flex flex-col font-sans antialiased">
-<header class="w-full z-50 bg-[#0A0A0A] border-b border-white/5 sticky top-0">
-<div class="max-w-[1920px] mx-auto px-6 h-16 flex items-center justify-between">
+<body class="bg-background-deep text-white min-h-screen flex flex-col font-sans antialiased transition-colors duration-300">
+<header class="w-full z-50 bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0">
+<div class="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
 <div class="flex items-center gap-8">
 <a class="flex-shrink-0" href="#">
 <div class="w-8 h-8 bg-white rounded flex items-center justify-center">
 <span class="text-black font-serif font-bold text-lg">S</span>
 </div>
 </a>
-<nav class="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.15em] font-medium text-gray-400">
+<nav class="hidden lg:flex items-center gap-6 text-[11px] tracking-widest font-medium text-gray-300">
 <a class="hover:text-white transition-colors" href="#">INICIO</a>
 <div class="relative group">
-<button class="flex items-center gap-1 hover:text-white transition-colors tracking-[0.15em]">
-                            CATEGORÍAS <span class="material-icons text-[14px]">expand_more</span>
+<button class="flex items-center gap-1 hover:text-white transition-colors">
+                        CATEGORÍAS <span class="material-icons text-[14px]">expand_more</span>
 </button>
 </div>
-<a class="hover:text-white transition-colors" href="#">REWIND</a>
-<a class="hover:text-white transition-colors" href="#">MASTERCLASS</a>
+<a class="hover:text-white transition-colors" href="#">SEGUIR VIENDO</a>
+<a class="hover:text-white transition-colors" href="#">BROWSE</a>
+<a class="hover:text-white transition-colors" href="#">DIRECTOS</a>
+<a class="flex items-center gap-1 hover:text-white transition-colors" href="#">
+                    SACRART KIDS <span class="material-icons text-[12px] text-gray-500">lock</span>
+</a>
 </nav>
 </div>
-<div class="flex items-center gap-6">
-<a class="hidden md:block text-[11px] font-bold tracking-widest text-terracotta uppercase hover:text-white transition-colors" href="#">
-                    Suscríbete
-                </a>
 <div class="flex items-center gap-4">
-<span class="material-icons text-gray-400 hover:text-white cursor-pointer text-[20px]">search</span>
-<button class="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:border-white/50 transition-colors">
+<a class="hidden md:block px-4 py-1.5 border border-white/20 rounded text-[11px] font-semibold hover:bg-white hover:text-black transition-all tracking-wider uppercase" href="#">
+                Tienda
+            </a>
+<div class="relative hidden sm:block group">
+<span class="absolute inset-y-0 left-3 flex items-center text-gray-400 group-focus-within:text-white">
+<span class="material-icons text-[18px]">search</span>
+</span>
+<input class="bg-[#1f1f1f] border-none rounded-full py-1.5 pl-10 pr-4 text-sm w-40 focus:w-64 transition-all duration-300 text-gray-200 placeholder-gray-500 focus:ring-1 focus:ring-white/20" placeholder="Buscar..." type="text"/>
+</div>
+<button class="w-8 h-8 rounded-full bg-yellow-600 overflow-hidden border border-white/10 hover:border-white/50 transition-colors">
 <img alt="Perfil" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBC-799CkQ4x6MRc6QU_Us8nP-RRhuzLphtiuofkURLkMDumxxmfO1-yCSeMG1hy6Mgo019DvEOc2Xc4lkwNYzkMrVKqYSFM4QwBsy4sDnY9GX6FSFqMklEmJCFZnITOcV4xg8ScvbsvUVB_ZR1lnT5qigeoAfZjSyBu6kAL-1ygrZadG7avcpmNLirELnubXbZyWr3eixMYdTNqVqEp-p9_Q2PYVFN5Wg8PuFOrXnAg6lXTrFUYibxG6xeIAPAnRn60MzqKCPW10"/>
 </button>
 </div>
 </div>
-</div>
 </header>
-<main class="flex-grow w-full relative flex h-[calc(100vh-64px)] overflow-hidden">
-<div class="absolute inset-0 z-0">
-<div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&amp;w=1887&amp;auto=format&amp;fit=crop')] bg-cover bg-center opacity-20 blur-2xl scale-110"></div>
-<div class="absolute inset-0 bg-[#0A0A0A]/80"></div>
+<main class="flex-grow w-full relative pb-20 overflow-x-hidden">
+<section class="relative pt-16 pb-12 px-4 md:px-12 flex flex-col items-center text-center z-10 border-b border-white/5 bg-[#0A0A0A]">
+<div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+<img class="w-full h-full object-cover opacity-10 filter blur-md mix-blend-luminosity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBm63qfwZjoifAB45sz8oMo-JgC8P41pRpz2njY6TiYfWhJW1SixA4mx3aWbXXFneVUK9zlGVGLOuFlcGncZ8UxnEqMp_72ACxQdMM6sxH2-56Do-qy17FyICgJbU5cfkKPWuiTlaoJNcXu2U5n_oWfo1nNhannTLmdU3kXiY_MiovAPobO-VsnOOGgTd1TQtfkfT8cG0H-DFnxa_8GPitq2ffd713PYMxyANYdQSHBMYod-8MWU4c8SbmsV_Rh94oyqhUWK6xwi7M"/>
+<div class="absolute inset-0 bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A]/90 to-[#0A0A0A]"></div>
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-terracotta/10 via-transparent to-transparent opacity-50"></div>
 </div>
-<div class="relative z-10 w-[40%] h-full flex items-center justify-center p-8 lg:p-12 border-r border-white/5">
-<div class="relative aspect-[9/16] h-full max-h-[85vh] bg-black rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 group">
-<img alt="Sculptor hands" class="w-full h-full object-cover opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiC80BcTVlylGCSZgjuwyNrqbuShVQf7AM_SzfPoM1-OmXd6iRVjrGypxMtC2sppSnAjlf9qfzApl3LuMWD4pZFG4TSRJ3R82RwWp6pLSSM62ZMpVjSSbICX90EyxZbipi8m0bnlOz6h_MZmfILsuc8gq4XI7KgC3neBlEEufC-M0DZoO0tWanZKE20nk3a3vrP3RewSOWelST7t5RJoscoAXip8y5bSKxT7915df2tTTRkC9izGEFdkI9r_u3qlp8ppzZR3o6lpQ"/>
-<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20"></div>
-<div class="absolute top-6 right-6 flex items-center gap-2">
-<span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-<span class="text-[10px] font-bold tracking-widest uppercase text-white/90">REWIND 4K</span>
+<div class="relative z-10 max-w-4xl mx-auto space-y-6 mt-8">
+<h1 class="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white tracking-wide drop-shadow-lg leading-tight">
+                REELS <span class="text-terracotta">&amp;</span> PINCELADAS
+            </h1>
+<p class="text-gray-400 text-base md:text-xl font-light max-w-2xl mx-auto leading-relaxed">
+                Tu enciclopedia visual de arte sacro en formato vertical.<br class="hidden sm:inline"/>Trucos, historias y momentos del taller.
+            </p>
+<div class="relative w-full max-w-2xl mx-auto mt-10 group">
+<div class="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+<span class="text-xl">🔍</span>
 </div>
-<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-<button class="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-terracotta hover:scale-105 transition-all">
-<span class="material-icons text-white text-3xl">play_arrow</span>
-</button>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-6">
-<div class="w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer group/progress">
-<div class="w-[30%] h-full bg-terracotta rounded-full relative">
-<div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity shadow-lg"></div>
+<input class="w-full py-4 pl-14 pr-6 bg-[#141414] border border-white/10 rounded-full text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-terracotta/50 focus:border-terracotta/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] transition-all text-base md:text-lg" placeholder="Busca una técnica, material o curiosidad..." type="text"/>
 </div>
 </div>
-<div class="flex items-center justify-between text-white">
-<div class="flex items-center gap-4">
-<button class="hover:text-terracotta transition-colors"><span class="material-icons">pause</span></button>
-<button class="hover:text-terracotta transition-colors"><span class="material-icons">replay_10</span></button>
-<span class="text-xs font-mono text-gray-300">04:20 / 14:00</span>
+</section>
+<div class="space-y-12 px-4 md:px-12 z-10 relative mt-8 max-w-[1800px] mx-auto">
+<div class="group relative">
+<div class="flex items-end justify-between mb-4 px-2">
+<h3 class="text-xl md:text-2xl font-display font-semibold text-white flex items-center gap-3">
+<span class="text-yellow-500 text-2xl">⚡</span> Tips Express: Trucos de Taller
+                </h3>
+<a class="text-xs font-bold text-gray-500 hover:text-white uppercase tracking-widest transition-colors mb-1 hidden sm:block" href="#">Ver todo</a>
 </div>
-<div class="flex items-center gap-4">
-<button class="hover:text-terracotta transition-colors"><span class="material-icons">subtitles</span></button>
-<button class="hover:text-terracotta transition-colors"><span class="material-icons">settings</span></button>
-<button class="hover:text-terracotta transition-colors"><span class="material-icons">fullscreen</span></button>
+<div class="scrolling-wrapper flex overflow-x-auto gap-4 pb-6 snap-x px-2">
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900"></div> 
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<span class="inline-block px-2 py-0.5 bg-yellow-600/20 text-yellow-500 text-[10px] font-bold uppercase tracking-wider rounded mb-2 border border-yellow-600/20">Hack</span>
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Limpia tus Pinceles</h4>
+<p class="text-gray-400 text-xs mt-1">15s • Taller básico</p>
 </div>
-</div>
-</div>
-</div>
-</div>
-<div class="relative z-10 w-[60%] h-full bg-[#0A0A0A] flex flex-col">
-<div class="px-12 pt-12 pb-2">
-<div class="flex items-center gap-3 mb-3">
-<span class="px-2 py-1 bg-white/5 border border-white/10 rounded text-[9px] font-bold tracking-widest uppercase text-terracotta">Serie Original</span>
-<span class="text-[10px] font-bold tracking-widest uppercase text-gray-500">Temporada 1</span>
-</div>
-<h1 class="font-display text-4xl lg:text-5xl font-bold text-white mb-2 leading-tight">Virgen de Filipinas</h1>
-<h2 class="text-lg text-gray-400 font-light flex items-center gap-2">
-<span class="text-terracotta font-serif">Capítulo 1:</span> Preparación del bloque
-                </h2>
-</div>
-<div class="px-12 mt-8 border-b border-white/10 flex items-center gap-8">
-<button class="pb-4 text-xs font-bold tracking-[0.15em] uppercase tab-btn" id="episodios-btn" onclick="switchTab('episodios')">
-                    Episodios
-                </button>
-<button class="pb-4 text-xs font-bold tracking-[0.15em] uppercase tab-btn active" id="transcripcion-btn" onclick="switchTab('transcripcion')">
-                    Transcripción
-                </button>
-</div>
-<div class="flex-1 overflow-y-auto relative">
-<div class="tab-content active h-full" id="transcripcion-content">
-<div class="px-12 py-10 space-y-8 max-w-3xl">
-<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
-<span class="font-mono text-xs text-terracotta pt-1 font-medium">04:15</span>
-<p class="text-base text-gray-300 font-light leading-relaxed">
-                                Para el dorado, es fundamental la temperatura. La madera respira, se expande y contrae con el calor del taller.
-                            </p>
-</div>
-<div class="group flex gap-6 relative">
-<div class="absolute -left-12 top-0 bottom-0 w-1 bg-terracotta rounded-r"></div>
-<span class="font-mono text-xs text-white pt-1 font-bold">04:20</span>
-<p class="text-lg text-white font-normal leading-relaxed">
-                                Así que vamos a calentarla al baño maría. Es un proceso delicado, casi alquímico, donde el material cambia de estado ante nuestros ojos.
-                            </p>
-</div>
-<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
-<span class="font-mono text-xs text-gray-500 pt-1">04:25</span>
-<p class="text-base text-gray-300 font-light leading-relaxed">
-                                Si hierve, perderá su fuerza adhesiva. Se volverá quebradiza y el oro no se fijará como debe sobre la superficie preparada.
-                            </p>
-</div>
-<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
-<span class="font-mono text-xs text-gray-500 pt-1">04:32</span>
-<p class="text-base text-gray-300 font-light leading-relaxed">
-                                Observad la consistencia. Debe fluir como miel caliente, ni muy líquida ni muy espesa. Es el punto exacto que buscamos.
-                            </p>
-</div>
-<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
-<span class="font-mono text-xs text-gray-500 pt-1">04:45</span>
-<p class="text-base text-gray-300 font-light leading-relaxed">
-                                Aplicamos la primera capa con suavidad. El pincel apenas roza la madera, depositando la mezcla en los poros abiertos.
-                            </p>
-</div>
-<div class="group flex gap-6 opacity-50 hover:opacity-80 transition-opacity cursor-pointer">
-<span class="font-mono text-xs text-gray-500 pt-1">05:10</span>
-<p class="text-base text-gray-300 font-light leading-relaxed">
-                                El silencio es necesario aquí. Cualquier distracción podría arruinar horas de preparación. La concentración debe ser absoluta.
-                            </p>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+<span class="material-icons text-5xl text-white drop-shadow-lg">play_arrow</span>
 </div>
 </div>
-<div class="sticky bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#0A0A0A] to-transparent pointer-events-none"></div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-br from-red-900 to-black"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<span class="inline-block px-2 py-0.5 bg-red-600/20 text-red-500 text-[10px] font-bold uppercase tracking-wider rounded mb-2 border border-red-600/20">Error Común</span>
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">No uses este barniz</h4>
+<p class="text-gray-400 text-xs mt-1">45s • Materiales</p>
 </div>
-<div class="tab-content h-full" id="episodios-content">
-<div class="px-12 py-8">
-<div class="flex items-start gap-5 py-6 border-b border-white/5 group cursor-pointer">
-<div class="relative w-32 aspect-video bg-gray-800 rounded overflow-hidden flex-shrink-0">
-<img class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfVwUXwgwRAlS2plDTJgs1CJTZJ3yvHnMANdGF4-3ISudArCzHbhSUbfmNggHC48HiPpPYYrRxqR0RTy42aIQPPc5BluN_1QuW9XzeEA5ZdAFgYmenG8qM_Uuz8lpLGf7l9BpKq7EzUuFTa4b8qdD0fqN-FKohJgUISnmtC6cxV-TyoyxOFgz2esFgGVy2yVhMnWYuCrqDColAFcWjd2kfn2cyg47MopO0NiAre9E2_sI4ArpNJ7RpylxGWdVK9J5fi0GPv4WDRCI"/>
-<div class="absolute inset-0 flex items-center justify-center">
-<span class="material-icons text-terracotta">equalizer</span>
-</div>
-</div>
-<div class="flex-1">
-<div class="flex justify-between items-start mb-1">
-<h3 class="text-terracotta font-bold text-sm">01. Preparación del bloque</h3>
-<span class="text-[10px] font-mono text-gray-500">14:00</span>
-</div>
-<p class="text-xs text-gray-400 line-clamp-2 leading-relaxed">Selección de la madera de cedro y primeros trazos de simetría para definir la postura sagrada.</p>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+<span class="material-icons text-5xl text-white drop-shadow-lg">play_arrow</span>
 </div>
 </div>
-<div class="flex items-start gap-5 py-6 border-b border-white/5 group cursor-pointer hover:bg-white/5 transition-colors -mx-4 px-4 rounded-lg">
-<div class="relative w-32 aspect-video bg-gray-800 rounded overflow-hidden flex-shrink-0">
-<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDg8XvYRaYq6Ejq58JJCxwVDX5CLbZw0pxuykWOPrfrZ6NFnZqQ_EL-JIX03MDeNbLHi573ZBEKHAXLs8JpozEa0gO9x9Q0YHH5Uu9CGNsVIUheEkSZxC7zElyMkJBHXV_JlbOqXthUlfJR-AoVy9mNWzYlsS_Ln5ZwWTW5qVU1_TOAkpHBrZDwKvOdHj85OfCYJljGJU-lSgkwCQC6Oi1GhmJ-05vgvppjvdGw4bWA1v6qRagWWNKWLdFZkY3-3BC6mzUJP9QE2y4"/>
-<div class="absolute inset-0 bg-black/50 group-hover:bg-black/20 transition-colors"></div>
-<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="material-icons text-white text-2xl">play_circle_outline</span>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-br from-amber-800 to-stone-900"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<span class="inline-block px-2 py-0.5 bg-green-600/20 text-green-500 text-[10px] font-bold uppercase tracking-wider rounded mb-2 border border-green-600/20">Técnica</span>
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Truco de Lijado</h4>
+<p class="text-gray-400 text-xs mt-1">30s • Preparación</p>
+</div>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+<span class="material-icons text-5xl text-white drop-shadow-lg">play_arrow</span>
 </div>
 </div>
-<div class="flex-1">
-<div class="flex justify-between items-start mb-1">
-<h3 class="text-white group-hover:text-terracotta transition-colors font-medium text-sm">02. El Desbastado</h3>
-<span class="text-[10px] font-mono text-gray-500">18:30</span>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-br from-gray-600 to-gray-800"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Limpieza de Gubias</h4>
+<p class="text-gray-400 text-xs mt-1">20s • Mantenimiento</p>
 </div>
-<p class="text-xs text-gray-500 group-hover:text-gray-400 line-clamp-2 leading-relaxed">El uso de la gubia para eliminar el material sobrante y encontrar la forma latente.</p>
-</div>
-</div>
-<div class="flex items-start gap-5 py-6 border-b border-white/5 group cursor-pointer hover:bg-white/5 transition-colors -mx-4 px-4 rounded-lg">
-<div class="relative w-32 aspect-video bg-gray-800 rounded overflow-hidden flex-shrink-0">
-<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlXYp0aa7KPiJgwFm4fa8VBzfEXGYwed-bhWgE-QoozBBkhswBVcza1rk1K4_C5tfC9K8DOVyhPPJwAOhtzT3pfg-UnPjcWw0t74aF2flPjxAVA03rHCuAf3Vl1fTAmssnQxa50hHUAhcXi7lQa2_ExBQkAjk6sya4oIkbGwLU3Xkqo3MFCJpEqJ2SNU_YHU6pRARq2npX67d3JUvvCCECWLoubG4l5s9UHTqSoWfVqTc8p-Ec3RrcMYynUWgpdHNIUQLiuwU4WQk"/>
-<div class="absolute inset-0 bg-black/50 group-hover:bg-black/20 transition-colors"></div>
-<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="material-icons text-white text-2xl">play_circle_outline</span>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+<span class="material-icons text-5xl text-white drop-shadow-lg">play_arrow</span>
 </div>
 </div>
-<div class="flex-1">
-<div class="flex justify-between items-start mb-1">
-<h3 class="text-white group-hover:text-terracotta transition-colors font-medium text-sm">03. Definición de Volúmenes</h3>
-<span class="text-[10px] font-mono text-gray-500">22:15</span>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-br from-orange-900 to-black"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Cola de Conejo</h4>
+<p class="text-gray-400 text-xs mt-1">50s • Recetas</p>
 </div>
-<p class="text-xs text-gray-500 group-hover:text-gray-400 line-clamp-2 leading-relaxed">Modelando los pliegues del manto y la expresión facial con herramientas de precisión.</p>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+<span class="material-icons text-5xl text-white drop-shadow-lg">play_arrow</span>
 </div>
+</div>
+</div>
+</div>
+<div class="group relative">
+<div class="flex items-end justify-between mb-4 px-2">
+<h3 class="text-xl md:text-2xl font-display font-semibold text-white flex items-center gap-3">
+<span class="text-blue-400 text-2xl">🤓</span> Curiosidades Iconográficas
+                </h3>
+</div>
+<div class="scrolling-wrapper flex overflow-x-auto gap-4 pb-6 snap-x px-2">
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-slate-800 to-black"></div>
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white/10">
+<span class="material-icons text-8xl">vpn_key</span>
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">¿Por qué lleva llaves San Pedro?</h4>
+<p class="text-gray-400 text-xs mt-1">Historia</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-blue-900 to-black"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">El color azul en la Virgen</h4>
+<p class="text-gray-400 text-xs mt-1">Simbología</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-yellow-900 to-black"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">La Palma del Martirio</h4>
+<p class="text-gray-400 text-xs mt-1">Atributos</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-purple-900 to-black"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Los cuatro evangelistas</h4>
+<p class="text-gray-400 text-xs mt-1">Tetramorfos</p>
+</div>
+</div>
+</div>
+</div>
+<div class="group relative">
+<div class="flex items-end justify-between mb-4 px-2">
+<h3 class="text-xl md:text-2xl font-display font-semibold text-white flex items-center gap-3">
+<span class="text-yellow-200 text-2xl">✨</span> Procesos de Taller
+                </h3>
+</div>
+<div class="scrolling-wrapper flex overflow-x-auto gap-4 pb-6 snap-x px-2">
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-yellow-200 via-yellow-600 to-yellow-900 opacity-80"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Aplicación de Pan de Oro</h4>
+<p class="text-gray-400 text-xs mt-1">Dorado</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-[#3e2b1b]"></div>
+<div class="absolute inset-0 opacity-30" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 11px);"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Talla de Madera</h4>
+<p class="text-gray-400 text-xs mt-1">Desbastado</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 opacity-60"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Mezcla de Pigmentos</h4>
+<p class="text-gray-400 text-xs mt-1">Policromía</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-900 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-stone-700"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Estucado del Lienzo</h4>
+<p class="text-gray-400 text-xs mt-1">Preparación</p>
+</div>
+</div>
+</div>
+</div>
+<div class="group relative">
+<div class="flex items-end justify-between mb-4 px-2">
+<h3 class="text-xl md:text-2xl font-display font-semibold text-white flex items-center gap-3">
+<span class="text-white text-2xl">🗣️</span> Q&amp;A: Ana Responde
+                </h3>
+</div>
+<div class="scrolling-wrapper flex overflow-x-auto gap-4 pb-6 snap-x px-2">
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-800 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 flex items-center justify-center bg-gray-700">
+<span class="material-icons text-6xl text-gray-600">person</span>
+</div>
+<div class="absolute top-8 right-4 left-4 bg-white text-black p-2 rounded-tl-xl rounded-tr-xl rounded-br-xl text-[10px] font-bold shadow-lg leading-tight transform rotate-1">
+                        ¿Cómo empiezo?
+                    </div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Primeros pasos</h4>
+<p class="text-gray-400 text-xs mt-1">Consejos</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-800 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 flex items-center justify-center bg-gray-700">
+<span class="material-icons text-6xl text-gray-600">person</span>
+</div>
+<div class="absolute top-12 right-4 left-4 bg-terracotta text-white p-2 rounded-tl-xl rounded-tr-xl rounded-bl-xl text-[10px] font-bold shadow-lg leading-tight transform -rotate-1">
+                        ¡Cuidado con esto!
+                    </div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Errores Comunes</h4>
+<p class="text-gray-400 text-xs mt-1">Aprendizaje</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-gray-800 border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 flex items-center justify-center bg-gray-700">
+<span class="material-icons text-6xl text-gray-600">person</span>
+</div>
+<div class="absolute top-6 left-2 right-2 flex justify-center">
+<span class="bg-white/90 text-black px-3 py-1 rounded-full text-[10px] font-bold">Respondiendo a @CarlosArt</span>
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">¿Qué gubias comprar?</h4>
+<p class="text-gray-400 text-xs mt-1">Herramientas</p>
+</div>
+</div>
+</div>
+</div>
+<div class="group relative">
+<div class="flex items-end justify-between mb-4 px-2">
+<h3 class="text-xl md:text-2xl font-display font-semibold text-white flex items-center gap-3">
+<span class="text-white text-2xl">⛪</span> Bendiciones y Entregas
+                </h3>
+</div>
+<div class="scrolling-wrapper flex overflow-x-auto gap-4 pb-6 snap-x px-2">
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-black border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
+<div class="absolute inset-0 bg-yellow-900/20"></div>
+<div class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+<span class="material-icons text-6xl text-white">church</span>
+</div>
+<div class="absolute bottom-0 left-0 p-4 w-full z-20">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Entrega en Sevilla</h4>
+<p class="text-gray-400 text-xs mt-1">Emotivo • 1m</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-black border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
+<div class="absolute inset-0 flex flex-col items-center justify-center opacity-30 bg-purple-900/20">
+<span class="material-icons text-6xl text-white">sentiment_satisfied_alt</span>
+</div>
+<div class="absolute bottom-0 left-0 p-4 w-full z-20">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Reacción del Cliente</h4>
+<p class="text-gray-400 text-xs mt-1">Testimonio • 45s</p>
+</div>
+</div>
+<div class="flex-none w-[180px] md:w-[220px] aspect-[9/16] relative rounded-lg overflow-hidden cursor-pointer group/card bg-black border border-white/5 hover:border-terracotta/50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
+<div class="absolute inset-0 flex flex-col items-center justify-center opacity-30 bg-blue-900/20">
+<span class="material-icons text-6xl text-white">wb_incandescent</span>
+</div>
+<div class="absolute bottom-0 left-0 p-4 w-full z-20">
+<h4 class="text-white font-bold leading-snug text-lg group-hover/card:text-terracotta transition-colors">Bendición de Imagen</h4>
+<p class="text-gray-400 text-xs mt-1">Ceremonia • 2m</p>
 </div>
 </div>
 </div>
 </div>
 </div>
 </main>
-<footer class="bg-[#050505] text-white pt-16 pb-8 border-t border-white/5 z-20 relative hidden lg:block">
-<div class="max-w-[1920px] mx-auto px-12">
-<div class="grid grid-cols-5 gap-12 mb-16">
-<div class="col-span-1">
+<footer class="bg-black text-white pt-16 pb-8 border-t border-white/5 z-10 relative">
+<div class="max-w-[1800px] mx-auto px-6 md:px-12">
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
+<div class="col-span-2 md:col-span-1 lg:col-span-1">
 <div class="w-10 h-10 bg-white rounded flex items-center justify-center mb-6">
 <span class="text-black font-serif font-bold text-xl">S</span>
 </div>
-<p class="text-gray-500 text-xs leading-relaxed max-w-[200px]">
-                        La plataforma definitiva para los amantes del arte sacro. Documentales, masterclasses y archivo histórico.
-                    </p>
 </div>
 <div>
-<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Explorar</h4>
-<ul class="space-y-3 text-xs text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Novedades</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Más vistos</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Colecciones</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Artistas</a></li>
+<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Explorar</h4>
+<ul class="space-y-3 text-sm text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Modelado</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Talla</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Policromía</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Materiales</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Comunidad</h4>
-<ul class="space-y-3 text-xs text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Blog</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Eventos</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Foro</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Prensa</a></li>
+<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Cuenta</h4>
+<ul class="space-y-3 text-sm text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Mi Perfil</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Mi Lista</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Certificados</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Suscripción</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Legal</h4>
-<ul class="space-y-3 text-xs text-gray-400">
-<li><a class="hover:text-primary transition-colors" href="#">Términos de uso</a></li>
-<li><a class="hover:text-primary transition-colors" href="#">Política de privacidad</a></li>
+<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Ayuda</h4>
+<ul class="space-y-3 text-sm text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Soporte</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Preguntas Frecuentes</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Contacto</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-xs tracking-widest uppercase mb-6 text-gray-400">Legal</h4>
+<ul class="space-y-3 text-sm text-gray-400">
+<li><a class="hover:text-primary transition-colors" href="#">Términos</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Privacidad</a></li>
 <li><a class="hover:text-primary transition-colors" href="#">Cookies</a></li>
 </ul>
 </div>
-<div>
-<h4 class="font-bold text-[10px] tracking-widest uppercase mb-6 text-gray-500">Síguenos</h4>
-<div class="flex gap-4">
-<a class="text-gray-400 hover:text-white transition-colors" href="#"><i class="material-icons text-sm">facebook</i></a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#"><i class="material-icons text-sm">photo_camera</i></a>
-<a class="text-gray-400 hover:text-white transition-colors" href="#"><i class="material-icons text-sm">smart_display</i></a>
 </div>
+<div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex items-center gap-6">
+<a class="text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons text-lg">photo_camera</span>
+</a>
+<a class="text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons text-lg">public</span>
+</a>
+<a class="text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons text-lg">music_note</span>
+</a>
+<a class="text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons text-lg">play_arrow</span>
+</a>
 </div>
-</div>
-<div class="pt-8 border-t border-white/5 flex justify-between items-center">
-<div class="text-[10px] text-gray-600 font-medium">
-                    © 2023 SACRART. Todos los derechos reservados.
-                </div>
-<div class="flex items-center gap-2">
-<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-<span class="text-[10px] text-gray-400 uppercase tracking-widest">Sistemas Operativos</span>
-</div>
-</div>
-</div>
-</footer>
-<footer class="bg-black text-white py-8 border-t border-white/5 lg:hidden z-10 relative">
-<div class="px-6 flex flex-col items-center gap-6">
-<div class="text-[10px] text-gray-600 font-medium text-center">
-                © 2023 SACRART.
+<div class="text-xs text-gray-600 font-medium">
+                © 2023 SACRART. Todos los derechos reservados.
             </div>
+</div>
 </div>
 </footer>
 

@@ -158,8 +158,8 @@ const ReelDetail = () => {
   // Mobile view - Fullscreen video with modal buttons
   if (isMobile) {
     return (
-      <main className="w-full h-screen bg-[#0A0A0A] text-white relative overflow-hidden">
-        {/* Fullscreen Video */}
+      <main className="w-full h-[calc(100vh-80px)] bg-[#0A0A0A] text-white relative overflow-hidden">
+        {/* Video Container - Reduced height to show buttons */}
         <div className="absolute inset-0 z-0">
           {videoUrl ? (
             <video
@@ -180,7 +180,7 @@ const ReelDetail = () => {
         </div>
 
         {/* Video Controls Overlay */}
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
+        <div className="absolute top-0 left-0 right-0 bottom-0 z-10 flex items-center justify-center">
           <button
             onClick={handlePlayPause}
             className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-[#A05245] hover:scale-105 transition-all"
@@ -193,50 +193,80 @@ const ReelDetail = () => {
           </button>
         </div>
 
-        {/* Bottom Modal Section */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-[#141414] rounded-t-[2rem] shadow-[0_-10px_60px_rgba(0,0,0,0.8)] border-t border-white/10 flex flex-col transition-transform duration-500 max-h-[60vh]">
-          <div className="w-full flex justify-center pt-3 pb-1">
-            <div className="w-12 h-1 bg-white/20 rounded-full"></div>
-          </div>
-          
-          <div className="flex justify-between items-start px-6 pt-2 pb-6 border-b border-white/5">
-            <div>
-              <h2 className="text-[#A05245] text-[10px] font-bold tracking-[0.2em] uppercase mb-2">Viendo Ahora</h2>
-              <h3 className="font-serif font-bold text-xl text-white leading-tight">{video.title || 'Virgen de Filipinas'}</h3>
-            </div>
-            <button
-              onClick={() => navigateWithLocale('/reels')}
-              className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors -mr-2 -mt-1"
-            >
-              <X className="h-5 w-5 text-gray-400 hover:text-white" />
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-4 px-6 py-4 border-b border-white/5">
+        {/* Action Buttons - Always visible below video */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-6 pb-6 bg-gradient-to-t from-black/80 to-transparent pt-8">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => {
-                setMobileModalType('videos');
-                setShowMobileModal(true);
+                if (showMobileModal && mobileModalType === 'videos') {
+                  setShowMobileModal(false);
+                  setMobileModalType(null);
+                } else {
+                  setMobileModalType('videos');
+                  setShowMobileModal(true);
+                }
               }}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-colors text-sm font-medium"
+              className={`flex-1 px-4 py-3 rounded-lg border transition-colors text-sm font-medium ${
+                showMobileModal && mobileModalType === 'videos'
+                  ? 'bg-[#A05245] border-[#A05245] text-white'
+                  : 'bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm'
+              }`}
             >
               Episodios
             </button>
             <button
               onClick={() => {
-                setMobileModalType('transcription');
-                setShowMobileModal(true);
+                if (showMobileModal && mobileModalType === 'transcription') {
+                  setShowMobileModal(false);
+                  setMobileModalType(null);
+                } else {
+                  setMobileModalType('transcription');
+                  setShowMobileModal(true);
+                }
               }}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-colors text-sm font-medium"
+              className={`flex-1 px-4 py-3 rounded-lg border transition-colors text-sm font-medium ${
+                showMobileModal && mobileModalType === 'transcription'
+                  ? 'bg-[#A05245] border-[#A05245] text-white'
+                  : 'bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm'
+              }`}
             >
               Transcripción
             </button>
           </div>
+        </div>
 
-          {/* Episodes List (shown when videos modal is open) */}
-          {showMobileModal && mobileModalType === 'videos' && (
-            <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Bottom Modal Section - Only shows when expanded */}
+        {showMobileModal && (
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-[#141414] rounded-t-[2rem] shadow-[0_-10px_60px_rgba(0,0,0,0.8)] border-t border-white/10 flex flex-col max-h-[85vh] transition-all duration-500">
+            <div className="w-full flex justify-center pt-3 pb-1">
+              <div 
+                className="w-12 h-1 bg-white/20 rounded-full cursor-pointer"
+                onClick={() => {
+                  setShowMobileModal(false);
+                  setMobileModalType(null);
+                }}
+              ></div>
+            </div>
+            
+            <div className="flex justify-between items-start px-6 pt-2 pb-4 border-b border-white/5">
+              <div>
+                <h2 className="text-[#A05245] text-[10px] font-bold tracking-[0.2em] uppercase mb-2">Viendo Ahora</h2>
+                <h3 className="font-serif font-bold text-xl text-white leading-tight">{video.title || 'Virgen de Filipinas'}</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowMobileModal(false);
+                  setMobileModalType(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors -mr-2 -mt-1"
+              >
+                <X className="h-5 w-5 text-gray-400 hover:text-white" />
+              </button>
+            </div>
+
+            {/* Episodes List (shown when videos modal is open) */}
+            {showMobileModal && mobileModalType === 'videos' && (
+              <div className="flex-1 overflow-y-auto no-scrollbar">
               {episodes.map((episode, index) => (
                 <div
                   key={episode.id}
@@ -279,38 +309,37 @@ const ReelDetail = () => {
             </div>
           )}
 
-          {/* Transcription List (shown when transcription modal is open) */}
-          {showMobileModal && mobileModalType === 'transcription' && (
-            <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4 space-y-4">
-              {transcription.map((segment, index) => (
-                <div
-                  key={index}
-                  className={`group flex gap-4 ${
-                    segment.isActive
-                      ? 'relative'
-                      : 'opacity-50 hover:opacity-80 transition-opacity cursor-pointer'
-                  }`}
-                >
-                  {segment.isActive && (
-                    <div className="absolute -left-6 top-0 bottom-0 w-1 bg-[#A05245] rounded-r"></div>
-                  )}
-                  <span className={`font-mono text-xs pt-1 ${
-                    segment.isActive ? 'text-white font-bold' : 'text-gray-500'
-                  }`}>
-                    {segment.time}
-                  </span>
-                  <p className={`text-sm leading-relaxed ${
-                    segment.isActive ? 'text-white font-normal' : 'text-gray-300 font-light'
-                  }`}>
-                    {segment.text}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#141414] to-transparent pointer-events-none"></div>
-        </div>
+            {/* Transcription List (shown when transcription modal is open) */}
+            {showMobileModal && mobileModalType === 'transcription' && (
+              <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4 space-y-4">
+                {transcription.map((segment, index) => (
+                  <div
+                    key={index}
+                    className={`group flex gap-4 ${
+                      segment.isActive
+                        ? 'relative'
+                        : 'opacity-50 hover:opacity-80 transition-opacity cursor-pointer'
+                    }`}
+                  >
+                    {segment.isActive && (
+                      <div className="absolute -left-6 top-0 bottom-0 w-1 bg-[#A05245] rounded-r"></div>
+                    )}
+                    <span className={`font-mono text-xs pt-1 ${
+                      segment.isActive ? 'text-white font-bold' : 'text-gray-500'
+                    }`}>
+                      {segment.time}
+                    </span>
+                    <p className={`text-sm leading-relaxed ${
+                      segment.isActive ? 'text-white font-normal' : 'text-gray-300 font-light'
+                    }`}>
+                      {segment.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
     );
   }

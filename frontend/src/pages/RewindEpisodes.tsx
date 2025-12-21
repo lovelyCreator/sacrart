@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { seriesApi, videoApi, Series, Video } from '@/services/videoApi';
 import { useLocale } from '@/hooks/useLocale';
-import { Play, Pause, SkipForward, SkipBack, Volume2, Maximize, List } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, Maximize, MoreVertical, RotateCcw, Plus, ThumbsUp, ThumbsDown, ListOrdered, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 const RewindEpisodes = () => {
@@ -36,6 +36,321 @@ const RewindEpisodes = () => {
       try {
         setLoading(true);
         
+        // Always set sample data first (for now, until real API is ready)
+        const sampleSeries: Series = {
+          id: parseInt(id || '1'),
+          name: 'Virgen de Filipinas',
+          title: 'Virgen de Filipinas',
+          slug: 'virgen-de-filipinas',
+          description: 'Proceso completo de creación de una escultura sacra desde el bloque inicial hasta la policromía final.',
+          short_description: 'Proceso completo de escultura sacra',
+          visibility: 'freemium',
+          status: 'published',
+          category_id: 1,
+          instructor_id: 1,
+          thumbnail: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+          cover_image: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+          image: null,
+          trailer_url: null,
+          meta_title: null,
+          meta_description: null,
+          meta_keywords: null,
+          video_count: 5,
+          total_duration: 3600,
+          total_views: 1500,
+          rating: '4.8',
+          rating_count: 120,
+          price: null,
+          is_free: true,
+          published_at: new Date(2023, 0, 15).toISOString(), // 2023 as per code.html
+          featured_until: null,
+          is_featured: true,
+          sort_order: 1,
+          tags: ['talla', 'escultura', 'sacra'],
+          created_at: new Date(2023, 0, 1).toISOString(),
+          updated_at: new Date(2023, 0, 15).toISOString(),
+        };
+        setSeries(sampleSeries);
+
+        // Set sample videos immediately
+        const sampleVideos: Video[] = [
+          {
+            id: 2001,
+            title: 'Preparación del Bloque',
+            slug: 'preparacion-bloque',
+            description: 'Comenzamos el desbastado del bloque de cedro, una madera noble seleccionada por su durabilidad y aroma. En este primer episodio, exploramos la preparación de la materia prima antes de que la gubia haga su primer corte decisivo.',
+            short_description: 'Preparación del Bloque',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_description: null,
+            duration: 840, // 14:00
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: 1,
+            sort_order: 1,
+            tags: ['talla', 'proceso'],
+            views: 500,
+            unique_views: 350,
+            rating: '4.8',
+            rating_count: 45,
+            completion_rate: 82,
+            published_at: new Date(2023, 0, 15).toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date(2023, 0, 15).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2002,
+            title: 'El Desbastado',
+            slug: 'el-desbastado',
+            description: 'El uso de la gubia para eliminar el material sobrante y encontrar la forma latente.',
+            short_description: 'El Desbastado',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_description: null,
+            duration: 1110, // 18:30
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: 2,
+            sort_order: 2,
+            tags: ['talla', 'gubia'],
+            views: 450,
+            unique_views: 320,
+            rating: '4.9',
+            rating_count: 38,
+            completion_rate: 75,
+            published_at: new Date(2023, 0, 20).toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date(2023, 0, 20).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2003,
+            title: 'Definición de Volúmenes',
+            slug: 'definicion-volumenes',
+            description: 'Modelando los pliegues del manto y la expresión facial con herramientas de precisión.',
+            short_description: 'Definición de Volúmenes',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 1335, // 22:15
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: 3,
+            sort_order: 3,
+            tags: ['modelado', 'volúmenes'],
+            views: 380,
+            unique_views: 280,
+            rating: '5.0',
+            rating_count: 32,
+            completion_rate: 68,
+            published_at: new Date(2023, 0, 25).toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date(2023, 0, 25).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2004,
+            title: 'La Mirada',
+            slug: 'la-mirada',
+            description: 'Próximamente',
+            short_description: 'La Mirada',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 0,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'premium',
+            status: 'draft',
+            is_free: false,
+            price: null,
+            episode_number: 4,
+            sort_order: 4,
+            tags: ['próximamente'],
+            views: 0,
+            unique_views: 0,
+            rating: null,
+            rating_count: 0,
+            completion_rate: 0,
+            published_at: null,
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'pending',
+            processing_error: null,
+            processed_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2005,
+            title: 'El Alma de la Madera',
+            slug: 'el-alma-de-la-madera',
+            description: 'Próximamente',
+            short_description: 'El Alma de la Madera',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 0,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'premium',
+            status: 'draft',
+            is_free: false,
+            price: null,
+            episode_number: 5,
+            sort_order: 5,
+            tags: ['próximamente'],
+            views: 0,
+            unique_views: 0,
+            rating: null,
+            rating_count: 0,
+            completion_rate: 0,
+            published_at: null,
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'pending',
+            processing_error: null,
+            processed_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ];
+        setVideos(sampleVideos);
+        setCurrentVideo(sampleVideos[0]);
+        setCurrentVideoIndex(0);
+
+        // Try to load real data (commented out for now, will use sample data)
+        /*
         // Cargar serie
         const seriesResponse = await seriesApi.getById(parseInt(id));
         if (seriesResponse.success && seriesResponse.data) {
@@ -51,17 +366,612 @@ const RewindEpisodes = () => {
           per_page: 100,
         });
 
+        */
+        
+        // For now, always use sample data
+        // When real API is ready, uncomment the above code and remove this section
+        /*
         if (videosResponse.success && videosResponse.data) {
           const seriesVideos = videosResponse.data.data;
-          setVideos(seriesVideos);
           if (seriesVideos.length > 0) {
+            setVideos(seriesVideos);
             setCurrentVideo(seriesVideos[0]);
+            setCurrentVideoIndex(0);
+          } else {
+            // Add sample videos if none found - matching code.html (5 episodes)
+            const sampleVideos: Video[] = [
+              {
+                id: 2001,
+                title: 'Preparación del Bloque',
+                slug: 'preparacion-bloque',
+                description: 'Comenzamos el desbastado del bloque de cedro, una madera noble seleccionada por su durabilidad y aroma. En este primer episodio, exploramos la preparación de la materia prima antes de que la gubia haga su primer corte decisivo.',
+                short_description: 'Preparación del Bloque',
+                series_id: parseInt(id),
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_description: null,
+                duration: 840, // 14:00
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'freemium',
+                status: 'published',
+                is_free: true,
+                price: null,
+                episode_number: 1,
+                sort_order: 1,
+                tags: ['talla', 'proceso'],
+                views: 500,
+                unique_views: 350,
+                rating: '4.8',
+                rating_count: 45,
+                completion_rate: 82,
+                published_at: new Date(2023, 0, 15).toISOString(),
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'completed',
+                processing_error: null,
+                processed_at: new Date().toISOString(),
+                created_at: new Date(2023, 0, 15).toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+              {
+                id: 2002,
+                title: 'El Desbastado',
+                slug: 'el-desbastado',
+                description: 'El uso de la gubia para eliminar el material sobrante y encontrar la forma latente.',
+                short_description: 'El Desbastado',
+                series_id: parseInt(id),
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_description: null,
+                duration: 1110, // 18:30
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'freemium',
+                status: 'published',
+                is_free: true,
+                price: null,
+                episode_number: 2,
+                sort_order: 2,
+                tags: ['talla', 'gubia'],
+                views: 450,
+                unique_views: 320,
+                rating: '4.9',
+                rating_count: 38,
+                completion_rate: 75,
+                published_at: new Date(2023, 0, 20).toISOString(),
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'completed',
+                processing_error: null,
+                processed_at: new Date().toISOString(),
+                created_at: new Date(2023, 0, 20).toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+              {
+                id: 2003,
+                title: 'Definición de Volúmenes',
+                slug: 'definicion-volumenes',
+                description: 'Modelando los pliegues del manto y la expresión facial con herramientas de precisión.',
+                short_description: 'Definición de Volúmenes',
+                series_id: parseInt(id),
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_description: null,
+                duration: 1335, // 22:15
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'freemium',
+                status: 'published',
+                is_free: true,
+                price: null,
+                episode_number: 3,
+                sort_order: 3,
+                tags: ['modelado', 'volúmenes'],
+                views: 380,
+                unique_views: 280,
+                rating: '5.0',
+                rating_count: 32,
+                completion_rate: 68,
+                published_at: new Date(2023, 0, 25).toISOString(),
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'completed',
+                processing_error: null,
+                processed_at: new Date().toISOString(),
+                created_at: new Date(2023, 0, 25).toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+              {
+                id: 2004,
+                title: 'La Mirada',
+                slug: 'la-mirada',
+                description: 'Próximamente',
+                short_description: 'La Mirada',
+                series_id: parseInt(id),
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_description: null,
+                duration: 0,
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'premium',
+                status: 'draft',
+                is_free: false,
+                price: null,
+                episode_number: 4,
+                sort_order: 4,
+                tags: ['próximamente'],
+                views: 0,
+                unique_views: 0,
+                rating: null,
+                rating_count: 0,
+                completion_rate: 0,
+                published_at: null,
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'pending',
+                processing_error: null,
+                processed_at: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+              {
+                id: 2005,
+                title: 'El Alma de la Madera',
+                slug: 'el-alma-de-la-madera',
+                description: 'Próximamente',
+                short_description: 'El Alma de la Madera',
+                series_id: parseInt(id),
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_description: null,
+                duration: 0,
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'premium',
+                status: 'draft',
+                is_free: false,
+                price: null,
+                episode_number: 5,
+                sort_order: 5,
+                tags: ['próximamente'],
+                views: 0,
+                unique_views: 0,
+                rating: null,
+                rating_count: 0,
+                completion_rate: 0,
+                published_at: null,
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'pending',
+                processing_error: null,
+                processed_at: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ];
+            setVideos(sampleVideos);
+            setCurrentVideo(sampleVideos[0]);
             setCurrentVideoIndex(0);
           }
         }
+        */
+        
       } catch (error: any) {
         console.error('Error loading series data:', error);
-        toast.error(error.message || t('rewind.error_load', 'Error al cargar la serie'));
+        // Sample data is already set above, so no need to set it again here
+        const sampleSeries: Series = {
+          id: parseInt(id || '1'),
+          name: 'Virgen de Filipinas',
+          title: 'Virgen de Filipinas',
+          slug: 'virgen-de-filipinas',
+          description: 'Proceso completo de creación de una escultura sacra desde el bloque inicial hasta la policromía final.',
+          short_description: 'Proceso completo de escultura sacra',
+          visibility: 'freemium',
+          status: 'published',
+          category_id: 1,
+          instructor_id: 1,
+          thumbnail: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+          cover_image: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+          image: null,
+          trailer_url: null,
+          meta_title: null,
+          meta_description: null,
+          meta_keywords: null,
+          video_count: 5,
+          total_duration: 3600,
+          total_views: 1500,
+          rating: '4.8',
+          rating_count: 120,
+          price: null,
+          is_free: true,
+          published_at: new Date(2023, 0, 15).toISOString(),
+          featured_until: null,
+          is_featured: true,
+          sort_order: 1,
+          tags: ['talla', 'escultura', 'sacra'],
+          created_at: new Date(2023, 0, 1).toISOString(),
+          updated_at: new Date(2023, 0, 15).toISOString(),
+        };
+        setSeries(sampleSeries);
+
+        // Set sample videos
+        const sampleVideos: Video[] = [
+          {
+            id: 2001,
+            title: 'Preparación del Bloque',
+            slug: 'preparacion-bloque',
+            description: 'Comenzamos el desbastado del bloque de cedro, una madera noble seleccionada por su durabilidad y aroma. En este primer episodio, exploramos la preparación de la materia prima antes de que la gubia haga su primer corte decisivo.',
+            short_description: 'Preparación del Bloque',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_description: null,
+            duration: 840,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: 1,
+            sort_order: 1,
+            tags: ['talla', 'proceso'],
+            views: 500,
+            unique_views: 350,
+            rating: '4.8',
+            rating_count: 45,
+            completion_rate: 82,
+            published_at: new Date(2023, 0, 15).toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date(2023, 0, 15).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2002,
+            title: 'El Desbastado',
+            slug: 'el-desbastado',
+            description: 'El uso de la gubia para eliminar el material sobrante y encontrar la forma latente.',
+            short_description: 'El Desbastado',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+            intro_description: null,
+            duration: 1110,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: 2,
+            sort_order: 2,
+            tags: ['talla', 'gubia'],
+            views: 450,
+            unique_views: 320,
+            rating: '4.9',
+            rating_count: 38,
+            completion_rate: 75,
+            published_at: new Date(2023, 0, 20).toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date(2023, 0, 20).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2003,
+            title: 'Definición de Volúmenes',
+            slug: 'definicion-volumenes',
+            description: 'Modelando los pliegues del manto y la expresión facial con herramientas de precisión.',
+            short_description: 'Definición de Volúmenes',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 1335,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: 3,
+            sort_order: 3,
+            tags: ['modelado', 'volúmenes'],
+            views: 380,
+            unique_views: 280,
+            rating: '5.0',
+            rating_count: 32,
+            completion_rate: 68,
+            published_at: new Date(2023, 0, 25).toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date(2023, 0, 25).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2004,
+            title: 'La Mirada',
+            slug: 'la-mirada',
+            description: 'Próximamente',
+            short_description: 'La Mirada',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 0,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'premium',
+            status: 'draft',
+            is_free: false,
+            price: null,
+            episode_number: 4,
+            sort_order: 4,
+            tags: ['próximamente'],
+            views: 0,
+            unique_views: 0,
+            rating: null,
+            rating_count: 0,
+            completion_rate: 0,
+            published_at: null,
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'pending',
+            processing_error: null,
+            processed_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 2005,
+            title: 'El Alma de la Madera',
+            slug: 'el-alma-de-la-madera',
+            description: 'Próximamente',
+            short_description: 'El Alma de la Madera',
+            series_id: parseInt(id || '1'),
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 0,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'premium',
+            status: 'draft',
+            is_free: false,
+            price: null,
+            episode_number: 5,
+            sort_order: 5,
+            tags: ['próximamente'],
+            views: 0,
+            unique_views: 0,
+            rating: null,
+            rating_count: 0,
+            completion_rate: 0,
+            published_at: null,
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'pending',
+            processing_error: null,
+            processed_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ];
+        setVideos(sampleVideos);
+        setCurrentVideo(sampleVideos[0]);
+        setCurrentVideoIndex(0);
       } finally {
         setLoading(false);
       }
@@ -81,9 +991,6 @@ const RewindEpisodes = () => {
     setCurrentVideo(video);
     setCurrentVideoIndex(index);
     setIsPlaying(true);
-    if (showBottomSheet) {
-      setShowBottomSheet(false);
-    }
   };
 
   const handleNextVideo = () => {
@@ -142,17 +1049,20 @@ const RewindEpisodes = () => {
   );
 
   return (
-    <main className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased flex flex-col lg:flex-row overflow-hidden">
+    <main className="flex-grow w-full relative min-h-screen flex flex-col lg:flex-row overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-[#0A0A0A] z-10"></div>
         <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-[#A05245]/10 rounded-full blur-[150px] z-0 opacity-50"></div>
         <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-[#C5A065]/5 rounded-full blur-[150px] z-0 opacity-40"></div>
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center blur-3xl opacity-10 z-0"></div>
       </div>
 
-      {/* Video Player Section */}
-      <div className="relative z-10 w-full lg:w-[450px] flex-shrink-0 mx-auto lg:sticky lg:top-24 h-screen lg:h-auto">
-        <div className="relative aspect-[9/16] lg:aspect-[9/16] h-full lg:h-auto bg-stone-900 rounded-lg overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.7)] border border-white/10 group ring-1 ring-white/5">
+      {/* Main Container */}
+      <div className="relative z-10 w-full max-w-[1600px] mx-auto p-6 lg:p-12 lg:pt-16 flex flex-col lg:flex-row gap-16 items-start justify-center">
+        {/* Video Player Section */}
+        <div className="w-full lg:w-[450px] flex-shrink-0 mx-auto sticky top-24">
+          <div className="relative aspect-[9/16] bg-stone-900 rounded-lg overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.7)] border border-white/10 group ring-1 ring-white/5">
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
@@ -171,7 +1081,7 @@ const RewindEpisodes = () => {
               S1 • EP{String(currentVideoIndex + 1).padStart(2, '0')}
             </span>
             <button className="text-white/80 hover:text-white transition-colors">
-              <span className="material-icons">more_vert</span>
+              <MoreVertical className="h-5 w-5" />
             </button>
           </div>
 
@@ -182,9 +1092,9 @@ const RewindEpisodes = () => {
               className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-[#A05245] hover:border-[#A05245] transition-all transform hover:scale-110 shadow-2xl"
             >
               {isPlaying ? (
-                <Pause className="h-8 w-8 text-white ml-0.5" fill="currentColor" />
+                <Pause className="h-12 w-12 text-white" fill="currentColor" />
               ) : (
-                <Play className="h-8 w-8 text-white ml-1" fill="currentColor" />
+                <Play className="h-16 w-16 text-white ml-1" fill="currentColor" />
               )}
             </button>
           </div>
@@ -230,7 +1140,7 @@ const RewindEpisodes = () => {
                   )}
                 </button>
                 <button className="hover:text-[#A05245] transition-colors transform hover:scale-110">
-                  <SkipBack className="h-5 w-5" />
+                  <RotateCcw className="h-5 w-5" />
                 </button>
                 <div className="group/vol flex items-center gap-2">
                   <button className="hover:text-[#A05245] transition-colors">
@@ -253,11 +1163,11 @@ const RewindEpisodes = () => {
               </div>
             </div>
           </div>
+          </div>
         </div>
-      </div>
 
-      {/* Content Section - Desktop */}
-      <div className="flex-1 w-full lg:max-w-3xl pt-2 lg:pt-0 relative z-10 px-6 lg:px-12 pb-6 lg:pb-0">
+        {/* Content Section */}
+        <div className="flex-1 w-full lg:max-w-3xl pt-2 lg:pt-0">
         <div className="mb-10 border-b border-white/10 pb-8 relative">
           <div className="flex items-center gap-3 mb-4">
             <span className="flex h-2 w-2 relative">
@@ -292,24 +1202,24 @@ const RewindEpisodes = () => {
           <div className="flex gap-6">
             <button className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors group">
               <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover:border-white group-hover:bg-white/5 transition-all">
-                <span className="material-icons text-xl">add</span>
+                <Plus className="h-5 w-5" />
               </div>
               <span className="text-xs font-bold uppercase tracking-widest">{t('rewind.my_list', 'Mi Lista')}</span>
             </button>
             <button className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group transition-all hover:bg-white/5 hover:border-[#A05245] focus:border-[#A05245] outline-none" title={t('rewind.like', 'Me gusta')}>
-              <span className="material-icons text-xl text-white group-hover:text-[#A05245] group-focus:text-[#A05245] transition-colors">thumb_up_off_alt</span>
+              <ThumbsUp className="h-5 w-5 text-white group-hover:text-[#A05245] group-focus:text-[#A05245] transition-colors" />
             </button>
             <button className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group transition-all hover:bg-white/5 hover:border-[#A05245] focus:border-[#A05245] outline-none" title={t('rewind.dislike', 'No me gusta')}>
-              <span className="material-icons text-xl text-white group-hover:text-[#A05245] group-focus:text-[#A05245] transition-colors">thumb_down_off_alt</span>
+              <ThumbsDown className="h-5 w-5 text-white group-hover:text-[#A05245] group-focus:text-[#A05245] transition-colors" />
             </button>
           </div>
         </div>
 
-        {/* Episodes List - Desktop (always visible) */}
-        <div className="hidden lg:block space-y-4">
+          {/* Episodes List - Always visible */}
+          <div className="space-y-4">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-serif font-bold text-white tracking-widest flex items-center gap-3">
-              <span className="material-icons text-[#A05245]">format_list_numbered</span>
+              <ListOrdered className="h-5 w-5 text-[#A05245]" />
               {t('rewind.episodes_list', 'Lista de Episodios')}
             </h3>
             <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">
@@ -319,7 +1229,7 @@ const RewindEpisodes = () => {
           <div className="flex flex-col border-t border-white/5">
             {videos.map((video, index) => {
               const isActive = index === currentVideoIndex;
-              const isLocked = video.status !== 'published' || video.visibility === 'premium';
+              const isLocked = video.status !== 'published';
               
               return (
                 <div
@@ -329,16 +1239,16 @@ const RewindEpisodes = () => {
                     isActive ? 'border-white/10 text-[#A05245]' : 'border-white/5 text-gray-300 hover:text-white'
                   } cursor-pointer hover:bg-white/5 px-4 -mx-4 rounded-lg transition-colors duration-200 ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <div className="flex items-center gap-4 font-medium text-lg font-display">
+                  <div className={`flex items-center gap-4 ${isActive ? 'font-semibold' : 'font-medium'} text-lg font-display`}>
                     {isActive ? (
-                      <span className="material-icons text-xl animate-pulse">play_arrow</span>
+                      <Play className="h-5 w-5 animate-pulse fill-current" />
                     ) : (
                       <span className="w-6 text-center text-sm font-sans text-gray-500 group-hover:text-[#A05245] transition-colors">
                         {String(index + 1).padStart(2, '0')}
                       </span>
                     )}
                     <span className={isActive ? '' : 'group-hover:translate-x-1 transition-transform duration-200'}>
-                      {video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}
+                      {isActive ? `${String(index + 1).padStart(2, '0')}. ${video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}` : video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}
                     </span>
                     {isLocked && (
                       <span className="text-xs uppercase tracking-wider font-sans border border-gray-700 rounded px-1.5 py-0.5">
@@ -347,7 +1257,7 @@ const RewindEpisodes = () => {
                     )}
                   </div>
                   {isLocked ? (
-                    <span className="material-icons text-sm text-gray-600">lock</span>
+                    <Lock className="h-4 w-4 text-gray-600" />
                   ) : (
                     <span className={`font-mono text-sm ${isActive ? 'opacity-100 font-medium' : 'text-gray-500 group-hover:text-gray-300'} transition-colors`}>
                       {formatDuration(video.duration)}
@@ -358,89 +1268,8 @@ const RewindEpisodes = () => {
             })}
           </div>
         </div>
+        </div>
       </div>
-
-      {/* Floating Button for Mobile - Episodes List */}
-      <button
-        onClick={() => setShowBottomSheet(true)}
-        className="lg:hidden fixed bottom-6 right-6 z-50 bg-[#A05245] text-white px-6 py-3 rounded-full shadow-2xl hover:bg-[#b56053] transition-all flex items-center gap-2 font-bold uppercase tracking-wider text-sm"
-      >
-        <List className="h-5 w-5" />
-        {t('rewind.chapters_list', 'Lista de Capítulos')}
-      </button>
-
-      {/* Bottom Sheet for Mobile */}
-      {showBottomSheet && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="lg:hidden fixed inset-0 bg-black/80 z-40"
-            onClick={() => setShowBottomSheet(false)}
-          />
-          {/* Bottom Sheet */}
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0A] border-t border-white/10 rounded-t-3xl max-h-[80vh] overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-serif font-bold text-white tracking-widest flex items-center gap-3">
-                  <span className="material-icons text-[#A05245]">format_list_numbered</span>
-                  {t('rewind.episodes_list', 'Lista de Episodios')}
-                </h3>
-                <button
-                  onClick={() => setShowBottomSheet(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <span className="material-icons">close</span>
-                </button>
-              </div>
-              <div className="flex flex-col border-t border-white/5 max-h-[60vh] overflow-y-auto">
-                {videos.map((video, index) => {
-                  const isActive = index === currentVideoIndex;
-                  const isLocked = video.status !== 'published' || video.visibility === 'premium';
-                  
-                  return (
-                    <div
-                      key={video.id}
-                      onClick={() => {
-                        if (!isLocked) {
-                          handleVideoClick(video, index);
-                        }
-                      }}
-                      className={`group flex justify-between items-center py-4 border-b ${
-                        isActive ? 'border-white/10 text-[#A05245]' : 'border-white/5 text-gray-300 hover:text-white'
-                      } cursor-pointer hover:bg-white/5 px-4 -mx-4 rounded-lg transition-colors duration-200 ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
-                    >
-                      <div className="flex items-center gap-4 font-medium text-lg font-display">
-                        {isActive ? (
-                          <span className="material-icons text-xl animate-pulse">play_arrow</span>
-                        ) : (
-                          <span className="w-6 text-center text-sm font-sans text-gray-500 group-hover:text-[#A05245] transition-colors">
-                            {String(index + 1).padStart(2, '0')}
-                          </span>
-                        )}
-                        <span className={isActive ? '' : 'group-hover:translate-x-1 transition-transform duration-200'}>
-                          {video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}
-                        </span>
-                        {isLocked && (
-                          <span className="text-xs uppercase tracking-wider font-sans border border-gray-700 rounded px-1.5 py-0.5">
-                            {t('rewind.coming_soon', 'Próximamente')}
-                          </span>
-                        )}
-                      </div>
-                      {isLocked ? (
-                        <span className="material-icons text-sm text-gray-600">lock</span>
-                      ) : (
-                        <span className={`font-mono text-sm ${isActive ? 'opacity-100 font-medium' : 'text-gray-500 group-hover:text-gray-300'} transition-colors`}>
-                          {formatDuration(video.duration)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </main>
   );
 };

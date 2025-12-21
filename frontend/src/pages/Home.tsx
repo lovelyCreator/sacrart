@@ -2234,11 +2234,50 @@ const Home = () => {
             ].map((format, index) => (
               <div
                 key={format.title}
-                onClick={() => {
+                onClick={async () => {
                   if (format.title === 'Reels') {
                     navigateWithLocale('/reels');
                   } else if (format.title === 'Rewind') {
                     navigateWithLocale('/rewind');
+                  } else if (format.title === 'Retos') {
+                    navigateWithLocale('/challenges');
+                  } else if (format.title === 'Directos') {
+                    try {
+                      // Fetch latest directo video
+                      const response = await videoApi.getPublic({
+                        status: 'published',
+                        per_page: 100,
+                        sort_by: 'created_at',
+                        sort_order: 'desc',
+                      });
+
+                      if (response.success && response.data) {
+                        const videos = Array.isArray(response.data) 
+                          ? response.data 
+                          : response.data?.data || [];
+
+                        // Filter for "directos" - videos with tags containing "directo", "live", "twitch"
+                        const directosVideos = videos.filter((video: any) => {
+                          const tags = video.tags || [];
+                          const tagString = tags.join(' ').toLowerCase();
+                          return tagString.includes('directo') || 
+                                 tagString.includes('live') || 
+                                 tagString.includes('twitch');
+                        });
+
+                        // Navigate to latest directo video, or default to video/1 if none found
+                        if (directosVideos.length > 0) {
+                          navigateWithLocale(`/video/${directosVideos[0].id}`);
+                        } else {
+                          navigateWithLocale('/video/1');
+                        }
+                      } else {
+                        navigateWithLocale('/video/1');
+                      }
+                    } catch (error) {
+                      console.error('Error fetching latest directo:', error);
+                      navigateWithLocale('/video/1');
+                    }
                   } else {
                     navigateWithLocale('/browse');
                   }

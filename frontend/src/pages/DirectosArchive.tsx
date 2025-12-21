@@ -97,6 +97,64 @@ const DirectosArchive = () => {
           // Latest video (most recent)
           if (directosVideos.length > 0) {
             setLatestVideo(directosVideos[0]);
+          } else {
+            // Add sample latest video
+            const sampleLatest: Video = {
+              id: 1001,
+              title: 'Modelado de Manos en Vivo',
+              slug: 'modelado-manos-vivo',
+              description: 'Sesión en vivo donde exploramos técnicas avanzadas de modelado de manos en escultura sacra.',
+              short_description: 'Técnicas avanzadas de modelado de manos',
+              series_id: 1,
+              category_id: 1,
+              instructor_id: 1,
+              video_url: null,
+              video_file_path: null,
+              video_url_full: null,
+              bunny_video_id: null,
+              bunny_video_url: null,
+              bunny_embed_url: null,
+              bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+              bunny_player_url: null,
+              thumbnail: null,
+              thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+              intro_image: null,
+              intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+              intro_description: null,
+              duration: 3600,
+              file_size: null,
+              video_format: null,
+              video_quality: null,
+              streaming_urls: null,
+              hls_url: null,
+              dash_url: null,
+              visibility: 'freemium',
+              status: 'published',
+              is_free: true,
+              price: null,
+              episode_number: null,
+              sort_order: 1,
+              tags: ['directo', 'live', 'modelado'],
+              views: 2500,
+              unique_views: 1800,
+              rating: '4.9',
+              rating_count: 150,
+              completion_rate: 85,
+              published_at: new Date().toISOString(),
+              scheduled_at: null,
+              downloadable_resources: null,
+              allow_download: false,
+              meta_title: null,
+              meta_description: null,
+              meta_keywords: null,
+              processing_status: 'completed',
+              processing_error: null,
+              processed_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            setLatestVideo(sampleLatest);
+            directosVideos.push(sampleLatest);
           }
 
           // Current season videos (2025, or current year)
@@ -105,7 +163,69 @@ const DirectosArchive = () => {
             const videoYear = new Date(video.created_at).getFullYear();
             return videoYear === currentYear;
           });
-          setCurrentSeasonVideos(currentSeason.slice(0, 10));
+          
+          // Add sample current season videos if none found
+          if (currentSeason.length === 0) {
+            const sampleCurrentSeason: Video[] = [
+              {
+                id: 1002,
+                title: 'Técnicas de Policromía en Vivo',
+                slug: 'tecnicas-policromia-vivo',
+                description: 'Aplicación de técnicas tradicionales de policromía en tiempo real.',
+                short_description: 'Técnicas de policromía',
+                series_id: 1,
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_description: null,
+                duration: 2700,
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'freemium',
+                status: 'published',
+                is_free: true,
+                price: null,
+                episode_number: null,
+                sort_order: 2,
+                tags: ['directo', 'policromía'],
+                views: 1800,
+                unique_views: 1200,
+                rating: '4.8',
+                rating_count: 95,
+                completion_rate: 78,
+                published_at: new Date(currentYear, 0, 10).toISOString(),
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'completed',
+                processing_error: null,
+                processed_at: new Date().toISOString(),
+                created_at: new Date(currentYear, 0, 10).toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ];
+            setCurrentSeasonVideos(sampleCurrentSeason);
+          } else {
+            setCurrentSeasonVideos(currentSeason.slice(0, 10));
+          }
 
           // Archive videos (older than current year, with Twitch theme)
           const archive = directosVideos.filter((video: Video) => {
@@ -113,7 +233,69 @@ const DirectosArchive = () => {
             const videoYear = new Date(video.created_at).getFullYear();
             return videoYear < currentYear;
           });
-          setArchiveVideos(archive.slice(0, 10));
+          
+          // Add sample archive videos if none found
+          if (archive.length === 0) {
+            const sampleArchive: Video[] = [
+              {
+                id: 1003,
+                title: 'Clásico Twitch: Talla en Madera',
+                slug: 'clasico-twitch-talla',
+                description: 'Sesión clásica de talla en madera desde nuestro archivo de Twitch.',
+                short_description: 'Talla en madera clásica',
+                series_id: 1,
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+                intro_description: null,
+                duration: 4200,
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'freemium',
+                status: 'published',
+                is_free: true,
+                price: null,
+                episode_number: null,
+                sort_order: 3,
+                tags: ['twitch', 'talla', 'archivo'],
+                views: 5000,
+                unique_views: 3500,
+                rating: '4.7',
+                rating_count: 320,
+                completion_rate: 72,
+                published_at: new Date(2023, 5, 15).toISOString(),
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'completed',
+                processing_error: null,
+                processed_at: new Date().toISOString(),
+                created_at: new Date(2023, 5, 15).toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ];
+            setArchiveVideos(sampleArchive);
+          } else {
+            setArchiveVideos(archive.slice(0, 10));
+          }
 
           // Talks videos (videos with "charla", "q&a", "preguntas" tags)
           const talks = directosVideos.filter((video: Video) => {
@@ -124,7 +306,129 @@ const DirectosArchive = () => {
                    tagString.includes('preguntas') ||
                    tagString.includes('entrevista');
           });
-          setTalksVideos(talks.slice(0, 10));
+          
+          // Add sample talks if none found
+          if (talks.length === 0) {
+            const sampleTalks: Video[] = [
+              {
+                id: 1004,
+                title: 'Charla: Historia del Arte Sacro',
+                slug: 'charla-historia-arte-sacro',
+                description: 'Conversación sobre la historia y evolución del arte sacro en España.',
+                short_description: 'Historia del arte sacro',
+                series_id: 1,
+                category_id: 1,
+                instructor_id: 1,
+                video_url: null,
+                video_file_path: null,
+                video_url_full: null,
+                bunny_video_id: null,
+                bunny_video_url: null,
+                bunny_embed_url: null,
+                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                bunny_player_url: null,
+                thumbnail: null,
+                thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_image: null,
+                intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
+                intro_description: null,
+                duration: 1800,
+                file_size: null,
+                video_format: null,
+                video_quality: null,
+                streaming_urls: null,
+                hls_url: null,
+                dash_url: null,
+                visibility: 'freemium',
+                status: 'published',
+                is_free: true,
+                price: null,
+                episode_number: null,
+                sort_order: 4,
+                tags: ['charla', 'historia', 'q&a'],
+                views: 3200,
+                unique_views: 2400,
+                rating: '4.9',
+                rating_count: 210,
+                completion_rate: 88,
+                published_at: new Date(currentYear, 1, 5).toISOString(),
+                scheduled_at: null,
+                downloadable_resources: null,
+                allow_download: false,
+                meta_title: null,
+                meta_description: null,
+                meta_keywords: null,
+                processing_status: 'completed',
+                processing_error: null,
+                processed_at: new Date().toISOString(),
+                created_at: new Date(currentYear, 1, 5).toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ];
+            setTalksVideos(sampleTalks);
+          } else {
+            setTalksVideos(talks.slice(0, 10));
+          }
+        } else {
+          // Add sample data if API response fails
+          const sampleLatest: Video = {
+            id: 1001,
+            title: 'Modelado de Manos en Vivo',
+            slug: 'modelado-manos-vivo',
+            description: 'Sesión en vivo donde exploramos técnicas avanzadas de modelado de manos en escultura sacra.',
+            short_description: 'Técnicas avanzadas de modelado de manos',
+            series_id: 1,
+            category_id: 1,
+            instructor_id: 1,
+            video_url: null,
+            video_file_path: null,
+            video_url_full: null,
+            bunny_video_id: null,
+            bunny_video_url: null,
+            bunny_embed_url: null,
+            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            bunny_player_url: null,
+            thumbnail: null,
+            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_image: null,
+            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
+            intro_description: null,
+            duration: 3600,
+            file_size: null,
+            video_format: null,
+            video_quality: null,
+            streaming_urls: null,
+            hls_url: null,
+            dash_url: null,
+            visibility: 'freemium',
+            status: 'published',
+            is_free: true,
+            price: null,
+            episode_number: null,
+            sort_order: 1,
+            tags: ['directo', 'live', 'modelado'],
+            views: 2500,
+            unique_views: 1800,
+            rating: '4.9',
+            rating_count: 150,
+            completion_rate: 85,
+            published_at: new Date().toISOString(),
+            scheduled_at: null,
+            downloadable_resources: null,
+            allow_download: false,
+            meta_title: null,
+            meta_description: null,
+            meta_keywords: null,
+            processing_status: 'completed',
+            processing_error: null,
+            processed_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          setLatestVideo(sampleLatest);
+          setCurrentSeasonVideos([sampleLatest]);
+          setArchiveVideos([]);
+          setTalksVideos([]);
         }
       } catch (error: any) {
         console.error('Error loading directos archive:', error);
@@ -297,7 +601,7 @@ const DirectosArchive = () => {
         </div>
         <div className="container mx-auto px-6 md:px-12 relative z-10 pb-16 md:pb-24">
           <div className="max-w-3xl">
-            {latestVideo && (
+            {latestVideo ? (
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
@@ -321,6 +625,21 @@ const DirectosArchive = () => {
                   <Play className="h-5 w-5 fill-white" />
                   <span>Ver Repetición ({formatDuration(latestVideo.duration || 0)})</span>
                 </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                    Directos Archive
+                  </span>
+                </div>
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
+                  Archivo de Directos
+                </h1>
+                <p className="text-gray-300 text-sm md:text-base mb-8 max-w-xl leading-relaxed drop-shadow-md">
+                  Explora nuestra colección de directos en vivo, sesiones de trabajo y charlas con el maestro.
+                </p>
               </>
             )}
           </div>
