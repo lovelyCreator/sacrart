@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { Link } from 'react-router-dom';
+import { Globe, ExternalLink } from 'lucide-react';
 
 const CookiePolicy = () => {
   const { t } = useTranslation();
@@ -246,13 +247,13 @@ const CookiePolicy = () => {
                     rel="noopener noreferrer"
                   >
                     <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#a15345]/20">
-                      <span className="material-symbols-outlined text-[#a15345] text-2xl">language</span>
+                      <Globe className="text-[#a15345] text-2xl" />
                     </div>
                     <div>
                       <div className="text-white font-bold text-sm">{t('cookie_policy.browsers.chrome', 'Google Chrome')}</div>
                       <div className="text-xs text-[#a15345] group-hover:underline">{t('cookie_policy.browsers.view_support', 'Ver soporte')}</div>
                     </div>
-                    <span className="material-symbols-outlined text-[#baa4a0] ml-auto group-hover:text-[#a15345]">open_in_new</span>
+                    <ExternalLink className="text-[#baa4a0] ml-auto group-hover:text-[#a15345] w-5 h-5" />
                   </a>
                   <a
                     className="flex items-center gap-3 p-4 rounded-lg bg-[#2a2220] border border-[#3e302d] hover:border-[#a15345] group transition-all"
@@ -261,13 +262,13 @@ const CookiePolicy = () => {
                     rel="noopener noreferrer"
                   >
                     <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#a15345]/20">
-                      <span className="material-symbols-outlined text-[#a15345] text-2xl">language</span>
+                      <Globe className="text-[#a15345] text-2xl" />
                     </div>
                     <div>
                       <div className="text-white font-bold text-sm">{t('cookie_policy.browsers.firefox', 'Mozilla Firefox')}</div>
                       <div className="text-xs text-[#a15345] group-hover:underline">{t('cookie_policy.browsers.view_support', 'Ver soporte')}</div>
                     </div>
-                    <span className="material-symbols-outlined text-[#baa4a0] ml-auto group-hover:text-[#a15345]">open_in_new</span>
+                    <ExternalLink className="text-[#baa4a0] ml-auto group-hover:text-[#a15345] w-5 h-5" />
                   </a>
                   <a
                     className="flex items-center gap-3 p-4 rounded-lg bg-[#2a2220] border border-[#3e302d] hover:border-[#a15345] group transition-all"
@@ -276,13 +277,13 @@ const CookiePolicy = () => {
                     rel="noopener noreferrer"
                   >
                     <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#a15345]/20">
-                      <span className="material-symbols-outlined text-[#a15345] text-2xl">language</span>
+                      <Globe className="text-[#a15345] text-2xl" />
                     </div>
                     <div>
                       <div className="text-white font-bold text-sm">{t('cookie_policy.browsers.safari', 'Safari')}</div>
                       <div className="text-xs text-[#a15345] group-hover:underline">{t('cookie_policy.browsers.view_support', 'Ver soporte')}</div>
                     </div>
-                    <span className="material-symbols-outlined text-[#baa4a0] ml-auto group-hover:text-[#a15345]">open_in_new</span>
+                    <ExternalLink className="text-[#baa4a0] ml-auto group-hover:text-[#a15345] w-5 h-5" />
                   </a>
                   <a
                     className="flex items-center gap-3 p-4 rounded-lg bg-[#2a2220] border border-[#3e302d] hover:border-[#a15345] group transition-all"
@@ -291,13 +292,13 @@ const CookiePolicy = () => {
                     rel="noopener noreferrer"
                   >
                     <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[#a15345]/20">
-                      <span className="material-symbols-outlined text-[#a15345] text-2xl">language</span>
+                      <Globe className="text-[#a15345] text-2xl" />
                     </div>
                     <div>
                       <div className="text-white font-bold text-sm">{t('cookie_policy.browsers.edge', 'Microsoft Edge')}</div>
                       <div className="text-xs text-[#a15345] group-hover:underline">{t('cookie_policy.browsers.view_support', 'Ver soporte')}</div>
                     </div>
-                    <span className="material-symbols-outlined text-[#baa4a0] ml-auto group-hover:text-[#a15345]">open_in_new</span>
+                    <ExternalLink className="text-[#baa4a0] ml-auto group-hover:text-[#a15345] w-5 h-5" />
                   </a>
                 </div>
               </div>

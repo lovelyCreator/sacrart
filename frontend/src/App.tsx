@@ -172,7 +172,7 @@ const App = () => (
                     <ReelDetail />
                   </ProtectedRoute>
                 } />
-                <Route path="live-archive" element={
+                <Route path="directos" element={
                   <ProtectedRoute>
                     <DirectosArchive />
                   </ProtectedRoute>
@@ -225,7 +225,7 @@ const App = () => (
               <Route path="/kids" element={<Navigate to="/en/kids" replace />} />
               <Route path="/reels" element={<Navigate to="/en/reels" replace />} />
               <Route path="/reel/:id" element={<RedirectWithParams />} />
-              <Route path="/live-archive" element={<Navigate to="/en/live-archive" replace />} />
+              <Route path="/directos" element={<Navigate to="/en/directos" replace />} />
               <Route path="/challenges" element={<Navigate to="/en/challenges" replace />} />
               <Route path="/rewind" element={<Navigate to="/en/rewind" replace />} />
               <Route path="/rewind/:id" element={<RedirectWithParams />} />
