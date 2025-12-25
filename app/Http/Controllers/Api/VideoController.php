@@ -7,6 +7,7 @@ use App\Models\Video;
 use App\Models\Series;
 use App\Services\WebpConversionService;
 use App\Services\VideoTranscodingService;
+use App\Services\BunnyNetService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -17,13 +18,16 @@ class VideoController extends Controller
 {
     protected $webpService;
     protected $transcodingService;
+    protected $bunnyNetService;
 
     public function __construct(
         WebpConversionService $webpService,
-        VideoTranscodingService $transcodingService
+        VideoTranscodingService $transcodingService,
+        BunnyNetService $bunnyNetService
     ) {
         $this->webpService = $webpService;
         $this->transcodingService = $transcodingService;
+        $this->bunnyNetService = $bunnyNetService;
     }
     /**
      * Display a listing of videos.
@@ -31,6 +35,11 @@ class VideoController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
+        
+        // Ensure locale is set (should be set by SetLocale middleware, but ensure it's set)
+        $locale = $request->header('Accept-Language', app()->getLocale());
+        $locale = in_array(substr($locale, 0, 2), ['en', 'es', 'pt']) ? substr($locale, 0, 2) : 'en';
+        app()->setLocale($locale);
         
         $query = Video::with(['series', 'instructor'])->withCount('comments');
 
@@ -48,22 +57,39 @@ class VideoController extends Controller
             }
         }
 
-        // Filter by category_id (videos table now uses category_id instead of series_id)
+        // Filter by category_id (videos belong to series, series belong to categories)
         if ($request->has('category_id')) {
-            $query->where('category_id', $request->get('category_id'));
+            $query->whereHas('series', function ($q) use ($request) {
+                $q->where('category_id', $request->get('category_id'));
+            });
         }
         
-        // Legacy support: also accept series_id (maps to category_id for backward compatibility)
-        if ($request->has('series_id') && !$request->has('category_id')) {
-            $query->where('category_id', $request->get('series_id'));
+        // Filter by series_id (videos belong to series)
+        if ($request->has('series_id')) {
+            $seriesId = $request->get('series_id');
+            $query->where('series_id', $seriesId);
+            \Log::info('VideoController: Filtering videos by series_id', [
+                'series_id' => $seriesId,
+                'total_videos_in_db' => Video::count(),
+                'videos_with_series_id' => Video::where('series_id', $seriesId)->count(),
+                'videos_with_series_id_and_published' => Video::where('series_id', $seriesId)->where('status', 'published')->count(),
+            ]);
         }
 
         // Filter by status
         if ($request->has('status')) {
-            $query->where('status', $request->get('status'));
+            $status = $request->get('status');
+            $query->where('status', $status);
+            \Log::info('VideoController: Applied status filter', [
+                'status' => $status,
+                'series_id' => $request->get('series_id'),
+            ]);
         } else if (!$isAdminRequest) {
             // Default to published for public access (admin can see all)
             $query->published();
+            \Log::info('VideoController: Applied default published filter for public request', [
+                'series_id' => $request->get('series_id'),
+            ]);
         }
 
         // Filter by visibility
@@ -136,7 +162,47 @@ class VideoController extends Controller
                 $query->orderBy('sort_order', $sortOrder)->orderBy('episode_number', $sortOrder);
         }
 
+        // Get SQL query for debugging
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+        \Log::info('VideoController: Videos Query SQL', [
+            'sql' => $sql,
+            'bindings' => $bindings,
+            'series_id' => $request->get('series_id'),
+            'status' => $request->get('status'),
+        ]);
+        
         $videos = $query->paginate($request->get('per_page', 15));
+        
+        \Log::info('VideoController: Videos Query Results', [
+            'total' => $videos->total(),
+            'count' => $videos->count(),
+            'current_page' => $videos->currentPage(),
+            'per_page' => $videos->perPage(),
+            'has_more' => $videos->hasMorePages(),
+            'series_id' => $request->get('series_id'),
+        ]);
+
+        // Load all translations for each video (for admin editing)
+        if ($isAdminRequest) {
+            foreach ($videos->items() as $video) {
+                try {
+                    $video->translations = $video->getAllTranslations();
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to get translations for video', [
+                        'video_id' => $video->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Set empty translations object if getAllTranslations fails
+                    $video->translations = [
+                        'title' => ['en' => $video->title ?? '', 'es' => '', 'pt' => ''],
+                        'description' => ['en' => $video->description ?? '', 'es' => '', 'pt' => ''],
+                        'short_description' => ['en' => $video->short_description ?? '', 'es' => '', 'pt' => ''],
+                        'intro_description' => ['en' => $video->intro_description ?? '', 'es' => '', 'pt' => ''],
+                    ];
+                }
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -205,8 +271,8 @@ class VideoController extends Controller
             'title' => 'required|string|max:255|unique:videos,title',
             'description' => 'nullable|string',
             'short_description' => 'nullable|string|max:500',
-            'category_id' => 'required|exists:categories,id',
-            'series_id' => 'nullable|exists:categories,id', // Legacy support, maps to category_id
+            'category_id' => 'required|exists:categories,id', // Videos belong to Category
+            'series_id' => 'required|exists:series,id', // Videos belong to Series (Series belong to Category)
             // Legacy local video fields (kept for backward compatibility, not used for new content)
             'video_url' => 'nullable|url|max:255',
             'video_file_path' => 'nullable|string|max:255',
@@ -239,23 +305,29 @@ class VideoController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'meta_keywords' => 'nullable|string|max:255',
+            'translations' => 'nullable|array',
         ]);
         
-        // Support category_id (videos table now uses category_id instead of series_id)
-        if (!isset($validated['category_id']) && $request->has('category_id')) {
-            $validated['category_id'] = $request->get('category_id');
-        }
-        
-        // Legacy support: also accept series_id (maps to category_id for backward compatibility)
-        if (!isset($validated['category_id']) && $request->has('series_id')) {
-            $validated['category_id'] = $request->get('series_id');
-        }
-        
-        // Validate that category_id exists
+        // Validate that both category_id and series_id exist
         if (!isset($validated['category_id'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Category ID is required.',
+            ], 422);
+        }
+        if (!isset($validated['series_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Series ID is required.',
+            ], 422);
+        }
+
+        // Ensure series belongs to the specified category
+        $series = Series::findOrFail($validated['series_id']);
+        if ($series->category_id != $validated['category_id']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Series does not belong to the specified category.',
             ], 422);
         }
 
@@ -290,7 +362,7 @@ class VideoController extends Controller
 
         // Auto-generate episode number if not provided
         if (!isset($validated['episode_number'])) {
-            $lastEpisode = Video::where('category_id', $validated['category_id'])
+            $lastEpisode = Video::where('series_id', $validated['series_id'])
                 ->orderBy('episode_number', 'desc')
                 ->first();
             $validated['episode_number'] = $lastEpisode ? $lastEpisode->episode_number + 1 : 1;
@@ -298,18 +370,112 @@ class VideoController extends Controller
 
         // Set sort order if not provided
         if (!isset($validated['sort_order'])) {
-            $lastSortOrder = Video::where('category_id', $validated['category_id'])
+            $lastSortOrder = Video::where('series_id', $validated['series_id'])
                 ->orderBy('sort_order', 'desc')
                 ->first();
             $validated['sort_order'] = $lastSortOrder ? $lastSortOrder->sort_order + 1 : 1;
         }
 
+        // Handle multilingual fields from translations object
+        $translations = $request->input('translations');
+        if (empty($translations) && isset($validated['translations'])) {
+            $translations = $validated['translations'];
+        }
+        // Also handle JSON string from FormData
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+
+        // Extract multilingual fields from translations object
+        if ($translations && is_array($translations)) {
+            // Title fields
+            if (isset($translations['title'])) {
+                $validated['title_en'] = $translations['title']['en'] ?? $validated['title'] ?? '';
+                $validated['title_es'] = $translations['title']['es'] ?? '';
+                $validated['title_pt'] = $translations['title']['pt'] ?? '';
+            }
+            // Description fields
+            if (isset($translations['description'])) {
+                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? '';
+                $validated['description_es'] = $translations['description']['es'] ?? '';
+                $validated['description_pt'] = $translations['description']['pt'] ?? '';
+            }
+            // Short description fields
+            if (isset($translations['short_description'])) {
+                $validated['short_description_en'] = $translations['short_description']['en'] ?? $validated['short_description'] ?? '';
+                $validated['short_description_es'] = $translations['short_description']['es'] ?? '';
+                $validated['short_description_pt'] = $translations['short_description']['pt'] ?? '';
+            }
+            // Intro description fields
+            if (isset($translations['intro_description'])) {
+                $validated['intro_description_en'] = $translations['intro_description']['en'] ?? $validated['intro_description'] ?? '';
+                $validated['intro_description_es'] = $translations['intro_description']['es'] ?? '';
+                $validated['intro_description_pt'] = $translations['intro_description']['pt'] ?? '';
+            }
+        } else {
+            // If no translations object, use main fields for English
+            $validated['title_en'] = $validated['title'] ?? '';
+            $validated['description_en'] = $validated['description'] ?? '';
+            $validated['short_description_en'] = $validated['short_description'] ?? '';
+            $validated['intro_description_en'] = $validated['intro_description'] ?? '';
+        }
+        
+        // Generate slug from English title
+        $validated['slug'] = Str::slug($validated['title_en'] ?? $validated['title'] ?? '');
+        
+        // Remove translations from validated as it's not a model field
+        unset($validated['translations']);
+        
+        // Remove category_id if the column doesn't exist in videos table
+        // Videos get category_id through series relationship
+        if (!\Schema::hasColumn('videos', 'category_id')) {
+            unset($validated['category_id']);
+        }
+
+        // Auto-extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided
+        // Always try to get duration from Bunny.net if not explicitly provided
+        if ((!isset($validated['duration']) || $validated['duration'] == 0) && 
+            (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id']))) {
+            $bunnyVideoId = $this->extractBunnyVideoId(
+                $validated['bunny_embed_url'] ?? null,
+                $validated['bunny_video_id'] ?? null
+            );
+            
+            if ($bunnyVideoId) {
+                try {
+                    $bunnyMetadata = $this->bunnyNetService->getVideo($bunnyVideoId);
+                    if ($bunnyMetadata['success'] && isset($bunnyMetadata['duration']) && $bunnyMetadata['duration'] > 0) {
+                        $validated['duration'] = (int) $bunnyMetadata['duration'];
+                        \Log::info('Auto-extracted duration from Bunny.net on create', [
+                            'video_id' => $bunnyVideoId,
+                            'duration' => $validated['duration'],
+                            'duration_formatted' => gmdate('H:i:s', $validated['duration']),
+                        ]);
+                    } else {
+                        \Log::warning('Bunny.net video metadata does not contain duration', [
+                            'video_id' => $bunnyVideoId,
+                            'metadata' => $bunnyMetadata,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to auto-extract duration from Bunny.net on create', [
+                        'video_id' => $bunnyVideoId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         $video = Video::create($validated);
+
+        // Load all translations for the response
+        $video->translations = $video->getAllTranslations();
 
         return response()->json([
             'success' => true,
             'message' => 'Video created successfully.',
-            'data' => $video->load(['category', 'instructor']),
+            'data' => $video->load(['series.category', 'instructor']),
         ], 201);
     }
 
@@ -328,7 +494,12 @@ class VideoController extends Controller
             ], 403);
         }
 
-        $video->load(['category', 'instructor']);
+        $video->load(['series.category', 'instructor']);
+
+        // Load all translations for the response (for admin editing)
+        if ($user && $user->isAdmin()) {
+            $video->translations = $video->getAllTranslations();
+        }
 
         // Get user progress if authenticated
         $userProgress = null;
@@ -433,8 +604,8 @@ class VideoController extends Controller
             ],
             'description' => 'nullable|string',
             'short_description' => 'nullable|string|max:500',
-            'category_id' => 'nullable|exists:categories,id',
-            'series_id' => 'nullable|exists:categories,id', // Legacy support, maps to category_id
+            'category_id' => 'nullable|exists:categories,id', // Videos belong to Category
+            'series_id' => 'nullable|exists:series,id', // Videos belong to Series
             // Legacy local video fields (kept for backward compatibility, not used for new content)
             'video_url' => 'nullable|url|max:255',
             'video_file_path' => 'nullable|string|max:255',
@@ -470,16 +641,23 @@ class VideoController extends Controller
             'meta_keywords' => 'nullable|string|max:255',
             'processing_status' => 'nullable|in:pending,processing,completed,failed',
             'processing_error' => 'nullable|string',
+            'translations' => 'nullable|array',
         ]);
         
-        // Support category_id (videos table now uses category_id instead of series_id)
+        // Support category_id and series_id
         if (!isset($validated['category_id']) && $request->has('category_id')) {
             $validated['category_id'] = $request->get('category_id');
         }
-        
-        // Legacy support: also accept series_id (maps to category_id for backward compatibility)
-        if (!isset($validated['category_id']) && $request->has('series_id')) {
-            $validated['category_id'] = $request->get('series_id');
+        if (!isset($validated['series_id']) && $request->has('series_id')) {
+            $validated['series_id'] = $request->get('series_id');
+        }
+
+        // If series_id is provided, ensure category_id matches the series' category
+        if (isset($validated['series_id']) && !isset($validated['category_id'])) {
+            $series = Series::find($validated['series_id']);
+            if ($series) {
+                $validated['category_id'] = $series->category_id;
+            }
         }
 
         // Legacy local video file handling (kept for backward compatibility, no longer used for new content)
@@ -558,8 +736,69 @@ class VideoController extends Controller
             }
         }
 
-        // Update slug if title changed (use raw original value to avoid translation issues)
-        if (isset($validated['title']) && $video->getRawOriginal('title') !== $validated['title']) {
+        // Handle multilingual fields from translations object
+        $translations = $request->input('translations');
+        if (empty($translations) && isset($validated['translations'])) {
+            $translations = $validated['translations'];
+        }
+        // Also handle JSON string from FormData
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+
+        // Get current values from database (raw attributes)
+        $currentTitleEn = $video->getAttributes()['title_en'] ?? $video->getOriginal('title_en') ?? '';
+        $currentDescriptionEn = $video->getAttributes()['description_en'] ?? $video->getOriginal('description_en') ?? '';
+        $currentShortDescriptionEn = $video->getAttributes()['short_description_en'] ?? $video->getOriginal('short_description_en') ?? '';
+        $currentIntroDescriptionEn = $video->getAttributes()['intro_description_en'] ?? $video->getOriginal('intro_description_en') ?? '';
+
+        // Extract multilingual fields from translations object
+        if ($translations && is_array($translations)) {
+            // Title fields
+            if (isset($translations['title'])) {
+                $validated['title_en'] = $translations['title']['en'] ?? $validated['title'] ?? $currentTitleEn;
+                $validated['title_es'] = $translations['title']['es'] ?? '';
+                $validated['title_pt'] = $translations['title']['pt'] ?? '';
+            }
+            // Description fields
+            if (isset($translations['description'])) {
+                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? $currentDescriptionEn;
+                $validated['description_es'] = $translations['description']['es'] ?? '';
+                $validated['description_pt'] = $translations['description']['pt'] ?? '';
+            }
+            // Short description fields
+            if (isset($translations['short_description'])) {
+                $validated['short_description_en'] = $translations['short_description']['en'] ?? $validated['short_description'] ?? $currentShortDescriptionEn;
+                $validated['short_description_es'] = $translations['short_description']['es'] ?? '';
+                $validated['short_description_pt'] = $translations['short_description']['pt'] ?? '';
+            }
+            // Intro description fields
+            if (isset($translations['intro_description'])) {
+                $validated['intro_description_en'] = $translations['intro_description']['en'] ?? $validated['intro_description'] ?? $currentIntroDescriptionEn;
+                $validated['intro_description_es'] = $translations['intro_description']['es'] ?? '';
+                $validated['intro_description_pt'] = $translations['intro_description']['pt'] ?? '';
+            }
+        } else {
+            // If no translations object, use main fields for English if provided
+            if (isset($validated['title'])) {
+                $validated['title_en'] = $validated['title'];
+            }
+            if (isset($validated['description'])) {
+                $validated['description_en'] = $validated['description'];
+            }
+            if (isset($validated['short_description'])) {
+                $validated['short_description_en'] = $validated['short_description'];
+            }
+            if (isset($validated['intro_description'])) {
+                $validated['intro_description_en'] = $validated['intro_description'];
+            }
+        }
+        
+        // Update slug if title changed (use English title)
+        if (isset($validated['title_en']) && $currentTitleEn !== $validated['title_en']) {
+            $validated['slug'] = Str::slug($validated['title_en']);
+        } elseif (isset($validated['title']) && $currentTitleEn !== $validated['title']) {
             $validated['slug'] = Str::slug($validated['title']);
         }
 
@@ -572,8 +811,56 @@ class VideoController extends Controller
         if ($request->has('processing_status') && $request->get('processing_status') === 'completed') {
             $validated['processed_at'] = now();
         }
+        
+        // Remove translations from validated as it's not a model field
+        unset($validated['translations']);
+        
+        // Remove category_id if the column doesn't exist in videos table
+        // Videos get category_id through series relationship
+        if (!\Schema::hasColumn('videos', 'category_id')) {
+            unset($validated['category_id']);
+        }
+
+        // Auto-extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided and duration is not set
+        if ((!isset($validated['duration']) || $validated['duration'] == 0) && 
+            (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id']))) {
+            $bunnyVideoId = $this->extractBunnyVideoId(
+                $validated['bunny_embed_url'] ?? $video->bunny_embed_url ?? null,
+                $validated['bunny_video_id'] ?? $video->bunny_video_id ?? null
+            );
+            
+            if ($bunnyVideoId) {
+                try {
+                    // First try to get duration from Bunny.net API (requires API key)
+                    $bunnyMetadata = $this->bunnyNetService->getVideo($bunnyVideoId);
+                    if ($bunnyMetadata['success'] && isset($bunnyMetadata['duration']) && $bunnyMetadata['duration'] > 0) {
+                        $validated['duration'] = (int) $bunnyMetadata['duration'];
+                        \Log::info('Auto-extracted duration from Bunny.net API on update', [
+                            'video_id' => $bunnyVideoId,
+                            'duration_seconds' => $validated['duration'],
+                            'duration_formatted' => gmdate('H:i:s', $validated['duration']),
+                        ]);
+                    } else {
+                        // If API fails, log warning but don't fail video update
+                        \Log::warning('Bunny.net API did not return duration on update. Duration can be set manually.', [
+                            'video_id' => $bunnyVideoId,
+                            'metadata' => $bunnyMetadata,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // If API call fails (e.g., invalid API key), log but don't fail
+                    \Log::warning('Failed to auto-extract duration from Bunny.net API on update. Duration can be set manually.', [
+                        'video_id' => $bunnyVideoId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
 
         $video->update($validated);
+
+        // Load all translations for the response
+        $video->translations = $video->getAllTranslations();
 
         return response()->json([
             'success' => true,
@@ -788,6 +1075,216 @@ class VideoController extends Controller
     }
 
     /**
+     * Get video download URL (for Bunny.net videos with MP4 fallback enabled)
+     */
+    public function getDownloadUrl(Request $request, Video $video): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$video->isAccessibleTo($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have access to this video.',
+            ], 403);
+        }
+
+        // Check if download is allowed
+        if (!$video->allow_download) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Download is not allowed for this video.',
+            ], 403);
+        }
+
+        // Get Bunny.net video ID
+        if (!$video->bunny_video_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Video does not have a Bunny.net video ID.',
+            ], 400);
+        }
+
+        // Get quality from request (default: 720)
+        $quality = $request->input('quality', '720');
+
+        // Get download URL from Bunny.net service
+        $downloadUrl = $this->bunnyNetService->getDownloadUrl($video->bunny_video_id, $quality);
+
+        if (!$downloadUrl) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not generate download URL. Please ensure MP4 Fallback is enabled in Bunny.net settings.',
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'download_url' => $downloadUrl,
+            'quality' => $quality,
+            'video_id' => $video->id,
+            'title' => $video->title,
+        ]);
+    }
+
+    /**
+     * Get available audio tracks for a video
+     */
+    public function getAudioTracks(Request $request, Video $video): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$video->isAccessibleTo($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have access to this video.',
+            ], 403);
+        }
+
+        if (!$video->bunny_video_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Video does not have a Bunny.net video ID.',
+            ], 400);
+        }
+
+        $audioTracks = $this->bunnyNetService->getAudioTracks($video->bunny_video_id);
+
+        return response()->json([
+            'success' => true,
+            'audio_tracks' => $audioTracks,
+        ]);
+    }
+
+    /**
+     * Get subtitles/transcriptions for a video
+     */
+    public function getSubtitles(Request $request, Video $video): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$video->isAccessibleTo($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have access to this video.',
+            ], 403);
+        }
+
+        $locale = $request->input('locale', 'en');
+        
+        // Get transcription based on locale
+        $transcription = null;
+        switch ($locale) {
+            case 'es':
+                $transcription = $video->transcription_es ?? $video->transcription;
+                break;
+            case 'pt':
+                $transcription = $video->transcription_pt ?? $video->transcription;
+                break;
+            default:
+                $transcription = $video->transcription_en ?? $video->transcription;
+                break;
+        }
+
+        // Convert transcription to WebVTT format if available
+        $webvtt = null;
+        if ($transcription) {
+            $webvtt = $this->convertTranscriptionToWebVTT($transcription, $video->duration);
+        }
+
+        return response()->json([
+            'success' => true,
+            'locale' => $locale,
+            'transcription' => $transcription,
+            'webvtt_url' => $webvtt ? route('api.videos.subtitles.vtt', ['video' => $video->id, 'locale' => $locale]) : null,
+        ]);
+    }
+
+    /**
+     * Serve WebVTT subtitle file
+     */
+    public function getSubtitleVtt(Request $request, Video $video, string $locale = 'en'): \Illuminate\Http\Response
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$video->isAccessibleTo($user)) {
+            abort(403, 'You do not have access to this video.');
+        }
+
+        // Get transcription based on locale
+        $transcription = null;
+        switch ($locale) {
+            case 'es':
+                $transcription = $video->transcription_es ?? $video->transcription;
+                break;
+            case 'pt':
+                $transcription = $video->transcription_pt ?? $video->transcription;
+                break;
+            default:
+                $transcription = $video->transcription_en ?? $video->transcription;
+                break;
+        }
+
+        if (!$transcription) {
+            abort(404, 'Subtitle not found for this locale.');
+        }
+
+        $webvtt = $this->convertTranscriptionToWebVTT($transcription, $video->duration);
+
+        return response($webvtt, 200, [
+            'Content-Type' => 'text/vtt',
+            'Content-Disposition' => "inline; filename=\"subtitle_{$locale}.vtt\"",
+        ]);
+    }
+
+    /**
+     * Convert plain text transcription to WebVTT format
+     */
+    private function convertTranscriptionToWebVTT(string $transcription, int $duration): string
+    {
+        // Simple conversion: split by sentences and create time-based cues
+        // For a more sophisticated solution, you'd want to use speech-to-text timestamps
+        
+        $webvtt = "WEBVTT\n\n";
+        
+        // Split transcription into sentences
+        $sentences = preg_split('/([.!?]+)/', $transcription, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $sentences = array_filter(array_map('trim', $sentences));
+        
+        $currentTime = 0;
+        $sentenceDuration = $duration > 0 ? max(3, $duration / max(1, count($sentences))) : 5;
+        
+        foreach ($sentences as $index => $sentence) {
+            if (empty($sentence)) continue;
+            
+            $startTime = $this->formatWebVTTTime($currentTime);
+            $currentTime += $sentenceDuration;
+            $endTime = $this->formatWebVTTTime(min($currentTime, $duration));
+            
+            $webvtt .= "{$startTime} --> {$endTime}\n";
+            $webvtt .= "{$sentence}\n\n";
+        }
+        
+        return $webvtt;
+    }
+
+    /**
+     * Format time in WebVTT format (HH:MM:SS.mmm)
+     */
+    private function formatWebVTTTime(float $seconds): string
+    {
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $secs = $seconds % 60;
+        $milliseconds = floor(($secs - floor($secs)) * 1000);
+        
+        return sprintf('%02d:%02d:%02d.%03d', $hours, $minutes, floor($secs), $milliseconds);
+    }
+
+    /**
      * Check if video is accessible to user.
      */
     public function isAccessibleTo(Request $request, Video $video): JsonResponse
@@ -917,5 +1414,166 @@ class VideoController extends Controller
                 'message' => 'Failed to probe video: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Extract Bunny.net video ID from various URL formats
+     * 
+     * @param string|null $embedUrl Embed URL
+     * @param string|null $videoId Direct video ID
+     * @return string|null
+     */
+    private function extractBunnyVideoId(?string $embedUrl = null, ?string $videoId = null): ?string
+    {
+        // If video ID is directly provided, return it
+        if ($videoId) {
+            return $videoId;
+        }
+
+        // If embed URL is provided, extract video ID from it
+        if ($embedUrl) {
+            // Format 1: https://iframe.mediadelivery.net/embed/{library}/{video}
+            if (preg_match('/\/embed\/[^\/]+\/([^\/\?]+)/', $embedUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 2: https://vz-xxxxx.b-cdn.net/{video}/play_720p.mp4
+            if (preg_match('/\/([a-f0-9\-]{36})\//', $embedUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 3: Direct video ID in URL
+            if (preg_match('/([a-f0-9\-]{36})/', $embedUrl, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get Bunny.net video metadata (duration, file_size, etc.)
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getBunnyVideoMetadata(Request $request): JsonResponse
+    {
+        $request->validate([
+            'video_id' => 'nullable|string',
+            'embed_url' => 'nullable|string',
+        ]);
+
+        $videoId = $request->input('video_id');
+        $embedUrl = $request->input('embed_url');
+
+        // Extract video ID from embed URL if provided
+        $extractedVideoId = $this->extractBunnyVideoId($embedUrl, $videoId);
+
+        if (!$extractedVideoId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not extract video ID from embed URL or video_id. Please provide a valid Bunny.net embed URL or video ID.',
+            ], 400);
+        }
+
+        try {
+            $result = $this->bunnyNetService->getVideo($extractedVideoId);
+
+            if (!$result['success']) {
+                $errorMessage = $result['error'] ?? 'Failed to fetch video metadata from Bunny.net.';
+                
+                // Provide more specific error messages
+                if (isset($result['error']) && strpos($result['error'], 'BUNNY_API_KEY') !== false) {
+                    $errorMessage = 'Bunny.net API key is not configured. Please set BUNNY_API_KEY in your .env file.';
+                } elseif (isset($result['error']) && strpos($result['error'], 'BUNNY_LIBRARY_ID') !== false) {
+                    $errorMessage = 'Bunny.net Library ID is not configured. Please set BUNNY_LIBRARY_ID in your .env file.';
+                } elseif (isset($result['status_code']) && $result['status_code'] == 401) {
+                    $errorMessage = 'Bunny.net API authentication failed. Please check your BUNNY_API_KEY in .env file.';
+                } elseif (isset($result['status_code']) && $result['status_code'] == 404) {
+                    $errorMessage = 'Video not found in Bunny.net. Please check if the video ID is correct: ' . $extractedVideoId;
+                } else {
+                    $errorMessage = $result['error'] ?? 'Failed to fetch video metadata from Bunny.net. Please check your API credentials and video ID.';
+                }
+                
+                \Log::error('Bunny.net metadata fetch failed', [
+                    'video_id' => $extractedVideoId,
+                    'error' => $errorMessage,
+                    'result' => $result,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage,
+                    'video_id' => $extractedVideoId,
+                ], isset($result['status_code']) ? $result['status_code'] : 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'video_id' => $extractedVideoId,
+                    'duration' => $result['duration'], // Duration in seconds
+                    'file_size' => $result['file_size'], // File size in bytes
+                    'thumbnail_url' => $result['thumbnail_url'],
+                    'raw_data' => $result['data'], // Full response from Bunny.net
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Bunny.net metadata fetch error', [
+                'video_id' => $extractedVideoId,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching video metadata: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update duration for an existing video (used when fetching duration via Player.js)
+     * 
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function updateDuration(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'duration' => 'required|integer|min:1',
+        ]);
+
+        $video = Video::findOrFail($id);
+        
+        // Check if user can edit this video
+        if (!Auth::user()->isAdmin() && $video->instructor_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to edit this video.',
+            ], 403);
+        }
+
+        $duration = (int) $request->input('duration');
+        $video->duration = $duration;
+        $video->save();
+
+        \Log::info('Video duration updated', [
+            'video_id' => $id,
+            'duration_seconds' => $duration,
+            'duration_formatted' => gmdate('H:i:s', $duration),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Video duration updated successfully.',
+            'data' => [
+                'id' => $video->id,
+                'duration' => $duration,
+                'duration_formatted' => gmdate('H:i:s', $duration),
+            ],
+        ]);
     }
 }

@@ -167,19 +167,63 @@ class BunnyNetService
      */
     public function getVideo(string $videoId): array
     {
+        // Check if credentials are configured
+        if (empty($this->apiKey)) {
+            Log::error('Bunny.net API key is not configured');
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => 'BUNNY_API_KEY is not set in .env file',
+            ];
+        }
+
+        if (empty($this->libraryId)) {
+            Log::error('Bunny.net Library ID is not configured');
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => 'BUNNY_LIBRARY_ID is not set in .env file',
+            ];
+        }
+
         try {
+            $url = "https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}";
+            
+            Log::info('Fetching Bunny.net video', [
+                'url' => $url,
+                'video_id' => $videoId,
+                'library_id' => $this->libraryId,
+            ]);
+
             $response = Http::withHeaders([
                 'AccessKey' => $this->apiKey,
-            ])->get("https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}");
+            ])->get($url);
 
             if (!$response->successful()) {
+                $errorBody = $response->body();
+                $statusCode = $response->status();
+                
+                Log::error('Bunny.net API request failed', [
+                    'status' => $statusCode,
+                    'response' => $errorBody,
+                    'video_id' => $videoId,
+                    'library_id' => $this->libraryId,
+                ]);
+
                 return [
                     'success' => false,
                     'data' => null,
+                    'error' => "Bunny.net API returned status {$statusCode}: {$errorBody}",
+                    'status_code' => $statusCode,
                 ];
             }
 
             $data = $response->json();
+            
+            Log::info('Bunny.net video fetched successfully', [
+                'video_id' => $videoId,
+                'duration' => $data['length'] ?? $data['duration'] ?? null,
+            ]);
             
             return [
                 'success' => true,
@@ -194,12 +238,15 @@ class BunnyNetService
         } catch (\Exception $e) {
             Log::error('Bunny.net get video exception', [
                 'video_id' => $videoId,
+                'library_id' => $this->libraryId,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
                 'data' => null,
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -226,6 +273,66 @@ class BunnyNetService
             ]);
 
             return false;
+        }
+    }
+
+    /**
+     * Get video duration from video manifest/playlist (public endpoint, no API key needed)
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @return array ['success' => bool, 'duration' => int|null, 'error' => string|null]
+     */
+    public function getVideoDurationFromManifest(string $videoId): array
+    {
+        try {
+            // Try to fetch video manifest/playlist which might contain duration
+            // Bunny.net CDN URLs format: https://{cdnUrl}/{videoId}/play_720p.mp4
+            // Or try to get from embed page metadata
+            
+            // Method 1: Try to fetch the video file headers to get duration
+            // This might work for some video formats
+            $videoUrl = "https://{$this->cdnUrl}/{$videoId}/play_720p.mp4";
+            
+            $ch = curl_init($videoUrl);
+            curl_setopt($ch, CURLOPT_NOBODY, true);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            
+            $headers = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($httpCode === 200) {
+                // Try to extract duration from Content-Length or other headers
+                // Note: This won't give us duration directly, but we can try other methods
+                Log::info('Video file accessible, but duration not in headers', [
+                    'video_id' => $videoId,
+                    'url' => $videoUrl,
+                ]);
+            }
+            
+            // Method 2: Try to fetch embed page and look for metadata
+            // This is a fallback if API doesn't work
+            return [
+                'success' => false,
+                'duration' => null,
+                'error' => 'Duration extraction from manifest not implemented. Please use API key or provide duration manually.',
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching video duration from manifest', [
+                'video_id' => $videoId,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return [
+                'success' => false,
+                'duration' => null,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
@@ -271,6 +378,66 @@ class BunnyNetService
     public function getDashUrl(string $videoId): string
     {
         return "https://{$this->streamUrl}/{$videoId}/play_720p.mpd";
+    }
+
+    /**
+     * Get the direct MP4 download URL for a video
+     * Requires MP4 Fallback to be enabled in Bunny.net settings
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @param string $quality Quality (720, 1080, etc.) - defaults to 720
+     * @return string|null
+     */
+    public function getDownloadUrl(string $videoId, string $quality = '720'): ?string
+    {
+        if (empty($this->cdnUrl)) {
+            return null;
+        }
+        
+        // Format: https://{cdn_url}/{video_id}/play_{quality}p.mp4
+        return "https://{$this->cdnUrl}/{$videoId}/play_{$quality}p.mp4";
+    }
+
+    /**
+     * Get available audio tracks for a video
+     * Note: This requires checking the video metadata from Bunny.net API
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @return array Array of available audio tracks with language info
+     */
+    public function getAudioTracks(string $videoId): array
+    {
+        $videoData = $this->getVideo($videoId);
+        
+        if (!$videoData['success'] || !isset($videoData['data'])) {
+            return [];
+        }
+
+        $data = $videoData['data'];
+        $audioTracks = [];
+
+        // Check if video has multiple audio tracks
+        // Bunny.net stores this in the video metadata
+        if (isset($data['audioTracks']) && is_array($data['audioTracks'])) {
+            foreach ($data['audioTracks'] as $track) {
+                $audioTracks[] = [
+                    'language' => $track['language'] ?? 'en',
+                    'label' => $track['label'] ?? 'Default',
+                    'default' => $track['default'] ?? false,
+                ];
+            }
+        }
+
+        // If no audio tracks found, return default
+        if (empty($audioTracks)) {
+            $audioTracks[] = [
+                'language' => 'en',
+                'label' => 'Default',
+                'default' => true,
+            ];
+        }
+
+        return $audioTracks;
     }
 
     /**

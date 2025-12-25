@@ -174,7 +174,7 @@ const Settings = () => {
           processedUrl = abs.includes('?') ? `${abs}&t=${Date.now()}` : `${abs}?t=${Date.now()}`;
         } else {
           // Fallback: try to construct URL manually
-          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
           const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
           if (origin && trimmedUrl.startsWith('/')) {
             processedUrl = `${origin}${trimmedUrl}?t=${Date.now()}`;
@@ -214,7 +214,7 @@ const Settings = () => {
     }
     
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
       const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
       
       if (!origin || origin === '') {
@@ -855,7 +855,7 @@ const Settings = () => {
         throw new Error('Invalid file type. Please upload JPEG, PNG, or WebP image');
       }
 
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
       const token = localStorage.getItem('auth_token');
       
       console.log('Uploading about image:', {

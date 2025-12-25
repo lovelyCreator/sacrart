@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000/api';
 
 // Helper function to get locale from localStorage or default to 'en'
 const getLocale = (): string => {

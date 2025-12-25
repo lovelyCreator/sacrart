@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000/api';
 
 // Helper function to get locale from localStorage or default to 'en'
 const getLocale = (): string => {
@@ -112,6 +112,7 @@ export interface Series {
   is_featured?: boolean;
   sort_order?: number;
   tags?: string[] | null;
+  category?: Category;
   created_at: string;
   updated_at: string;
 }
@@ -171,15 +172,19 @@ export interface Video {
   created_at: string;
   updated_at: string;
   category?: Category;
+  series?: Series;
   instructor?: any;
 }
 
 // Category API
 export const categoryApi = {
-  async getAll(params?: { search?: string; with_counts?: boolean }) {
+  async getAll(params?: { search?: string; with_counts?: boolean; per_page?: number }) {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
     if (params?.with_counts) queryParams.append('with_counts', 'true');
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    // Increase per_page to ensure we get all categories
+    if (!params?.per_page) queryParams.append('per_page', '100');
     
     const response = await fetch(`${API_BASE_URL}/admin/categories?${queryParams}`, {
       headers: getAuthHeaders(),
@@ -212,12 +217,27 @@ export const categoryApi = {
       headers = baseHeaders;
     }
     
-    const response = await fetch(`${API_BASE_URL}/admin/categories`, {
-      method: 'POST',
-      headers: headers,
-      body: isFormData ? data : JSON.stringify(data),
-    });
-    return handleResponse<{ success: boolean; data: Category; message: string }>(response);
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/categories`, {
+        method: 'POST',
+        headers: headers,
+        body: isFormData ? data : JSON.stringify(data),
+      });
+      const result = await handleResponse<{ success: boolean; data: Category; message: string }>(response);
+      
+      // Check if the API returned success: false
+      if (result && 'success' in result && !result.success) {
+        throw new Error((result as any).message || 'Failed to create category');
+      }
+      
+      return result;
+    } catch (error: any) {
+      // Re-throw with more context
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(error?.message || 'Failed to create category');
+    }
   },
 
   async update(id: number, data: Partial<Category> | FormData) {
@@ -288,6 +308,36 @@ export const seriesApi = {
     return handleResponse<{ success: boolean; data: { data: Series[]; total: number } }>(response);
   },
 
+  async getPublic(params?: { 
+    search?: string; 
+    category_id?: number; 
+    status?: string;
+    visibility?: string;
+    sort_by?: string;
+    sort_order?: string;
+    per_page?: number;
+    locale?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.category_id) queryParams.append('category_id', params.category_id.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.visibility) queryParams.append('visibility', params.visibility);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': params?.locale || getLocale(),
+    };
+    
+    const response = await fetch(`${API_BASE_URL}/series?${queryParams}`, {
+      headers,
+    });
+    return handleResponse<{ success: boolean; data: { data: Series[]; total?: number; current_page?: number; last_page?: number } }>(response);
+  },
+
   async getFeatured(limit?: number) {
     const queryParams = new URLSearchParams();
     if (limit) queryParams.append('limit', limit.toString());
@@ -323,6 +373,18 @@ export const seriesApi = {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ success: boolean; data: { series: Series; user_progress?: any } }>(response);
+  },
+
+  async getPublicById(id: number, locale?: string) {
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': locale || getLocale(),
+    };
+    
+    const response = await fetch(`${API_BASE_URL}/series/${id}`, {
+      headers,
+    });
+    return handleResponse<{ success: boolean; data: Series }>(response);
   },
 
   async create(data: Partial<Series>) {
@@ -418,6 +480,34 @@ export const videoApi = {
     return handleResponse<{ success: boolean; message: string }>(response);
   },
 
+  async updateDuration(id: number, duration: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}/update-duration`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ duration }),
+    });
+    return handleResponse<{ success: boolean; data: { id: number; duration: number; duration_formatted: string }; message: string }>(response);
+  },
+
+  async getBunnyVideoMetadata(videoId?: string, embedUrl?: string) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/bunny-metadata`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ video_id: videoId, embed_url: embedUrl }),
+    });
+    return handleResponse<{ 
+      success: boolean; 
+      data: { 
+        video_id: string; 
+        duration: number; 
+        file_size: number | null; 
+        thumbnail_url: string | null;
+        raw_data: any;
+      };
+      message?: string;
+    }>(response);
+  },
+
   async getCategoryVideos(categoryId: number) {
     const response = await fetch(`${API_BASE_URL}/categories/${categoryId}/videos`, {
       headers: getAuthHeaders(),
@@ -428,7 +518,8 @@ export const videoApi = {
   // Public endpoint for normal users (applies visibility filters)
   async getPublic(params?: { 
     search?: string; 
-    category_id?: number; 
+    category_id?: number;
+    series_id?: number;
     status?: string;
     visibility?: string;
     sort_by?: string;
@@ -440,6 +531,7 @@ export const videoApi = {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
     if (params?.category_id) queryParams.append('category_id', params.category_id.toString());
+    if (params?.series_id) queryParams.append('series_id', params.series_id.toString());
     if (params?.status) queryParams.append('status', params.status);
     if (params?.visibility) queryParams.append('visibility', params.visibility);
     if (params?.sort_by) queryParams.append('sort_by', params.sort_by);

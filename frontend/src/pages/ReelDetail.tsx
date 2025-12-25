@@ -136,7 +136,7 @@ const ReelDetail = () => {
     }
   };
 
-  const thumbnailUrl = video ? getImageUrl(video.thumbnail_url || video.intro_image_url || '') : '';
+  const thumbnailUrl = video ? getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '') : '';
   const videoUrl = video?.bunny_embed_url || video?.bunny_video_url || video?.video_url_full || video?.video_url || '';
 
   if (loading) {

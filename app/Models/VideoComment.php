@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use App\Traits\HasTranslations;
 
 class VideoComment extends Model
@@ -71,7 +72,10 @@ class VideoComment extends Model
             return false;
         }
 
-        return $this->likes()->where('user_id', $user->id)->exists();
+        return DB::table('video_comment_likes')
+            ->where('comment_id', $this->id)
+            ->where('user_id', $user->id)
+            ->exists();
     }
 
     /**
@@ -79,7 +83,7 @@ class VideoComment extends Model
      */
     public function likes()
     {
-        return $this->belongsToMany(User::class, 'video_comment_likes')
+        return $this->belongsToMany(User::class, 'video_comment_likes', 'comment_id', 'user_id')
             ->withTimestamps();
     }
 

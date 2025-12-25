@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,18 +11,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '@/hooks/useLocale';
 import { useTranslation } from 'react-i18next';
-import { categoryApi, videoApi } from '@/services/videoApi';
+import { categoryApi, videoApi, seriesApi } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
 import { toast } from 'sonner';
 
 const SeriesDetail = () => {
   const { id, locale } = useParams<{ id: string; locale?: string }>();
-  const [category, setCategory] = useState<any | null>(null);
+  const [series, setSeries] = useState<any | null>(null);
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [progressMap, setProgressMap] = useState<Record<number, any>>({});
   const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
   const [recommendedVideos, setRecommendedVideos] = useState<any[]>([]);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [imageErrorCount, setImageErrorCount] = useState<number>(0);
   const location = useLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -30,41 +32,102 @@ const SeriesDetail = () => {
   const { t } = useTranslation();
 
   useEffect(() => {
-    const fetchCategoryData = async () => {
+    const fetchSeriesData = async () => {
       try {
         setLoading(true);
         
-        // Fetch videos for this category
-        const videosResponse = await videoApi.getPublic({ category_id: parseInt(id || '1'), per_page: 100 });
-        const videosData = Array.isArray(videosResponse.data) 
-          ? videosResponse.data 
-          : videosResponse.data?.data || [];
-        setVideos(videosData);
-        
-        // Set first video as active if available
-        if (videosData.length > 0) {
-          setActiveVideoIndex(0);
+        // Fetch series data by series_id using public API
+        let seriesData = null;
+        try {
+          const seriesResponse = await seriesApi.getPublicById(parseInt(id || '0'), locale);
+          if (seriesResponse && seriesResponse.success && seriesResponse.data) {
+            seriesData = seriesResponse.data;
+          }
+        } catch (e) {
+          console.error('Error fetching series by ID:', e);
+          // Fallback: try to find in all series list
+          try {
+            const allSeriesResponse = await seriesApi.getPublic({});
+            if (allSeriesResponse && allSeriesResponse.success && allSeriesResponse.data) {
+              const responseData = allSeriesResponse.data;
+              let allSeries: any[] = [];
+              if (responseData.data && Array.isArray(responseData.data)) {
+                allSeries = responseData.data;
+              } else if (Array.isArray(responseData)) {
+                allSeries = responseData;
+              }
+              seriesData = allSeries.find((s: any) => s.id === parseInt(id || '0')) || null;
+            }
+          } catch (e2) {
+            console.error('Error fetching all series:', e2);
+          }
         }
         
-        // Derive category details from first video's embedded category
-        if (videosData.length > 0 && videosData[0].category) {
-          setCategory(videosData[0].category);
-        } else {
-          // Fallback: fetch public categories and find by id
-          try {
-            const catsRes = await categoryApi.getPublic();
-            const cats = Array.isArray(catsRes.data) ? catsRes.data : [];
-            const found = cats.find((c: any) => c.id === parseInt(id || '0')) || null;
-            setCategory(found);
-          } catch (e) {
-            setCategory(null);
+        setSeries(seriesData);
+        
+        // Fetch videos for this series (videos belong to series via series_id)
+        if (seriesData) {
+          console.log('=== SeriesDetail: Fetching Videos ===');
+          console.log('Series ID:', id);
+          console.log('Series Data:', seriesData);
+          
+          const videosResponse = await videoApi.getPublic({ 
+            series_id: parseInt(id || '0'), 
+            per_page: 100,
+            status: 'published' // Only show published videos/episodes
+          });
+          
+          console.log('=== Videos API Response ===');
+          console.log('Full Response:', videosResponse);
+          console.log('Response Success:', videosResponse?.success);
+          console.log('Response Data:', videosResponse?.data);
+          console.log('Response Data Type:', typeof videosResponse?.data);
+          console.log('Is Array:', Array.isArray(videosResponse?.data));
+          
+          let videosData: any[] = [];
+          if (videosResponse && videosResponse.data) {
+            if (Array.isArray(videosResponse.data)) {
+              videosData = videosResponse.data;
+              console.log('✅ Videos data is direct array, count:', videosData.length);
+            } else if (videosResponse.data.data && Array.isArray(videosResponse.data.data)) {
+              videosData = videosResponse.data.data;
+              console.log('✅ Videos data from nested data array, count:', videosData.length);
+            } else {
+              console.warn('⚠️ Unexpected videos response structure:', videosResponse.data);
+            }
+          } else {
+            console.warn('⚠️ No videos data in response');
           }
+          
+          console.log('=== Extracted Videos Data ===');
+          console.log('Videos Count:', videosData.length);
+          console.log('Videos:', videosData);
+          
+          if (videosData.length === 0) {
+            console.warn('⚠️ No videos found for series_id:', id);
+            console.warn('Check:');
+            console.warn('1. Are videos in database with series_id =', id, '?');
+            console.warn('2. Do videos have status = "published"?');
+            console.warn('3. Is the API response structure correct?');
+          } else {
+            console.log('✅ Found', videosData.length, 'videos/episodes');
+          }
+          
+          setVideos(videosData);
+          
+          // Set first video as active if available
+          if (videosData.length > 0) {
+            setActiveVideoIndex(0);
+          }
+        } else {
+          console.warn('⚠️ No series data, cannot fetch videos');
+          setVideos([]);
         }
 
         // Load user progress
-        if (user) {
+        if (user && seriesData) {
           try {
-            const progRes = await userProgressApi.getSeriesProgress(parseInt(id || '1'));
+            const progRes = await userProgressApi.getSeriesProgress(parseInt(id || '0'));
             const videoProgress = progRes?.data?.video_progress || {};
             const map: Record<number, any> = {};
             Object.values(videoProgress).forEach((p: any) => {
@@ -78,27 +141,28 @@ const SeriesDetail = () => {
           }
         }
 
-        // Fetch recommended videos (other categories)
+        // Fetch recommended videos (other series)
         try {
           const recResponse = await videoApi.getPublic({ 
             per_page: 8,
             sort_by: 'created_at',
-            sort_order: 'desc'
+            sort_order: 'desc',
+            status: 'published'
           });
           const recData = Array.isArray(recResponse.data) 
             ? recResponse.data 
             : recResponse.data?.data || [];
-          // Filter out videos from current category
-          const filtered = recData.filter((v: any) => v.category_id !== parseInt(id || '0'));
+          // Filter out videos from current series
+          const filtered = recData.filter((v: any) => v.series_id !== parseInt(id || '0'));
           setRecommendedVideos(filtered.slice(0, 4));
         } catch (e) {
           console.error('Error fetching recommended videos:', e);
         }
         
       } catch (error: any) {
-        console.error('Error loading category data:', error);
-        toast.error(t('seriesDetail.failed_load_category'));
-        setCategory(null);
+        console.error('Error loading series data:', error);
+        toast.error(t('seriesDetail.failed_load_series', 'Failed to load series'));
+        setSeries(null);
         setVideos([]);
       } finally {
         setLoading(false);
@@ -106,7 +170,7 @@ const SeriesDetail = () => {
     };
 
     if (id) {
-      fetchCategoryData();
+      fetchSeriesData();
     }
   }, [id, location.search, user]);
 
@@ -135,15 +199,15 @@ const SeriesDetail = () => {
     return `${mins} min`;
   };
 
-  // Helper to get category image URL
-  const getCategoryImageUrl = (category: any) => {
-    if (!category) return null;
-    const imageUrl = category.image_url 
-      || category.cover_image_url 
-      || category.thumbnail_url 
-      || category.image 
-      || category.cover_image 
-      || category.thumbnail;
+  // Helper to get series image URL
+  const getCategoryImageUrl = (series: any) => {
+    if (!series) return null;
+    const imageUrl = series.cover_image_url 
+      || series.thumbnail_url 
+      || series.cover_image 
+      || series.thumbnail
+      || series.image_url
+      || series.image;
     
     if (!imageUrl) return null;
     
@@ -165,15 +229,19 @@ const SeriesDetail = () => {
   };
 
   const handleVideoClick = (video: any, index: number) => {
-    if (canAccessVideo(video.visibility)) {
-      setActiveVideoIndex(index);
-      navigateWithLocale(`/episode/${video.id}`);
-    }
+    // Just update the active video index to show its thumbnail, don't navigate
+    // Allow thumbnail preview even if user doesn't have access
+    setActiveVideoIndex(index);
   };
 
-  const handlePlayFirstVideo = () => {
-    if (videos.length > 0 && canAccessVideo(videos[0].visibility)) {
-      navigateWithLocale(`/episode/${videos[0].id}`);
+  const handlePlayVideo = () => {
+    // Navigate to the currently selected/active video
+    const videoToPlay = activeVideoIndex !== null && videosToShow.length > 0 && videosToShow[activeVideoIndex] 
+      ? videosToShow[activeVideoIndex] 
+      : (videosToShow.length > 0 ? videosToShow[0] : null);
+    
+    if (videoToPlay && canAccessVideo(videoToPlay.visibility)) {
+      navigateWithLocale(`/episode/${videoToPlay.id}`);
     }
   };
 
@@ -181,6 +249,92 @@ const SeriesDetail = () => {
     if (!dateString) return new Date().getFullYear().toString();
     return new Date(dateString).getFullYear().toString();
   };
+
+  // Compute values for hooks (before early returns to maintain hook order)
+  const seriesImageUrl = series ? getCategoryImageUrl(series) : null;
+  const params = new URLSearchParams(location.search);
+  const filter = params.get('filter');
+  const videosToShow = filter === 'progress'
+    ? videos.filter((v: any) => {
+        const p = progressMap[v.id];
+        if (!p) return false;
+        const pct = p.progress_percentage ?? 0;
+        return pct > 0 && pct < 100;
+      })
+    : videos;
+  const activeVideo = activeVideoIndex !== null && videosToShow.length > 0 && videosToShow[activeVideoIndex] 
+    ? videosToShow[activeVideoIndex] 
+    : (videosToShow.length > 0 ? videosToShow[0] : null);
+
+  // Cascading fallback system for hero image
+  // Returns array of image URLs in priority order
+  const getHeroImageFallbacks = (): string[] => {
+    const fallbacks: string[] = [];
+    
+    if (activeVideo) {
+      // Priority 1: Video intro_image
+      if (activeVideo.intro_image_url) {
+        fallbacks.push(getImageUrl(activeVideo.intro_image_url));
+      }
+      if (activeVideo.intro_image && !fallbacks.includes(getImageUrl(activeVideo.intro_image))) {
+        fallbacks.push(getImageUrl(activeVideo.intro_image));
+      }
+      
+      // Priority 2: Video first frame/thumbnail (Bunny.net thumbnail)
+      if (activeVideo.bunny_thumbnail_url) {
+        fallbacks.push(getImageUrl(activeVideo.bunny_thumbnail_url));
+      }
+      
+      // Priority 3: Video preview frame from Bunny.net (if video ID available)
+      if (activeVideo.bunny_video_id) {
+        // Try to extract CDN URL from existing thumbnail URL or use default
+        let bunnyCdnBase = 'https://vz-0cc8af54-835.b-cdn.net';
+        if (activeVideo.bunny_thumbnail_url) {
+          // Extract CDN base from thumbnail URL (e.g., https://vz-xxx.b-cdn.net/...)
+          const match = activeVideo.bunny_thumbnail_url.match(/https:\/\/(vz-[^/]+\.b-cdn\.net)/);
+          if (match) {
+            bunnyCdnBase = `https://${match[1]}`;
+          }
+        }
+        // Try preview.webp first (first frame of video)
+        const previewUrl = `${bunnyCdnBase}/${activeVideo.bunny_video_id}/preview.webp`;
+        fallbacks.push(getImageUrl(previewUrl));
+      }
+      
+      // Legacy thumbnail fallbacks
+      if (activeVideo.thumbnail_url) {
+        fallbacks.push(getImageUrl(activeVideo.thumbnail_url));
+      }
+      if (activeVideo.thumbnail) {
+        fallbacks.push(getImageUrl(activeVideo.thumbnail));
+      }
+    }
+    
+    // Priority 4: Series image
+    if (seriesImageUrl) {
+      fallbacks.push(seriesImageUrl);
+    }
+    
+    // Priority 5: Default placeholder image (if all else fails)
+    // You can replace this with your default image URL
+    const defaultImageUrl = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+    fallbacks.push(defaultImageUrl);
+    
+    // Filter out empty strings and return unique URLs
+    return [...new Set(fallbacks.filter(url => url && url.trim() !== ''))];
+  };
+
+  // Memoize fallbacks to avoid recalculating on every render
+  // Must be called before early returns to maintain hook order
+  const imageFallbacks = useMemo(() => getHeroImageFallbacks(), [activeVideo, seriesImageUrl]);
+  const initialImageUrl = imageFallbacks[0] || null;
+  
+  // Reset error count and current image when video changes
+  // Must be called before early returns to maintain hook order
+  useEffect(() => {
+    setImageErrorCount(0);
+    setCurrentImageUrl(initialImageUrl);
+  }, [activeVideoIndex, initialImageUrl]);
 
   if (loading) {
     return (
@@ -195,30 +349,19 @@ const SeriesDetail = () => {
     );
   }
 
-  if (!category) {
+  if (!series) {
     return (
       <main className="flex-grow pt-28 pb-12 px-6 container mx-auto font-display bg-background-dark min-h-screen text-text-light">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">{t('seriesDetail.category_not_found')}</h1>
+          <h1 className="text-2xl font-bold mb-4">{t('seriesDetail.series_not_found', 'Series Not Found')}</h1>
           <Button onClick={() => navigateWithLocale('/browse')}>
-            {t('seriesDetail.browse_all_categories')}
+            {t('seriesDetail.browse_all_episodes', 'Browse All Episodes')}
           </Button>
         </div>
       </main>
     );
   }
 
-  const categoryImageUrl = getCategoryImageUrl(category);
-  const params = new URLSearchParams(location.search);
-  const filter = params.get('filter');
-  const videosToShow = filter === 'progress'
-    ? videos.filter((v: any) => {
-        const p = progressMap[v.id];
-        if (!p) return false;
-        const pct = p.progress_percentage ?? 0;
-        return pct > 0 && pct < 100;
-      })
-    : videos;
 
   return (
     <main className="flex-grow pt-28 pb-12 px-6 container mx-auto font-display bg-background-dark min-h-screen text-text-light">
@@ -227,16 +370,31 @@ const SeriesDetail = () => {
         {/* Hero Image - 70% */}
         <div 
           className="w-full lg:w-[70%] h-[350px] lg:h-full relative rounded-xl overflow-hidden shadow-2xl group cursor-pointer border border-white/5"
-          onClick={handlePlayFirstVideo}
+          onClick={handlePlayVideo}
         >
-          {categoryImageUrl ? (
+          {currentImageUrl ? (
             <img
-              alt={category.name}
-              src={categoryImageUrl}
+              key={`hero-image-${activeVideo?.id || 'series'}-${imageErrorCount}`}
+              alt={activeVideo ? activeVideo.title : (series.title || series.name)}
+              src={currentImageUrl}
               className="w-full h-full object-cover opacity-90 transform group-hover:scale-105 transition-transform duration-700"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
+                
+                // Get the next fallback image in the cascade
+                const currentIndex = imageFallbacks.findIndex(url => url === currentImageUrl);
+                const nextIndex = currentIndex + 1;
+                
+                if (nextIndex < imageFallbacks.length) {
+                  // Try next fallback
+                  const nextImageUrl = imageFallbacks[nextIndex];
+                  setCurrentImageUrl(nextImageUrl);
+                  setImageErrorCount(prev => prev + 1);
+                } else {
+                  // No more fallbacks, hide image and show default gradient
+                  target.style.display = 'none';
+                  setCurrentImageUrl(null);
+                }
               }}
             />
           ) : (
@@ -252,9 +410,11 @@ const SeriesDetail = () => {
           {/* Mobile Title */}
           <div className="absolute bottom-0 left-0 p-6 lg:hidden">
             <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2 inline-block">
-              {t('seriesDetail.series_original', 'Serie Original')}
+              {activeVideo ? t('seriesDetail.episode', 'Episodio') : t('seriesDetail.series_original', 'Serie Original')}
             </span>
-            <h1 className="text-3xl font-extrabold text-white mb-2 leading-tight">{category.name}</h1>
+            <h1 className="text-3xl font-extrabold text-white mb-2 leading-tight">
+              {activeVideo ? activeVideo.title : (series.title || series.name)}
+            </h1>
           </div>
         </div>
 
@@ -268,14 +428,14 @@ const SeriesDetail = () => {
               </span>
               <span className="text-[10px] text-text-dim border border-white/10 px-1.5 py-0.5 rounded-sm">4K</span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white mb-3 tracking-tight">{category.name}</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white mb-3 tracking-tight">{series.title || series.name}</h1>
             <p className="text-sm text-text-dim leading-relaxed line-clamp-3 mb-4 font-light">
-              {category.description || t('seriesDetail.no_description', 'Sin descripción')}
+              {series.description || series.short_description || t('seriesDetail.no_description', 'Sin descripción')}
             </p>
             <div className="flex items-center gap-4 text-xs font-medium text-text-dim">
               <div className="flex items-center gap-1">
                 <i className="fa-solid fa-calendar-days text-[16px]"></i>
-                <span>{getYear(category.created_at)}</span>
+                <span>{getYear(series.created_at)}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Grid3x3 className="h-4 w-4" />
@@ -379,7 +539,7 @@ const SeriesDetail = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {recommendedVideos.map((video) => {
-              const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || '');
+              const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
               const isNew = video.created_at && new Date(video.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
               
               return (
@@ -420,7 +580,7 @@ const SeriesDetail = () => {
                     {video.title}
                   </h3>
                   <p className="text-[11px] text-text-dim mt-1 font-medium">
-                    {video.category?.name || t('seriesDetail.category', 'Categoría')}
+                    {video.series?.title || video.series?.name || t('seriesDetail.series', 'Serie')}
                   </p>
                 </div>
               );

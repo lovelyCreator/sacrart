@@ -6,16 +6,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Traits\HasTranslations;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Category extends Model
 {
-    use HasFactory, HasTranslations;
+    use HasFactory;
 
     protected $fillable = [
         'name',
+        'name_en',
+        'name_es',
+        'name_pt',
         'slug',
         'description',
+        'description_en',
+        'description_es',
+        'description_pt',
         'color',
         'icon',
         'image',
@@ -56,15 +62,10 @@ class Category extends Model
 
     /**
      * Get the videos for the category.
-     * Note: The relationship depends on whether videos have category_id or series_id.
-     * Since series table doesn't exist, we'll try to use category_id directly.
-     * If that fails, we'll need to check the actual database structure.
+     * Videos have both category_id (direct) and series_id (through series).
      */
     public function videos(): HasMany
     {
-        // Try category_id first (after refactor migration)
-        // If videos table has category_id column, use it directly
-        // Otherwise, Laravel will use the default foreign key convention
         return $this->hasMany(Video::class, 'category_id');
     }
 
@@ -94,26 +95,22 @@ class Category extends Model
 
 
     /**
-     * Get translatable fields for this model
-     */
-    protected function getTranslatableFields(): array
-    {
-        return ['name', 'description'];
-    }
-
-    /**
      * Get name in current locale
      */
     public function getNameAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['name_es'] ?? $this->attributes['name_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['name_pt'] ?? $this->attributes['name_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['name_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['name'] ?? $value;
-        $translation = $this->getTranslation('name', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
@@ -122,13 +119,36 @@ class Category extends Model
     public function getDescriptionAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['description_es'] ?? $this->attributes['description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['description_pt'] ?? $this->attributes['description_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['description_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['description'] ?? $value;
-        $translation = $this->getTranslation('description', $locale);
-        return $translation ?: $rawValue;
+    }
+
+    /**
+     * Get all translations in structured format
+     */
+    public function getAllTranslations(): array
+    {
+        return [
+            'name' => [
+                'en' => $this->attributes['name_en'] ?? $this->attributes['name'] ?? '',
+                'es' => $this->attributes['name_es'] ?? '',
+                'pt' => $this->attributes['name_pt'] ?? '',
+            ],
+            'description' => [
+                'en' => $this->attributes['description_en'] ?? $this->attributes['description'] ?? '',
+                'es' => $this->attributes['description_es'] ?? '',
+                'pt' => $this->attributes['description_pt'] ?? '',
+            ],
+        ];
     }
 
     /**

@@ -67,6 +67,7 @@ Route::get('/series/{series}', [SeriesController::class, 'show']);
 Route::get('/videos', [VideoController::class, 'index']);
 Route::get('/videos/{video}', [VideoController::class, 'show']);
 Route::get('/videos/{video}/stream', [VideoController::class, 'stream']);
+Route::get('/videos/{video}/subtitles/{locale?}', [VideoController::class, 'getSubtitleVtt'])->where('locale', '[a-z]{2}');
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -117,8 +118,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/admin/series/{id}', [SeriesController::class, 'destroy']);
 
         // Videos (Admin CRUD) - Use ID-based routing for admin operations
+        // IMPORTANT: Specific routes (like bunny-metadata) must come BEFORE parameterized routes
+        Route::post('/admin/videos/bunny-metadata', [VideoController::class, 'getBunnyVideoMetadata']);
         Route::post('/admin/videos', [VideoController::class, 'store']);
         Route::put('/admin/videos/{id}', [VideoController::class, 'update']);
+        Route::post('/admin/videos/{id}/update-duration', [VideoController::class, 'updateDuration']);
         Route::delete('/admin/videos/{id}', [VideoController::class, 'destroy']);
         Route::post('/admin/videos/{id}/reencode', [VideoController::class, 'reencode']);
         Route::get('/admin/videos/{id}/codec-info', [VideoController::class, 'codecInfo']);
@@ -239,6 +243,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Videos (additional authenticated routes)
     Route::get('/videos/{video}/accessible', [VideoController::class, 'isAccessibleTo']);
+    Route::get('/videos/{video}/download-url', [VideoController::class, 'getDownloadUrl']);
+    Route::get('/videos/{video}/audio-tracks', [VideoController::class, 'getAudioTracks']);
+    Route::get('/videos/{video}/subtitles', [VideoController::class, 'getSubtitles']);
 
     // Video Comments (authenticated)
     Route::post('/videos/{video}/comments', [\App\Http\Controllers\Api\VideoCommentController::class, 'store']);

@@ -97,7 +97,7 @@ const ChallengeArchive = () => {
               id: video.id,
               title: video.title || `Reto ${index + 1}`,
               month,
-              thumbnail: getImageUrl(video.thumbnail_url || video.intro_image_url || ''),
+              thumbnail: getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || ''),
               isActive: index === 0, // First one is active
               isCompleted: index > 0,
               endDate: endDate.toISOString(),

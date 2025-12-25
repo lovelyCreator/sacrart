@@ -8,17 +8,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Str;
-use App\Traits\HasTranslations;
 
 class Series extends Model
 {
-    use HasFactory, HasTranslations;
+    use HasFactory;
 
     protected $fillable = [
         'title',
+        'title_en',
+        'title_es',
+        'title_pt',
         'slug',
         'description',
+        'description_en',
+        'description_es',
+        'description_pt',
         'short_description',
+        'short_description_en',
+        'short_description_es',
+        'short_description_pt',
         'visibility',
         'status',
         'category_id',
@@ -227,26 +235,22 @@ class Series extends Model
     }
 
     /**
-     * Get translatable fields for this model
-     */
-    protected function getTranslatableFields(): array
-    {
-        return ['title', 'description', 'short_description', 'meta_title', 'meta_description'];
-    }
-
-    /**
      * Get title in current locale
      */
     public function getTitleAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['title_es'] ?? $this->attributes['title_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['title_pt'] ?? $this->attributes['title_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['title_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['title'] ?? $value;
-        $translation = $this->getTranslation('title', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
@@ -255,13 +259,17 @@ class Series extends Model
     public function getDescriptionAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['description_es'] ?? $this->attributes['description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['description_pt'] ?? $this->attributes['description_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['description_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['description'] ?? $value;
-        $translation = $this->getTranslation('description', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
@@ -270,42 +278,40 @@ class Series extends Model
     public function getShortDescriptionAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['short_description_es'] ?? $this->attributes['short_description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['short_description_pt'] ?? $this->attributes['short_description_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['short_description_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['short_description'] ?? $value;
-        $translation = $this->getTranslation('short_description', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
-     * Get meta_title in current locale
+     * Get all translations in structured format
      */
-    public function getMetaTitleAttribute($value): ?string
+    public function getAllTranslations(): array
     {
-        $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
-        }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['meta_title'] ?? $value;
-        $translation = $this->getTranslation('meta_title', $locale);
-        return $translation ?: $rawValue;
-    }
-
-    /**
-     * Get meta_description in current locale
-     */
-    public function getMetaDescriptionAttribute($value): ?string
-    {
-        $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
-        }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['meta_description'] ?? $value;
-        $translation = $this->getTranslation('meta_description', $locale);
-        return $translation ?: $rawValue;
+        return [
+            'title' => [
+                'en' => $this->attributes['title_en'] ?? $this->attributes['title'] ?? '',
+                'es' => $this->attributes['title_es'] ?? '',
+                'pt' => $this->attributes['title_pt'] ?? '',
+            ],
+            'description' => [
+                'en' => $this->attributes['description_en'] ?? $this->attributes['description'] ?? '',
+                'es' => $this->attributes['description_es'] ?? '',
+                'pt' => $this->attributes['description_pt'] ?? '',
+            ],
+            'short_description' => [
+                'en' => $this->attributes['short_description_en'] ?? $this->attributes['short_description'] ?? '',
+                'es' => $this->attributes['short_description_es'] ?? '',
+                'pt' => $this->attributes['short_description_pt'] ?? '',
+            ],
+        ];
     }
 }

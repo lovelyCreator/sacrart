@@ -316,7 +316,7 @@ const EpisodeShop = () => {
 
   const hasAccess = canAccessVideo(video.visibility);
   const progressPercentage = userProgress?.progress_percentage || 0;
-  const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || video.bunny_thumbnail_url || '');
+  const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || video.bunny_thumbnail_url || '');
   const videoUrl = video.bunny_embed_url || video.bunny_video_url || video.video_url_full || video.video_url;
   const productImage = shopProduct?.image ? getImageUrl(shopProduct.image) : thumbnailUrl;
 
@@ -587,7 +587,7 @@ const EpisodeShop = () => {
             </div>
             <div className="flex gap-6 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4 md:mx-0 md:px-0">
               {relatedVideos.map((relatedVideo) => {
-                const relatedThumbnail = getImageUrl(relatedVideo.thumbnail_url || relatedVideo.intro_image_url || relatedVideo.bunny_thumbnail_url || '');
+                const relatedThumbnail = getImageUrl(relatedVideo.intro_image_url || relatedVideo.intro_image || relatedVideo.thumbnail_url || relatedVideo.thumbnail || relatedVideo.bunny_thumbnail_url || '');
                 return (
                   <Link
                     key={relatedVideo.id}

@@ -230,7 +230,7 @@ const Explore = () => {
 
   // Video Card Component matching code.html design
   const VideoCard = ({ video }: { video: Video }) => {
-    const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || '');
+    const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
     const isFavorite = favorites.has(video.id);
     
     return (

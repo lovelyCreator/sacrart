@@ -38,7 +38,9 @@
     "delete": "Excluir",
     "edit": "Editar",
     "create": "Criar",
-    "update": "Atualizar"
+    "update": "Atualizar",
+    "language": "Idioma",
+    "reload": "Recarregar Página"
   },
   "notFound": {
     "title": "Esta obra ainda não está terminada.",
@@ -314,6 +316,9 @@
     "related_videos": "Vídeos Relacionados",
     "no_downloadable_resources": "Nenhum material para download disponível",
     "no_transcription": "Nenhuma transcrição disponível",
+    "playback_error": "Erro de reprodução. Por favor, tente recarregar a página.",
+    "load_error": "Erro ao carregar o vídeo. Por favor, verifique sua conexão.",
+    "player_init_error": "Erro ao inicializar o player. Por favor, recarregue a página.",
     "please_sign_in": "Por favor, entre",
     "failed_like": "Falha ao curtir",
     "failed_dislike": "Falha ao descurtir",
@@ -349,7 +354,13 @@
     "youtube_error": "Erro ao carregar vídeo do YouTube",
     "cookie_consent_required": "Consentimento de Cookies Necessário",
     "cookie_consent_message": "Para reproduzir vídeos do YouTube, precisamos do seu consentimento para cookies de marketing. Por favor, aceite os cookies no banner de cookies.",
-    "manage_cookies": "Gerenciar Cookies"
+    "manage_cookies": "Gerenciar Cookies",
+    "video_file_not_available": "Arquivo de vídeo não disponível",
+    "no_video_url_found": "URL de vídeo não encontrada. Verifique os campos bunny_embed_url, bunny_video_url ou video_url.",
+    "available_fields": "Campos disponíveis:",
+    "user": "Usuário",
+    "transcription_badge": "T",
+    "premium_content": "Este é conteúdo premium. Por favor, atualize sua assinatura para acessar."
   },
   "cookie_policy": {
     "title": "POLÍTICA DE COOKIES",
@@ -857,6 +868,9 @@
     "common_edit": "Editar",
     "common_delete": "Excluir",
     "common_save": "Salvar",
+    "common_saving": "Salvando...",
+    "common_save_changes": "Salvar Alterações",
+    "common_create": "Criar",
     "common_cancel": "Cancelar",
     "common_search": "Buscar",
     "common_filter": "Filtrar",

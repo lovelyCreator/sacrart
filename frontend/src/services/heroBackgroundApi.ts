@@ -18,7 +18,7 @@ export interface HeroBackgroundResponse {
   data: HeroBackground[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://72.61.297.64:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
 
 export const heroBackgroundApi = {
   /**

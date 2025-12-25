@@ -218,7 +218,7 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
           
           {/* Right Side - Hero Background Image */}
           <div className="relative">
-            <div className="aspect-[16/10] rounded-lg overflow-hidden shadow-2xl border-2 border-primary/30">
+            <div className="relative aspect-[16/10] rounded-lg overflow-hidden shadow-2xl border-2 border-primary/30">
               {heroBackgroundImage ? (
                 <>
                   <img
@@ -230,11 +230,11 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                       const target = e.target as HTMLImageElement;
                       const src = target.src;
                       if (!src.startsWith('http') && !src.startsWith('/')) {
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
                         target.src = `${API_BASE_URL.replace('/api', '')}/storage/${src}`;
                       } else if (src.startsWith('/')) {
                         // If relative path, construct full URL
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
                         target.src = `${API_BASE_URL.replace('/api', '')}${src}`;
                       }
                     }}
@@ -246,7 +246,7 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                 <>
                   {/* Fallback to featured course image if no hero background */}
                   <img
-                    src={featuredCourse.image || featuredCourse.video?.thumbnail_url || featuredCourse.video?.intro_image_url || featuredCourse.video?.thumbnail || featuredCourse.video?.intro_image}
+                    src={featuredCourse.image || featuredCourse.video?.intro_image_url || featuredCourse.video?.intro_image || featuredCourse.video?.thumbnail_url || featuredCourse.video?.thumbnail}
                     alt={featuredCourse.title}
                     className="w-full h-full object-cover absolute inset-0"
                     onError={(e) => {
@@ -254,7 +254,7 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                       const target = e.target as HTMLImageElement;
                       const src = target.src;
                       if (!src.startsWith('http') && !src.startsWith('/')) {
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
                         target.src = `${API_BASE_URL.replace('/api', '')}/storage/${src}`;
                       }
                     }}
@@ -306,7 +306,7 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                         const target = e.target as HTMLImageElement;
                         const src = target.src;
                         if (!src.startsWith('http') && !src.startsWith('/')) {
-                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
                           target.src = `${API_BASE_URL.replace('/api', '')}/storage/${src}`;
                         }
                       }}

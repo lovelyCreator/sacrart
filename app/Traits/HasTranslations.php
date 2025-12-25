@@ -12,6 +12,11 @@ trait HasTranslations
      */
     public function getTranslation(string $field, string $locale): ?string
     {
+        // If model doesn't have an ID yet, return null (no translations can exist)
+        if (!$this->id) {
+            return null;
+        }
+        
         $translation = ContentTranslation::getTranslation(
             static::class,
             $this->id,
@@ -40,6 +45,12 @@ trait HasTranslations
      */
     public function setTranslation(string $field, string $locale, string $value): void
     {
+        // Ensure model has an ID before saving translations
+        if (!$this->id) {
+            \Log::warning('Attempted to set translation for model without ID: ' . get_class($this));
+            return;
+        }
+        
         ContentTranslation::setTranslation(
             static::class,
             $this->id,
@@ -89,25 +100,35 @@ trait HasTranslations
      */
     public static function bootHasTranslations(): void
     {
-        // Auto-translate on create
+        // Auto-translate on create (non-blocking, errors won't prevent model creation)
         static::created(function ($model) {
-            if (method_exists($model, 'getTranslatableFields')) {
-                $translatableFields = $model->getTranslatableFields();
-                if (!empty($translatableFields)) {
-                    $model->autoTranslate($translatableFields);
+            try {
+                if (method_exists($model, 'getTranslatableFields')) {
+                    $translatableFields = $model->getTranslatableFields();
+                    if (!empty($translatableFields)) {
+                        $model->autoTranslate($translatableFields);
+                    }
                 }
+            } catch (\Exception $e) {
+                // Log error but don't prevent model creation
+                \Log::warning('Auto-translation failed for ' . get_class($model) . ' ID ' . $model->id . ': ' . $e->getMessage());
             }
         });
 
-        // Auto-translate on update if translatable fields changed
+        // Auto-translate on update if translatable fields changed (non-blocking)
         static::updated(function ($model) {
-            if (method_exists($model, 'getTranslatableFields')) {
-                $translatableFields = $model->getTranslatableFields();
-                $changedFields = array_intersect($translatableFields, array_keys($model->getChanges()));
-                
-                if (!empty($changedFields)) {
-                    $model->autoTranslate($changedFields);
+            try {
+                if (method_exists($model, 'getTranslatableFields')) {
+                    $translatableFields = $model->getTranslatableFields();
+                    $changedFields = array_intersect($translatableFields, array_keys($model->getChanges()));
+                    
+                    if (!empty($changedFields)) {
+                        $model->autoTranslate($changedFields);
+                    }
                 }
+            } catch (\Exception $e) {
+                // Log error but don't prevent model update
+                \Log::warning('Auto-translation failed for ' . get_class($model) . ' ID ' . $model->id . ': ' . $e->getMessage());
             }
         });
 
@@ -136,5 +157,35 @@ trait HasTranslations
         
         // If translation exists, return it; otherwise return original
         return $translation ?: $this->getAttribute($field);
+    }
+
+    /**
+     * Get all translations for this model in a structured format
+     * Returns: ['field' => ['en' => '...', 'es' => '...', 'pt' => '...']]
+     */
+    public function getAllTranslations(): array
+    {
+        if (!$this->id) {
+            return [];
+        }
+
+        $translatableFields = $this->getTranslatableFields();
+        $translations = [];
+        $locales = ['en', 'es', 'pt'];
+
+        foreach ($translatableFields as $field) {
+            $translations[$field] = [];
+            foreach ($locales as $locale) {
+                if ($locale === 'en') {
+                    // English is stored in the main field
+                    $translations[$field][$locale] = $this->getAttributes()[$field] ?? $this->getOriginal($field) ?? '';
+                } else {
+                    // Other locales are stored in content_translations table
+                    $translations[$field][$locale] = $this->getTranslation($field, $locale) ?? '';
+                }
+            }
+        }
+
+        return $translations;
     }
 }

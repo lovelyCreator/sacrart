@@ -45,7 +45,7 @@ const UserLayout = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { currentLanguage, changeLanguage, languages } = useLanguage();
-  const { getPathWithLocale, pathname, locale } = useLocale();
+  const { getPathWithLocale, pathname, locale, navigateWithLocale } = useLocale();
   const [footerSettings, setFooterSettings] = useState<Record<string, string>>({});
 
 
@@ -64,32 +64,23 @@ const UserLayout = () => {
     fetchFooterSettings();
   }, [locale]); // Refetch when locale changes
 
-  // Define static categories for header dropdown
-  const staticCategories: Array<{ name: string; slug: string }> = [
-    { name: 'Dibujo', slug: 'dibujo' },
-    { name: 'Modelado', slug: 'modelado' },
-    { name: 'Talla en Madera', slug: 'talla-en-madera' },
-    { name: 'Policromía', slug: 'policromia' },
-    { name: 'Dorado y Estofado', slug: 'dorado-y-estofado' },
-    { name: 'Restauración', slug: 'restauracion' },
-  ];
-
-  // Helper to create Category from static data
-  const createCategoryFromStatic = (staticCat: { name: string; slug: string }, backendCat?: Category): Category => {
-    if (backendCat) return backendCat;
-    return {
-      id: 0,
-      name: staticCat.name,
-      slug: staticCat.slug,
-      description: '',
-      color: '#A05245',
-      icon: '',
-      is_active: true,
-      sort_order: 0,
-      cover_image: null,
-      created_at: '',
-      updated_at: '',
-    };
+  // Helper to get category name with multilingual support
+  const getCategoryName = (category: Category | any): string => {
+    // Check if category has translations object
+    if ((category as any).translations && (category as any).translations.name) {
+      const localeKey = locale.substring(0, 2) as 'en' | 'es' | 'pt';
+      return (category as any).translations.name[localeKey] || (category as any).translations.name.en || category.name || '';
+    }
+    
+    // Check for direct multilingual columns
+    const localeKey = locale.substring(0, 2);
+    const nameKey = `name_${localeKey}` as keyof Category;
+    if ((category as any)[nameKey]) {
+      return (category as any)[nameKey] as string;
+    }
+    
+    // Fallback to main name field
+    return category.name || '';
   };
 
   // Handler for Directos - fetch latest directo and navigate to video page
@@ -135,36 +126,45 @@ const UserLayout = () => {
     }
   };
 
-  // Fetch categories for dropdown and map to static categories
+  // Fetch categories from backend
   useEffect(() => {
     const fetchCategories = async () => {
       try {
+        // Fetch categories from public API endpoint
         const response = await categoryApi.getPublic(locale);
-        if (response.success) {
-          const backendCategories = response.data || [];
-          // Map static categories to backend categories if they exist
-          const mappedCategories = staticCategories.map(staticCat => {
-            const backendCat = backendCategories.find((bc: Category) => 
-              bc.name.toLowerCase() === staticCat.name.toLowerCase() ||
-              bc.name.toLowerCase().includes(staticCat.slug)
-            );
-            return createCategoryFromStatic(staticCat, backendCat);
-          });
-          setCategories(mappedCategories);
+        if (response.success && response.data) {
+          // Get categories array from response
+          let backendCategories: Category[] = [];
+          if (Array.isArray(response.data)) {
+            backendCategories = response.data;
+          } else if ((response.data as any).categories) {
+            backendCategories = (response.data as any).categories;
+          } else if ((response.data as any).data) {
+            backendCategories = Array.isArray((response.data as any).data) 
+              ? (response.data as any).data 
+              : [];
+          }
+          
+          // Filter only active categories and sort by sort_order
+          const activeCategories = backendCategories
+            .filter((cat: Category) => cat.is_active !== false)
+            .sort((a: Category, b: Category) => (a.sort_order || 0) - (b.sort_order || 0));
+          
+          // Use backend categories directly (they already have multilingual support)
+          setCategories(activeCategories);
         } else {
-          // If fetch fails, use static categories
-          setCategories(staticCategories.map(cat => createCategoryFromStatic(cat)));
+          console.warn('Failed to fetch categories, using empty array');
+          setCategories([]);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
-        // Use static categories on error
-        setCategories(staticCategories.map(cat => createCategoryFromStatic(cat)));
+        setCategories([]);
       }
     };
-    if (user) {
-      fetchCategories();
-    }
-  }, [locale, user]);
+    
+    // Fetch categories for both authenticated and non-authenticated users
+    fetchCategories();
+  }, [locale]); // Fetch when locale changes to get correct translations
 
   const handleLogout = async () => {
     await logout();
@@ -214,9 +214,8 @@ const UserLayout = () => {
             />
           </Link>
 
-          {/* Desktop Navigation - Only show for authenticated users */}
-          {user && (
-            <div className="hidden xl:flex items-center gap-6">
+          {/* Desktop Navigation */}
+          <div className="hidden xl:flex items-center gap-6">
               <Link 
                 to={getPathWithLocale("/")}
                 className={`text-xs font-bold uppercase tracking-wider transition-colors ${
@@ -254,7 +253,7 @@ const UserLayout = () => {
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5"
                         >
-                          {category.name}
+                          {getCategoryName(category)}
                         </Link>
                       ))}
                     </div>
@@ -319,7 +318,6 @@ const UserLayout = () => {
                 <img src={angelitaImage} alt="Angelita" className="h-6 w-6 object-contain animate-bounce" />
               </Link>
             </div>
-          )}
         </div>
 
         {/* Right side */}
@@ -806,7 +804,7 @@ const UserLayout = () => {
       </div>
 
       {/* Main content with padding for fixed header */}
-      <main className="pt-16 sm:pt-20 flex-1">
+      <main className="pt-16 sm:pt-20 flex-1 bg-background-dark">
         <Outlet />
       </main>
 

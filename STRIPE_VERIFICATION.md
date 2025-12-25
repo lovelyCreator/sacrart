@@ -43,7 +43,7 @@ GET /api/payments/stripe/status
 
 **Desde la línea de comandos:**
 ```bash
-curl -X GET http://72.61.297.64:8000/api/payments/stripe/status \
+curl -X GET http://localhsot:8000/api/payments/stripe/status \
   -H "Authorization: Bearer TU_TOKEN_AQUI"
 ```
 
@@ -88,7 +88,7 @@ https://TU_DOMINIO/api/payments/stripe/webhook
 
 O si estás usando el servidor actual:
 ```
-http://72.61.297.64:8000/api/payments/stripe/webhook
+http://localhsot:8000/api/payments/stripe/webhook
 ```
 
 ## 📝 Próximos Pasos

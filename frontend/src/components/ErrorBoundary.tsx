@@ -87,7 +87,7 @@ class ErrorBoundary extends Component<Props, State> {
                   <li>Try refreshing the page (Ctrl + Shift + R for hard reload)</li>
                   <li>Clear your browser cache and cookies</li>
                   <li>Check the browser console (F12) for more details</li>
-                  <li>Ensure the backend API is running (http://72.61.297.64:8000)</li>
+                  <li>Ensure the backend API is running (http://localhsot:8000)</li>
                   <li>Verify your internet connection</li>
                 </ul>
               </div>

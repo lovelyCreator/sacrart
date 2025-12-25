@@ -214,7 +214,7 @@ const Profile = () => {
   const handleManageBilling = async () => {
     try {
       setLoading(true);
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000/api';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000/api';
       const token = localStorage.getItem('auth_token');
       
       const response = await fetch(`${API_BASE_URL}/payments/stripe/portal`, {
@@ -265,7 +265,7 @@ const Profile = () => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
     return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 

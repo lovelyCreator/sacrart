@@ -88,7 +88,7 @@ const SacrartKids = () => {
                       id: `${video.id}-${pdfs.length}`,
                       title: resource.title || video.title,
                       url: resource.url,
-                      thumbnail: video.thumbnail_url || video.intro_image_url,
+                      thumbnail: video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail,
                       video_id: video.id
                     });
                   }
@@ -109,7 +109,7 @@ const SacrartKids = () => {
             description: 'Incluye figurilla, pinturas y pinceles',
             price: 24.99,
             originalPrice: 29.99,
-            image: getImageUrl(videosData[0]?.thumbnail_url || videosData[0]?.intro_image_url || ''),
+            image: getImageUrl(videosData[0]?.intro_image_url || videosData[0]?.intro_image || videosData[0]?.thumbnail_url || videosData[0]?.thumbnail || ''),
             badge: 'Kit Completo',
             badgeColor: 'bg-[#A05245]'
           },
@@ -176,7 +176,7 @@ const SacrartKids = () => {
             className="absolute inset-0 bg-cover bg-center"
             style={{
               backgroundImage: kidsVideos[0] 
-                ? `url(${getImageUrl(kidsVideos[0].thumbnail_url || kidsVideos[0].intro_image_url || '')})`
+                ? `url(${getImageUrl(kidsVideos[0].intro_image_url || kidsVideos[0].intro_image || kidsVideos[0].thumbnail_url || kidsVideos[0].thumbnail || '')})`
                 : undefined,
               filter: 'brightness(0.7) sepia(0.2)'
             }}
@@ -226,7 +226,7 @@ const SacrartKids = () => {
         <div className="flex overflow-x-auto gap-5 pb-12 pr-6 md:pr-12 hide-scrollbar snap-x">
           {kidsVideos.length > 0 ? (
             kidsVideos.map((video) => {
-              const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || '');
+              const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
               return (
                 <div
                   key={video.id}

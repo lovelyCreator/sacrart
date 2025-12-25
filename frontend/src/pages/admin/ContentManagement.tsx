@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,10 +76,28 @@ interface MultilingualData {
 }
 
 const ContentManagement = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const { locale: urlLocale } = useLocale();
+  // Use global site language for display, separate locale only for modal form inputs
   const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(urlLocale as 'en' | 'es' | 'pt' || 'en');
+  // Get current site language for displaying table items - use useMemo to make it reactive
+  const displayLocale = useMemo(() => {
+    const lang = i18n.language || urlLocale || 'en';
+    return lang.substring(0, 2) as 'en' | 'es' | 'pt';
+  }, [i18n.language, urlLocale]);
+  
+  // Helper function to get full image URL
+  const getImageUrl = (imagePath: string | null | undefined): string | null => {
+    if (!imagePath) return null;
+    // If already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    // Prepend VITE_SERVER_BASE_URL
+    const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || '';
+    return baseUrl ? `${baseUrl}/${imagePath}` : imagePath;
+  };
   
   const [activeTab, setActiveTab] = useState('categories');
   const [searchTerm, setSearchTerm] = useState('');
@@ -109,6 +127,15 @@ const ContentManagement = () => {
     short_description: { en: '', es: '', pt: '' },
   });
   
+  // Multilingual state for categories
+  const [categoryMultilingual, setCategoryMultilingual] = useState<{
+    name: MultilingualData;
+    description: MultilingualData;
+  }>({
+    name: { en: '', es: '', pt: '' },
+    description: { en: '', es: '', pt: '' },
+  });
+  
   // Multilingual state for videos
   const [videoMultilingual, setVideoMultilingual] = useState<{
     title: MultilingualData;
@@ -128,16 +155,13 @@ const ContentManagement = () => {
 
   useEffect(() => {
     fetchContent();
-  }, [contentLocale]); // Refetch when content locale changes
+  }, []); // Only fetch on mount, not when contentLocale changes
 
   const fetchContent = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching content from admin APIs...');
-      
-      // Temporarily set locale in localStorage to fetch localized content
-      const originalLocale = localStorage.getItem('i18nextLng');
-      localStorage.setItem('i18nextLng', contentLocale);
+      // Don't change the global locale - use the current site locale for API calls
+      // contentLocale is only for modal form inputs, not for API fetching
       
       // Fetch data from API in parallel
       const [categoriesResponse, seriesResponse, videosResponse] = await Promise.allSettled([
@@ -146,23 +170,12 @@ const ContentManagement = () => {
         videoApi.getAll({ per_page: 100 })
       ]);
       
-      // Restore original locale
-      if (originalLocale) {
-        localStorage.setItem('i18nextLng', originalLocale);
-      }
-      
-      console.log('API responses received:', {
-        categories: categoriesResponse.status,
-        series: seriesResponse.status,
-        videos: videosResponse.status
-      });
 
       let categoriesData: any[] = [];
 
       // Handle categories - Categories are separate from Series
       if (categoriesResponse.status === 'fulfilled') {
         const response = categoriesResponse.value;
-        console.log('Categories API response:', response);
         if (response.success) {
           // Handle paginated response
           if (response.data?.data && Array.isArray(response.data.data)) {
@@ -175,11 +188,29 @@ const ContentManagement = () => {
         } else {
           categoriesData = [];
         }
-        console.log('Extracted categories data:', categoriesData);
-        setCategories(categoriesData);
+        // Ensure translations are loaded for each category
+        const categoriesWithTranslations = categoriesData.map((cat: any) => {
+          // If translations aren't loaded, try to construct from multilingual columns
+          if (!cat.translations && (cat.name_en || cat.name_es || cat.name_pt)) {
+            cat.translations = {
+              name: {
+                en: cat.name_en || cat.name || '',
+                es: cat.name_es || '',
+                pt: cat.name_pt || '',
+              },
+              description: {
+                en: cat.description_en || cat.description || '',
+                es: cat.description_es || '',
+                pt: cat.description_pt || '',
+              },
+            };
+          }
+          return cat;
+        });
+        setCategories(categoriesWithTranslations);
         // Initialize filtered categories if we're on the categories tab
         if (activeTab === 'categories') {
-          setFilteredCategories(categoriesData);
+          setFilteredCategories(categoriesWithTranslations);
         }
       } else {
         console.error('Failed to fetch categories:', categoriesResponse.reason);
@@ -192,7 +223,6 @@ const ContentManagement = () => {
       // Handle series (Note: series = category in backend)
       if (seriesResponse.status === 'fulfilled') {
         const response = seriesResponse.value;
-        console.log('Series API response:', response);
         
         // Handle different response structures
         let seriesData = [];
@@ -205,11 +235,33 @@ const ContentManagement = () => {
           seriesData = [];
         }
         
-        console.log('Extracted series data:', seriesData);
-        console.log('First series item:', seriesData[0]);
         
-        setSeries(seriesData);
-        setFilteredSeries(seriesData);
+        // Ensure translations are loaded for each series
+        const seriesWithTranslations = seriesData.map((serie: any) => {
+          // If translations aren't loaded, try to construct from multilingual columns
+          if (!serie.translations && (serie.title_en || serie.title_es || serie.title_pt)) {
+            serie.translations = {
+              title: {
+                en: serie.title_en || serie.title || '',
+                es: serie.title_es || '',
+                pt: serie.title_pt || '',
+              },
+              description: {
+                en: serie.description_en || serie.description || '',
+                es: serie.description_es || '',
+                pt: serie.description_pt || '',
+              },
+              short_description: {
+                en: serie.short_description_en || serie.short_description || '',
+                es: serie.short_description_es || '',
+                pt: serie.short_description_pt || '',
+              },
+            };
+          }
+          return serie;
+        });
+        setSeries(seriesWithTranslations);
+        setFilteredSeries(seriesWithTranslations);
       } else {
         console.error('Failed to fetch series:', seriesResponse.reason);
         setSeries([]);
@@ -219,9 +271,55 @@ const ContentManagement = () => {
       // Handle videos
       if (videosResponse.status === 'fulfilled') {
         const response = videosResponse.value;
-        const videosData = Array.isArray(response.data) ? response.data : response.data?.data || [];
-        setVideos(videosData);
-        setFilteredVideos(videosData);
+        
+        // Handle paginated response structure
+        let videosData: any[] = [];
+        if (response && response.success && response.data) {
+          // Laravel pagination returns { data: [...], total: ..., per_page: ... }
+          if (Array.isArray(response.data)) {
+            videosData = response.data;
+          } else if (response.data && Array.isArray(response.data.data)) {
+            videosData = response.data.data;
+          } else {
+            console.error('Unexpected videos response structure:', response);
+            videosData = [];
+          }
+        } else {
+          console.error('Videos response not successful or missing data:', response);
+          videosData = [];
+        }
+        
+        // Ensure translations are loaded for each video
+        const videosWithTranslations = videosData.map((video: any) => {
+          // If translations aren't loaded, try to construct from multilingual columns
+          if (!video.translations && (video.title_en || video.title_es || video.title_pt)) {
+            video.translations = {
+              title: {
+                en: video.title_en || video.title || '',
+                es: video.title_es || '',
+                pt: video.title_pt || '',
+              },
+              description: {
+                en: video.description_en || video.description || '',
+                es: video.description_es || '',
+                pt: video.description_pt || '',
+              },
+              short_description: {
+                en: video.short_description_en || video.short_description || '',
+                es: video.short_description_es || '',
+                pt: video.short_description_pt || '',
+              },
+              intro_description: {
+                en: video.intro_description_en || video.intro_description || '',
+                es: video.intro_description_es || '',
+                pt: video.intro_description_pt || '',
+              },
+            };
+          }
+          return video;
+        });
+        setVideos(videosWithTranslations);
+        setFilteredVideos(videosWithTranslations);
       } else {
         console.error('Failed to fetch videos:', videosResponse.reason);
         setVideos([]);
@@ -245,15 +343,72 @@ const ContentManagement = () => {
     }
   };
 
+  // Helper function to get translated value from translations object or multilingual columns
+  const getTranslatedValue = (item: any, field: string, locale?: 'en' | 'es' | 'pt'): string => {
+    // Use the current site language for display (not contentLocale which is only for modals)
+    const currentLocale = locale || displayLocale;
+    
+    // First try to get from translations object
+    const translations = (item as any)?.translations || {};
+    const fieldTranslations = translations[field] || {};
+    if (fieldTranslations[currentLocale]) {
+      return fieldTranslations[currentLocale];
+    }
+    if (fieldTranslations['en']) {
+      return fieldTranslations['en'];
+    }
+    
+    // If translations object doesn't have the field, try multilingual columns directly
+    const columnName = `${field}_${currentLocale}`;
+    if (item[columnName]) {
+      return item[columnName];
+    }
+    const columnNameEn = `${field}_en`;
+    if (item[columnNameEn]) {
+      return item[columnNameEn];
+    }
+    
+    // Fallback to the main field value
+    return item[field] || '';
+  };
+
+  // Helper functions for specific fields (use displayLocale for table display)
+  const getCategoryName = (category: Category): string => {
+    return getTranslatedValue(category, 'name', displayLocale);
+  };
+
+  const getCategoryDescription = (category: Category): string => {
+    return getTranslatedValue(category, 'description', displayLocale);
+  };
+
+  const getSeriesTitle = (serie: Series): string => {
+    return getTranslatedValue(serie, 'title', displayLocale);
+  };
+
+  const getSeriesDescription = (serie: Series): string => {
+    return getTranslatedValue(serie, 'description', displayLocale);
+  };
+
+  const getVideoTitle = (video: Video): string => {
+    return getTranslatedValue(video, 'title', displayLocale);
+  };
+
+  const getVideoDescription = (video: Video): string => {
+    return getTranslatedValue(video, 'description', displayLocale);
+  };
+
   useEffect(() => {
     // Filter categories
     if (activeTab === 'categories') {
       if (categories && categories.length > 0) {
-        const filtered = categories.filter(category => 
-          category?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (category?.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-        setFilteredCategories(filtered);
+        const filtered = categories.filter(category => {
+          const name = getCategoryName(category);
+          const description = getCategoryDescription(category);
+          return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            description.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+        // Force update by creating new array reference
+        setFilteredCategories([...filtered]);
       } else {
         setFilteredCategories([]);
       }
@@ -261,22 +416,62 @@ const ContentManagement = () => {
 
     // Filter series
     if (activeTab === 'series' && series) {
-      const filtered = series.filter(serie => 
-        serie?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        serie?.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredSeries(filtered);
+      const filtered = series.filter(serie => {
+        const title = getSeriesTitle(serie);
+        const description = getSeriesDescription(serie);
+        return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          description.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+      // Force update by creating new array reference
+      setFilteredSeries([...filtered]);
     }
 
     // Filter videos
-    if (activeTab === 'videos' && videos) {
-      const filtered = videos.filter(video => 
-        video?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (video?.description && video.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-      setFilteredVideos(filtered);
+    if (activeTab === 'videos') {
+      if (videos && videos.length > 0) {
+        const filtered = videos.filter(video => {
+          const title = getVideoTitle(video);
+          const description = getVideoDescription(video);
+          return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            description.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+        // Force update by creating new array reference
+        setFilteredVideos([...filtered]);
+      } else {
+        setFilteredVideos([]);
+      }
     }
-  }, [categories, series, videos, searchTerm, activeTab]);
+  }, [categories, series, videos, searchTerm, activeTab, displayLocale]); // Use displayLocale instead of contentLocale
+
+  // Re-filter when site language changes
+  useEffect(() => {
+    // Force re-filter when displayLocale changes (when user changes site language)
+    if (activeTab === 'categories' && categories.length > 0) {
+      const filtered = categories.filter(category => {
+        const name = getCategoryName(category);
+        const description = getCategoryDescription(category);
+        return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          description.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+      setFilteredCategories([...filtered]);
+    } else if (activeTab === 'series' && series.length > 0) {
+      const filtered = series.filter(serie => {
+        const title = getSeriesTitle(serie);
+        const description = getSeriesDescription(serie);
+        return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          description.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+      setFilteredSeries([...filtered]);
+    } else if (activeTab === 'videos' && videos.length > 0) {
+      const filtered = videos.filter(video => {
+        const title = getVideoTitle(video);
+        const description = getVideoDescription(video);
+        return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          description.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+      setFilteredVideos([...filtered]);
+    }
+  }, [displayLocale, activeTab, categories, series, videos, searchTerm]); // Trigger when site language changes
 
   const getVisibilityIcon = (visibility: string) => {
     switch (visibility) {
@@ -338,7 +533,6 @@ const ContentManagement = () => {
   };
 
   const handleEditSeries = (serie: Series) => {
-    console.log('Editing series:', serie);
     // Ensure all fields are properly mapped since series = category
     // Map 'name' to 'title' if title is missing, and ensure all fields have values
     const mappedSeries: Series = {
@@ -417,6 +611,22 @@ const ContentManagement = () => {
 
   const handleEditCategory = (category: Category) => {
     setSelectedCategory(category);
+    
+    // Load multilingual data from category (check if translations exist)
+    const translations = (category as any)?.translations || {};
+    setCategoryMultilingual({
+      name: {
+        en: translations.name?.en || category.name || '',
+        es: translations.name?.es || '',
+        pt: translations.name?.pt || '',
+      },
+      description: {
+        en: translations.description?.en || category.description || '',
+        es: translations.description?.es || '',
+        pt: translations.description?.pt || '',
+      },
+    });
+    
     setIsCategoryDialogOpen(true);
   };
 
@@ -443,7 +653,8 @@ const ContentManagement = () => {
   const handleSaveCategory = async () => {
     if (!selectedCategory) return;
 
-    if (!selectedCategory.name?.trim()) {
+    // Validate that at least English name is provided
+    if (!categoryMultilingual.name.en?.trim()) {
       toast.error(t('admin.content_category_name_required', 'Category name is required'));
       return;
     }
@@ -452,11 +663,16 @@ const ContentManagement = () => {
       setIsSubmitting(true);
       
       const categoryData: any = {
-        name: selectedCategory.name,
-        description: selectedCategory.description || '',
+        name: categoryMultilingual.name.en, // Default to English
+        description: categoryMultilingual.description.en || '',
         color: selectedCategory.color || '',
         icon: selectedCategory.icon || '',
         sort_order: selectedCategory.sort_order || 0,
+        // Include multilingual translations
+        translations: {
+          name: categoryMultilingual.name,
+          description: categoryMultilingual.description,
+        },
       };
 
       // Handle image file upload if needed
@@ -476,6 +692,8 @@ const ContentManagement = () => {
         if (categoryData.icon) formData.append('icon', categoryData.icon);
         formData.append('sort_order', String(categoryData.sort_order));
         formData.append('image_file', imageFile.file);
+        // Append translations as JSON string
+        formData.append('translations', JSON.stringify(categoryData.translations));
       }
 
       let response;
@@ -487,7 +705,7 @@ const ContentManagement = () => {
         response = await categoryApi.create(formData || categoryData);
       }
 
-      if (response.success) {
+      if (response && response.success) {
         const savedCategory = response.data;
         if (selectedCategory.id) {
           setCategories(prev => prev.map(c => c.id === selectedCategory.id ? savedCategory : c));
@@ -497,15 +715,29 @@ const ContentManagement = () => {
           setCategories(prev => [savedCategory, ...prev]);
           setFilteredCategories(prev => [savedCategory, ...prev]);
           toast.success(t('admin.content_category_created', 'Category created successfully'));
+          
+          // Refetch categories to ensure we have the latest data from the database
+          setTimeout(() => {
+            fetchContent();
+          }, 500);
         }
         setIsCategoryDialogOpen(false);
         setSelectedCategory(null);
       } else {
         toast.error(t('admin.content_category_save_failed', 'Failed to save category'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving category:', error);
-      toast.error(t('admin.content_category_save_failed', 'Failed to save category'));
+      const errorMessage = error?.message || error?.data?.message || t('admin.content_category_save_failed', 'Failed to save category');
+      toast.error(errorMessage);
+      
+      // Log full error details for debugging
+      if (error?.response) {
+        console.error('API Error Response:', error.response);
+      }
+      if (error?.data) {
+        console.error('Error Data:', error.data);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -579,14 +811,12 @@ const ContentManagement = () => {
 
     try {
       setIsSubmitting(true);
-      console.log('Saving series:', selectedSeries);
-      
       // Prepare series payload with multilingual data
       const seriesPayload: any = {
         title: seriesMultilingual.title.en, // Default to English
         name: seriesMultilingual.title.en, // Category name
-        description: seriesMultilingual.description.en,
-        short_description: seriesMultilingual.short_description.en,
+        description: seriesMultilingual.description.en || '', // Ensure not null (database requires it)
+        short_description: seriesMultilingual.short_description.en || null,
         visibility: selectedSeries.visibility || 'freemium',
         status: selectedSeries.status || 'draft',
         category_id: selectedSeries.category_id || null,
@@ -680,8 +910,8 @@ const ContentManagement = () => {
       slug: '',
       description: '',
       short_description: null,
+      category_id: defaultSeries?.category_id || null, // Videos have both category_id and series_id
       series_id: defaultSeries?.id || null,
-      category_id: defaultSeries?.id || defaultSeries?.category_id || null,
       instructor_id: null,
       video_url: null,
       video_file_path: null,
@@ -736,6 +966,189 @@ const ContentManagement = () => {
     setIsVideoDialogOpen(true);
   };
 
+  // Load Player.js library for Bunny.net iframe control
+  useEffect(() => {
+    // Check if Player.js is already loaded
+    if ((window as any).playerjs) {
+      return;
+    }
+
+    // Load Player.js script
+    const script = document.createElement('script');
+    script.src = 'https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js';
+    script.async = true;
+    script.onload = () => {
+      console.log('✅ Player.js library loaded in admin panel');
+    };
+    script.onerror = () => {
+      console.error('❌ Failed to load Player.js library');
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      const existingScript = document.querySelector('script[src*="playerjs"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+    };
+  }, []);
+
+  // Fetch duration for an existing video using Player.js and update it
+  const fetchAndUpdateVideoDuration = async (video: Video) => {
+    if (!video.bunny_embed_url) {
+      toast.error('No Bunny.net embed URL found for this video');
+      return;
+    }
+
+    try {
+      // Convert /play/ URLs to /embed/ URLs for Player.js
+      let playerUrl = video.bunny_embed_url;
+      if (playerUrl.includes('/play/')) {
+        const playMatch = playerUrl.match(/\/play\/(\d+)\/([^/?]+)/);
+        if (playMatch) {
+          const libraryId = playMatch[1];
+          const videoId = playMatch[2];
+          playerUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+        }
+      }
+
+      toast.info(`Fetching duration for "${getVideoTitle(video)}"...`);
+      const duration = await fetchDurationWithPlayerJs(playerUrl);
+      
+      if (duration && duration > 0) {
+        // Update duration via API
+        const response = await videoApi.updateDuration(video.id, Math.floor(duration));
+        if (response.success) {
+          // Update local state
+          setVideos(prev => prev.map(v => 
+            v.id === video.id 
+              ? { ...v, duration: Math.floor(duration) }
+              : v
+          ));
+          toast.success(`Duration updated: ${Math.floor(duration / 60)}m ${duration % 60}s`);
+        } else {
+          toast.error('Failed to update duration in database');
+        }
+      } else {
+        toast.warning('Could not fetch duration. Please try again or enter it manually.');
+      }
+    } catch (error: any) {
+      console.error('Error fetching/updating video duration:', error);
+      toast.error('Error fetching duration: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  // Fetch duration using Player.js (client-side, no API key needed)
+  const fetchDurationWithPlayerJs = async (embedUrl: string): Promise<number | null> => {
+    return new Promise((resolve) => {
+      // Wait for Player.js to be available
+      const checkPlayerJs = () => {
+        if (!(window as any).playerjs) {
+          setTimeout(checkPlayerJs, 100);
+          return;
+        }
+
+        try {
+          // Create a temporary hidden iframe to get duration
+          const tempIframe = document.createElement('iframe');
+          tempIframe.src = embedUrl;
+          tempIframe.style.display = 'none';
+          tempIframe.style.width = '1px';
+          tempIframe.style.height = '1px';
+          tempIframe.style.position = 'absolute';
+          tempIframe.style.left = '-9999px';
+          document.body.appendChild(tempIframe);
+
+          const player = new (window as any).playerjs.Player(tempIframe);
+
+          player.on('ready', () => {
+            player.getDuration((duration: number) => {
+              console.log('📹 Duration fetched via Player.js:', duration, 'seconds');
+              // Clean up
+              document.body.removeChild(tempIframe);
+              resolve(duration > 0 ? duration : null);
+            });
+          });
+
+          // Timeout after 10 seconds
+          setTimeout(() => {
+            if (document.body.contains(tempIframe)) {
+              document.body.removeChild(tempIframe);
+            }
+            resolve(null);
+          }, 10000);
+        } catch (error) {
+          console.error('Error using Player.js to get duration:', error);
+          resolve(null);
+        }
+      };
+
+      checkPlayerJs();
+    });
+  };
+
+  const fetchBunnyVideoMetadata = async (embedUrl?: string, videoId?: string) => {
+    if (!embedUrl && !videoId) {
+      return;
+    }
+
+    // First try backend API (requires API key)
+    try {
+      const response = await videoApi.getBunnyVideoMetadata(videoId, embedUrl);
+      
+      if (response.success && response.data) {
+        const { duration, file_size, thumbnail_url } = response.data;
+        
+        // Update selectedVideo with fetched metadata
+        setSelectedVideo(prev => ({
+          ...prev!,
+          duration: duration || prev?.duration || 0,
+          file_size: file_size || prev?.file_size || null,
+          bunny_thumbnail_url: thumbnail_url || prev?.bunny_thumbnail_url || null,
+        }));
+        
+        if (duration) {
+          toast.success(`Video duration extracted: ${Math.floor(duration / 60)}m ${duration % 60}s`);
+        }
+        return; // Success, no need to try Player.js
+      }
+    } catch (error: any) {
+      console.log('Backend API failed, trying Player.js fallback...', error);
+    }
+
+    // If backend API fails (e.g., API key issue), try Player.js (client-side, no API key needed)
+    if (embedUrl) {
+      try {
+        // Convert /play/ URLs to /embed/ URLs for Player.js
+        let playerUrl = embedUrl;
+        if (embedUrl.includes('/play/')) {
+          const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
+          if (playMatch) {
+            const libraryId = playMatch[1];
+            const videoId = playMatch[2];
+            playerUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+          }
+        }
+
+        toast.info('Fetching duration using Player.js...');
+        const duration = await fetchDurationWithPlayerJs(playerUrl);
+        
+        if (duration && duration > 0) {
+          setSelectedVideo(prev => ({
+            ...prev!,
+            duration: Math.floor(duration),
+          }));
+          toast.success(`Video duration extracted via Player.js: ${Math.floor(duration / 60)}m ${duration % 60}s`);
+        } else {
+          toast.warning('Could not fetch duration. Please enter it manually.');
+        }
+      } catch (error: any) {
+        console.error('Error fetching duration with Player.js:', error);
+        toast.warning('Could not fetch duration. Please enter it manually.');
+      }
+    }
+  };
+
   const handleSaveVideo = async () => {
     if (!selectedVideo) return;
 
@@ -750,13 +1163,6 @@ const ContentManagement = () => {
       return;
     }
 
-    // Ensure category_id is set (required by backend)
-    // Get category_id from the selected series
-    if (!selectedVideo.category_id && selectedVideo.series_id) {
-      const selectedSeries = series.find(s => s.id === selectedVideo.series_id);
-      selectedVideo.category_id = selectedSeries?.category_id || null;
-    }
-
     // For Bunny.net-only integration, require at least an embed URL
     if (!selectedVideo.bunny_embed_url?.trim()) {
       toast.error('Bunny.net embed URL is required');
@@ -766,9 +1172,17 @@ const ContentManagement = () => {
     try {
       setIsSubmitting(true);
 
-      // Create payload without series_id (database only has category_id)
-      // series_id is kept in frontend state for UI purposes, but backend expects category_id
-      const { series_id, bunny_video_id, bunny_video_url, bunny_embed_url, bunny_thumbnail_url, ...restVideoData } = selectedVideo;
+      // Create payload with both category_id and series_id (videos belong to both Category and Series)
+      const { bunny_video_id, bunny_video_url, bunny_embed_url, bunny_thumbnail_url, ...restVideoData } = selectedVideo;
+      
+      // Get category_id from the selected series if not already set
+      const categoryId = selectedVideo.category_id || 
+        (selectedVideo.series_id ? series.find(s => s.id === selectedVideo.series_id)?.category_id : null);
+      
+      if (!categoryId) {
+        toast.error(t('admin.content_category_required', 'Category is required for videos.'));
+        return;
+      }
       
       // Build payload with multilingual translations
       const payload: any = {
@@ -777,7 +1191,8 @@ const ContentManagement = () => {
         description: videoMultilingual.description.en,
         short_description: videoMultilingual.short_description.en || null,
         intro_description: videoMultilingual.intro_description.en || null,
-        category_id: selectedVideo.category_id || series_id, // Ensure category_id is always set
+        category_id: categoryId, // Videos belong to Category
+        series_id: selectedVideo.series_id, // Videos belong to Series
         // Include multilingual translations
         translations: {
           title: videoMultilingual.title,
@@ -840,9 +1255,7 @@ const ContentManagement = () => {
     }
 
     try {
-      console.log('Deleting series with ID:', seriesId);
       const response = await seriesApi.delete(seriesId);
-      console.log('Delete response:', response);
       
       if (response.success) {
         setSeries(prev => prev.filter(s => s.id !== seriesId));
@@ -1054,7 +1467,6 @@ const ContentManagement = () => {
           <VideoIcon className="mr-2 h-4 w-4" />
           <span className="hidden sm:inline">{t('admin.content_videos')}</span>
         </Button>
-        
       </div>
 
       {/* Search */}
@@ -1086,20 +1498,20 @@ const ContentManagement = () => {
                     <TableHead className="w-[70px]">{t('admin.content_table_actions', 'Actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody key={`categories-${displayLocale}`}>
                   {filteredCategories && filteredCategories.length > 0 ? filteredCategories.map((category) => (
-                    <TableRow key={category.id}>
+                    <TableRow key={`category-${category.id}-${displayLocale}`}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                            {category.image ? (
-                              <img src={category.image} alt={category.name} className="w-full h-full object-cover rounded-lg" />
+                            {getImageUrl(category.image) ? (
+                              <img src={getImageUrl(category.image)!} alt={getCategoryName(category)} className="w-full h-full object-cover rounded-lg" />
                             ) : (
                               <Folder className="h-6 w-6" />
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{category.name}</div>
+                            <div className="font-medium truncate">{getCategoryName(category)}</div>
                             {category.color && (
                               <div className="flex items-center gap-2 mt-1">
                                 <div 
@@ -1114,7 +1526,7 @@ const ContentManagement = () => {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground line-clamp-2">
-                          {category.description || '-'}
+                          {getCategoryDescription(category) || '-'}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -1166,20 +1578,20 @@ const ContentManagement = () => {
           {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
             {filteredCategories && filteredCategories.length > 0 ? filteredCategories.map((category) => (
-              <Card key={category.id} className="p-4">
+              <Card key={`category-mobile-${category.id}-${displayLocale}`} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1 min-w-0">
                     <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                      {category.image ? (
-                        <img src={category.image} alt={category.name} className="w-full h-full object-cover rounded-lg" />
+                      {getImageUrl(category.image) ? (
+                        <img src={getImageUrl(category.image)!} alt={category.name} className="w-full h-full object-cover rounded-lg" />
                       ) : (
                         <Folder className="h-8 w-8" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{category.name}</h3>
-                      {category.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{category.description}</p>
+                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{getCategoryName(category)}</h3>
+                      {getCategoryDescription(category) && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{getCategoryDescription(category)}</p>
                       )}
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center">
@@ -1243,18 +1655,17 @@ const ContentManagement = () => {
                     <TableHead className="w-[70px]">{t('admin.content_table_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody key={`series-${displayLocale}`}>
                   {filteredSeries && filteredSeries.length > 0 ? filteredSeries.map((serie) => (
-                    <TableRow key={serie.id}>
+                    <TableRow key={`series-${serie.id}-${displayLocale}`}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
                             <Folder className="h-6 w-6" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{serie.name || 'Category'}</div>
-                            <div className="text-sm text-muted-foreground truncate">{serie.title}</div>
-                            <div className="text-sm text-muted-foreground line-clamp-2">{serie.description}</div>
+                            <div className="font-medium truncate">{getSeriesTitle(serie) || 'Category'}</div>
+                            <div className="text-sm text-muted-foreground truncate">{getSeriesDescription(serie)}</div>
                           </div>
                         </div>
                       </TableCell>
@@ -1344,16 +1755,15 @@ const ContentManagement = () => {
           {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
             {filteredSeries && filteredSeries.length > 0 ? filteredSeries.map((serie) => (
-              <Card key={serie.id} className="p-4">
+              <Card key={`series-mobile-${serie.id}-${displayLocale}`} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1 min-w-0">
                     <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
                       <Folder className="h-6 w-6" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{serie.name || 'Category'}</h3>
-                      <p className="text-sm text-muted-foreground mb-1 line-clamp-1">{serie.title}</p>
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{serie.description}</p>
+                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{getSeriesTitle(serie) || 'Category'}</h3>
+                      <p className="text-sm text-muted-foreground mb-1 line-clamp-1">{getSeriesDescription(serie)}</p>
                       
                       <div className="flex flex-wrap gap-2 mb-3">
                         <div className="flex items-center text-sm bg-muted px-2 py-1 rounded">
@@ -1458,27 +1868,41 @@ const ContentManagement = () => {
                     <TableHead className="w-[70px]">{t('admin.content_table_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody key={`videos-${displayLocale}`}>
                   {filteredVideos && filteredVideos.length > 0 ? filteredVideos.map((video) => (
-                    <TableRow key={video.id}>
+                    <TableRow key={`video-${video.id}-${displayLocale}`}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
                             <VideoIcon className="h-6 w-6" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{video.title}</div>
-                            <div className="text-sm text-muted-foreground">{Math.floor((video.duration || 0) / 60)}m</div>
+                            <div className="font-medium truncate">{getVideoTitle(video)}</div>
+                            {video.duration && video.duration > 0 ? (
+                              <div className="text-sm text-muted-foreground">
+                                {Math.floor(video.duration / 60) > 0 
+                                  ? `${Math.floor(video.duration / 60)}m ${video.duration % 60}s`
+                                  : `${video.duration}s`}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-muted-foreground italic">No duration</div>
+                            )}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm truncate block">
-                          {series.find(s => s.id === video.series_id)?.name || series.find(s => s.id === video.series_id)?.title || `Series #${video.series_id}`}
+                          {series.find(s => s.id === video.series_id) ? getSeriesTitle(series.find(s => s.id === video.series_id)!) : `Series #${video.series_id}`}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">{Math.floor((video.duration || 0) / 60)}m</span>
+                        <span className="text-sm">
+                          {video.duration && video.duration > 0 
+                            ? (Math.floor(video.duration / 60) > 0 
+                                ? `${Math.floor(video.duration / 60)}m ${video.duration % 60}s`
+                                : `${video.duration}s`)
+                            : 'N/A'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center text-sm font-medium">
@@ -1505,46 +1929,27 @@ const ContentManagement = () => {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 bg-popover border-border shadow-lg">
-                            <DropdownMenuLabel className="font-semibold px-3 py-2">{t('admin.common_actions')}</DropdownMenuLabel>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>{t('admin.content_actions', 'Actions')}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleEditVideo(video)}
-                              className="px-3 py-2 cursor-pointer"
-                            >
+                            <DropdownMenuItem onClick={() => handleEditVideo(video)}>
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit Episode
+                              {t('admin.content_edit', 'Edit')}
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => window.open(`/video/${video.id}`, '_blank')}
-                              className="px-3 py-2 cursor-pointer"
-                            >
-                              <PlayCircle className="mr-2 h-4 w-4" />
-                              Play Episode
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleToggleVideoStatus(video.id)}
-                              className="px-3 py-2 cursor-pointer"
-                            >
-                              {video.status === 'published' ? (
-                                <>
-                                  <EyeOff className="mr-2 h-4 w-4" />
-                                  Unpublish
-                                </>
-                              ) : (
-                                <>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Publish
-                                </>
-                              )}
-                            </DropdownMenuItem>
+                            {video.bunny_embed_url && (!video.duration || video.duration === 0) && (
+                              <DropdownMenuItem 
+                                onClick={() => fetchAndUpdateVideoDuration(video)}
+                              >
+                                <Clock className="mr-2 h-4 w-4" />
+                                Fetch Duration
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem 
                               onClick={() => handleDeleteVideo(video.id)}
-                              className="text-destructive focus:text-destructive focus:bg-destructive/10 px-3 py-2 cursor-pointer"
+                              className="text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Episode
+                              {t('admin.content_delete', 'Delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1565,22 +1970,26 @@ const ContentManagement = () => {
           {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
             {filteredVideos && filteredVideos.length > 0 ? filteredVideos.map((video) => (
-              <Card key={video.id} className="p-4">
+              <Card key={`video-mobile-${video.id}-${displayLocale}`} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1 min-w-0">
                     <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
                       <VideoIcon className="h-6 w-6" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{video.title}</h3>
+                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{getVideoTitle(video)}</h3>
                       <p className="text-sm text-muted-foreground mb-3">
-                        Series: {series.find(s => s.id === video.series_id)?.name || series.find(s => s.id === video.series_id)?.title || `Series #${video.series_id}`}
+                        Series: {series.find(s => s.id === video.series_id) ? getSeriesTitle(series.find(s => s.id === video.series_id)!) : `Series #${video.series_id}`}
                       </p>
                       
                       <div className="flex flex-wrap gap-2 mb-3">
                         <div className="flex items-center text-sm bg-muted px-2 py-1 rounded">
                           <Clock className="h-3 w-3 mr-1" />
-                          {Math.floor((video.duration || 0) / 60)}m
+                          {video.duration && video.duration > 0 
+                            ? (Math.floor(video.duration / 60) > 0 
+                                ? `${Math.floor(video.duration / 60)}m ${video.duration % 60}s`
+                                : `${video.duration}s`)
+                            : 'N/A'}
                         </div>
                         <div className="flex items-center text-sm bg-muted px-2 py-1 rounded">
                           <TrendingUp className="h-3 w-3 mr-1" />
@@ -1603,46 +2012,19 @@ const ContentManagement = () => {
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 bg-popover border-border shadow-lg">
-                      <DropdownMenuLabel className="font-semibold px-3 py-2">Actions</DropdownMenuLabel>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>{t('admin.content_actions', 'Actions')}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleEditVideo(video)}
-                        className="px-3 py-2 cursor-pointer"
-                      >
+                      <DropdownMenuItem onClick={() => handleEditVideo(video)}>
                         <Edit className="mr-2 h-4 w-4" />
-                        Edit Episode
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => window.open(`/video/${video.id}`, '_blank')}
-                        className="px-3 py-2 cursor-pointer"
-                      >
-                        <PlayCircle className="mr-2 h-4 w-4" />
-                        Play Episode
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleToggleVideoStatus(video.id)}
-                        className="px-3 py-2 cursor-pointer"
-                      >
-                        {video.status === 'published' ? (
-                          <>
-                            <EyeOff className="mr-2 h-4 w-4" />
-                            Unpublish
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Publish
-                          </>
-                        )}
+                        {t('admin.content_edit', 'Edit')}
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDeleteVideo(video.id)}
-                        className="text-destructive focus:text-destructive focus:bg-destructive/10 px-3 py-2 cursor-pointer"
+                        className="text-destructive"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete Episode
+                        {t('admin.content_delete', 'Delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1716,6 +2098,11 @@ const ContentManagement = () => {
         setIsCategoryDialogOpen(open);
         if (!open) {
           setSelectedCategory(null);
+          // Reset multilingual data when closing
+          setCategoryMultilingual({
+            name: { en: '', es: '', pt: '' },
+            description: { en: '', es: '', pt: '' },
+          });
         }
       }}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -1727,31 +2114,44 @@ const ContentManagement = () => {
           </DialogHeader>
           {selectedCategory && (
             <div className="grid gap-4 py-4">
-              {/* Name */}
+              {/* Language Tabs */}
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+                className="mb-4"
+              />
+              
+              {/* Name - Multilingual */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="categoryName" className="text-right">
                   {t('admin.content_label_name', 'Name')} <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="categoryName"
-                  value={selectedCategory.name || ''}
-                  onChange={(e) => setSelectedCategory({...selectedCategory, name: e.target.value})}
+                  value={categoryMultilingual.name[contentLocale]}
+                  onChange={(e) => setCategoryMultilingual({
+                    ...categoryMultilingual,
+                    name: { ...categoryMultilingual.name, [contentLocale]: e.target.value }
+                  })}
                   className="col-span-3"
-                  placeholder={t('admin.content_category_name_placeholder', 'Enter category name')}
+                  placeholder={`Enter category name in ${contentLocale.toUpperCase()}`}
                 />
               </div>
               
-              {/* Description */}
+              {/* Description - Multilingual */}
               <div className="grid grid-cols-4 items-start gap-4">
                 <Label htmlFor="categoryDescription" className="text-right pt-2">
                   {t('admin.content_label_description', 'Description')}
                 </Label>
                 <Textarea
                   id="categoryDescription"
-                  value={selectedCategory.description || ''}
-                  onChange={(e) => setSelectedCategory({...selectedCategory, description: e.target.value})}
+                  value={categoryMultilingual.description[contentLocale]}
+                  onChange={(e) => setCategoryMultilingual({
+                    ...categoryMultilingual,
+                    description: { ...categoryMultilingual.description, [contentLocale]: e.target.value }
+                  })}
                   className="col-span-3"
-                  placeholder={t('admin.content_category_description_placeholder', 'Enter category description')}
+                  placeholder={`Enter category description in ${contentLocale.toUpperCase()}`}
                   rows={4}
                 />
               </div>
@@ -1810,11 +2210,11 @@ const ContentManagement = () => {
                       }
                     }}
                     label={t('admin.content_upload_image', 'Upload Image')}
-                    currentFile={typeof selectedCategory.image === 'string' ? selectedCategory.image : null}
+                    currentFile={typeof selectedCategory.image === 'string' ? getImageUrl(selectedCategory.image) : null}
                   />
-                  {selectedCategory.image && typeof selectedCategory.image === 'string' && (
+                  {selectedCategory.image && typeof selectedCategory.image === 'string' && getImageUrl(selectedCategory.image) && (
                     <div className="mt-2">
-                      <img src={selectedCategory.image} alt={selectedCategory.name} className="w-32 h-32 object-cover rounded-lg" />
+                      <img src={getImageUrl(selectedCategory.image)!} alt={selectedCategory.name} className="w-32 h-32 object-cover rounded-lg" />
                     </div>
                   )}
                 </div>
@@ -1948,7 +2348,7 @@ const ContentManagement = () => {
                     ) : (
                       categories.map((category) => (
                         <SelectItem key={category.id} value={category.id.toString()} className="focus:bg-accent">
-                          {category.name}
+                          {getCategoryName(category)}
                         </SelectItem>
                       ))
                     )}
@@ -2175,18 +2575,6 @@ const ContentManagement = () => {
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="introDescription" className="text-right">
-                  Intro Description
-                </Label>
-                <Textarea
-                  id="introDescription"
-                  value={selectedVideo.intro_description || ''}
-                  onChange={(e) => setSelectedVideo({...selectedVideo, intro_description: e.target.value})}
-                  className="col-span-3"
-                  placeholder={t('admin.content_placeholder_intro')}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="bunnyEmbedUrl" className="text-right">
                   Bunny Embed URL
                 </Label>
@@ -2194,10 +2582,17 @@ const ContentManagement = () => {
                   <Input
                     id="bunnyEmbedUrl"
                     value={selectedVideo.bunny_embed_url || ''}
-                    onChange={(e) => setSelectedVideo({
-                      ...selectedVideo,
-                      bunny_embed_url: e.target.value,
-                    })}
+                    onChange={(e) => {
+                      setSelectedVideo({
+                        ...selectedVideo,
+                        bunny_embed_url: e.target.value,
+                      });
+                    }}
+                    onBlur={() => {
+                      if (selectedVideo.bunny_embed_url || selectedVideo.bunny_video_id) {
+                        fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
+                      }
+                    }}
                     placeholder="https://iframe.mediadelivery.net/embed/{library}/{video}"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -2209,16 +2604,30 @@ const ContentManagement = () => {
                 <Label htmlFor="bunnyVideoId" className="text-right">
                   Bunny Video ID (optional)
                 </Label>
-                <Input
-                  id="bunnyVideoId"
-                  value={selectedVideo.bunny_video_id || ''}
-                  onChange={(e) => setSelectedVideo({
-                    ...selectedVideo,
-                    bunny_video_id: e.target.value,
-                  })}
-                  className="col-span-3"
-                  placeholder="Video GUID from Bunny (optional)"
-                />
+                  <Input
+                    id="bunnyVideoId"
+                    value={selectedVideo.bunny_video_id || ''}
+                    onChange={(e) => {
+                      const videoId = e.target.value;
+                      setSelectedVideo({
+                        ...selectedVideo,
+                        bunny_video_id: videoId,
+                      });
+                      // Fetch metadata if video ID is provided
+                      if (videoId) {
+                        setTimeout(() => {
+                          fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, videoId);
+                        }, 1000);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (selectedVideo.bunny_video_id || selectedVideo.bunny_embed_url) {
+                        fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
+                      }
+                    }}
+                    className="col-span-3"
+                    placeholder="Video GUID from Bunny (optional)"
+                  />
               </div>
               {/* Duration input removed — duration is now auto-calculated on backend */}
               <div className="grid grid-cols-4 items-center gap-4">
@@ -2251,7 +2660,7 @@ const ContentManagement = () => {
                     setSelectedVideo({
                       ...selectedVideo,
                       series_id: seriesId,
-                      category_id: selectedSeries?.id || selectedSeries?.category_id || seriesId
+                      category_id: selectedSeries?.category_id || null // Update category_id from selected series
                     });
                   }}
                 >
@@ -2267,9 +2676,9 @@ const ContentManagement = () => {
                       series.map((serie) => (
                         <SelectItem key={serie.id} value={serie.id.toString()} className="focus:bg-accent">
                           <div className="flex flex-col">
-                            <span className="font-medium">{serie.title || serie.name}</span>
-                            {serie.description && (
-                              <span className="text-sm text-muted-foreground line-clamp-1">{serie.description}</span>
+                            <span className="font-medium">{getSeriesTitle(serie)}</span>
+                            {getSeriesDescription(serie) && (
+                              <span className="text-sm text-muted-foreground line-clamp-1">{getSeriesDescription(serie)}</span>
                             )}
                           </div>
                         </SelectItem>

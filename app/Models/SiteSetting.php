@@ -32,15 +32,34 @@ class SiteSetting extends Model
     {
         // Define which setting keys are translatable (text content)
         $translatableKeys = [
+            'hero_badge',
             'hero_title',
             'hero_subtitle',
+            'hero_description',
             'hero_cta_text',
             'hero_cta_button_text',
             'hero_disclaimer',
+            'hero_stat_1_value',
+            'hero_stat_1_label',
+            'hero_stat_2_value',
+            'hero_stat_2_label',
+            'hero_stat_3_value',
+            'hero_stat_3_label',
+            'hero_stat_4_value',
+            'hero_stat_4_label',
             'about_title',
             'about_description',
+            'about_text_1',
+            'about_text_2',
+            'about_text_3',
             'testimonial_title',
             'testimonial_subtitle',
+            'site_name',
+            'site_tagline',
+            'footer_copyright',
+            'footer_description',
+            'footer_address',
+            'contact_address',
         ];
 
         // Only return 'value' as translatable if this setting's key is in the list
@@ -66,15 +85,34 @@ class SiteSetting extends Model
         
         // Get translated value if locale is not English and field is translatable
         $translatableKeys = [
+            'hero_badge',
             'hero_title',
             'hero_subtitle',
+            'hero_description',
             'hero_cta_text',
             'hero_cta_button_text',
             'hero_disclaimer',
+            'hero_stat_1_value',
+            'hero_stat_1_label',
+            'hero_stat_2_value',
+            'hero_stat_2_label',
+            'hero_stat_3_value',
+            'hero_stat_3_label',
+            'hero_stat_4_value',
+            'hero_stat_4_label',
             'about_title',
             'about_description',
+            'about_text_1',
+            'about_text_2',
+            'about_text_3',
             'testimonial_title',
             'testimonial_subtitle',
+            'site_name',
+            'site_tagline',
+            'footer_copyright',
+            'footer_description',
+            'footer_address',
+            'contact_address',
         ];
         
         $rawValue = $setting->value;
@@ -123,15 +161,34 @@ class SiteSetting extends Model
         // If locale is English or setting is not translatable, save to main value field
         // Otherwise, save as translation
         $translatableKeys = [
+            'hero_badge',
             'hero_title',
             'hero_subtitle',
+            'hero_description',
             'hero_cta_text',
             'hero_cta_button_text',
             'hero_disclaimer',
+            'hero_stat_1_value',
+            'hero_stat_1_label',
+            'hero_stat_2_value',
+            'hero_stat_2_label',
+            'hero_stat_3_value',
+            'hero_stat_3_label',
+            'hero_stat_4_value',
+            'hero_stat_4_label',
             'about_title',
             'about_description',
+            'about_text_1',
+            'about_text_2',
+            'about_text_3',
             'testimonial_title',
             'testimonial_subtitle',
+            'site_name',
+            'site_tagline',
+            'footer_copyright',
+            'footer_description',
+            'footer_address',
+            'contact_address',
         ];
 
         if ($locale === 'en' || !in_array($key, $translatableKeys)) {
@@ -170,15 +227,34 @@ class SiteSetting extends Model
         // Apply locale to each setting
         foreach ($settings as $setting) {
             $translatableKeys = [
+                'hero_badge',
                 'hero_title',
                 'hero_subtitle',
+                'hero_description',
                 'hero_cta_text',
                 'hero_cta_button_text',
                 'hero_disclaimer',
+                'hero_stat_1_value',
+                'hero_stat_1_label',
+                'hero_stat_2_value',
+                'hero_stat_2_label',
+                'hero_stat_3_value',
+                'hero_stat_3_label',
+                'hero_stat_4_value',
+                'hero_stat_4_label',
                 'about_title',
                 'about_description',
+                'about_text_1',
+                'about_text_2',
+                'about_text_3',
                 'testimonial_title',
                 'testimonial_subtitle',
+                'site_name',
+                'site_tagline',
+                'footer_copyright',
+                'footer_description',
+                'footer_address',
+                'contact_address',
             ];
             
             if ($locale !== 'en' && in_array($setting->key, $translatableKeys)) {
@@ -206,15 +282,34 @@ class SiteSetting extends Model
         // Apply locale to each setting
         foreach ($settings as $setting) {
             $translatableKeys = [
+                'hero_badge',
                 'hero_title',
                 'hero_subtitle',
+                'hero_description',
                 'hero_cta_text',
                 'hero_cta_button_text',
                 'hero_disclaimer',
+                'hero_stat_1_value',
+                'hero_stat_1_label',
+                'hero_stat_2_value',
+                'hero_stat_2_label',
+                'hero_stat_3_value',
+                'hero_stat_3_label',
+                'hero_stat_4_value',
+                'hero_stat_4_label',
                 'about_title',
                 'about_description',
+                'about_text_1',
+                'about_text_2',
+                'about_text_3',
                 'testimonial_title',
                 'testimonial_subtitle',
+                'site_name',
+                'site_tagline',
+                'footer_copyright',
+                'footer_description',
+                'footer_address',
+                'contact_address',
             ];
             
             if ($locale !== 'en' && in_array($setting->key, $translatableKeys)) {
@@ -236,15 +331,34 @@ class SiteSetting extends Model
         $locale = $locale ?? app()->getLocale();
         
         $translatableKeys = [
+            'hero_badge',
             'hero_title',
             'hero_subtitle',
+            'hero_description',
             'hero_cta_text',
             'hero_cta_button_text',
             'hero_disclaimer',
+            'hero_stat_1_value',
+            'hero_stat_1_label',
+            'hero_stat_2_value',
+            'hero_stat_2_label',
+            'hero_stat_3_value',
+            'hero_stat_3_label',
+            'hero_stat_4_value',
+            'hero_stat_4_label',
             'about_title',
             'about_description',
+            'about_text_1',
+            'about_text_2',
+            'about_text_3',
             'testimonial_title',
             'testimonial_subtitle',
+            'site_name',
+            'site_tagline',
+            'footer_copyright',
+            'footer_description',
+            'footer_address',
+            'contact_address',
         ];
         
         if ($locale === 'en' || !in_array($this->key, $translatableKeys)) {

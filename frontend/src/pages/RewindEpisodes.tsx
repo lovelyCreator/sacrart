@@ -6,6 +6,13 @@ import { useLocale } from '@/hooks/useLocale';
 import { Play, Pause, SkipForward, SkipBack, Volume2, Maximize, MoreVertical, RotateCcw, Plus, ThumbsUp, ThumbsDown, ListOrdered, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Transcription segment interface
+interface TranscriptionSegment {
+  time: string;
+  text: string;
+  isActive?: boolean;
+}
+
 const RewindEpisodes = () => {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation();
@@ -17,6 +24,17 @@ const RewindEpisodes = () => {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [activeTab, setActiveTab] = useState<'episodios' | 'transcripcion'>('episodios');
+
+  // Sample transcription data
+  const [transcription] = useState<TranscriptionSegment[]>([
+    { time: '04:15', text: 'Para el dorado, es fundamental la temperatura. La madera respira, se expande y contrae con el calor del taller.', isActive: false },
+    { time: '04:20', text: 'Así que vamos a calentarla al baño maría. Es un proceso delicado, casi alquímico, donde el material cambia de estado ante nuestros ojos.', isActive: true },
+    { time: '04:25', text: 'Si hierve, perderá su fuerza adhesiva. Se volverá quebradiza y el oro no se fijará como debe sobre la superficie preparada.', isActive: false },
+    { time: '04:32', text: 'Observad la consistencia. Debe fluir como miel caliente, ni muy líquida ni muy espesa. Es el punto exacto que buscamos.', isActive: false },
+    { time: '04:45', text: 'Aplicamos la primera capa con suavidad. El pincel apenas roza la madera, depositando la mezcla en los poros abiertos.', isActive: false },
+    { time: '05:10', text: 'El silencio es necesario aquí. Cualquier distracción podría arruinar horas de preparación. La concentración debe ser absoluta.', isActive: false },
+  ]);
 
   // Helper to get image URL
   const getImageUrl = (src: string | null | undefined): string => {
@@ -1215,59 +1233,117 @@ const RewindEpisodes = () => {
           </div>
         </div>
 
-          {/* Episodes List - Always visible */}
-          <div className="space-y-4">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-serif font-bold text-white tracking-widest flex items-center gap-3">
-              <ListOrdered className="h-5 w-5 text-[#A05245]" />
-              {t('rewind.episodes_list', 'Lista de Episodios')}
-            </h3>
-            <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">
-              {videos.length} {t('rewind.chapters', 'Capítulos')}
-            </span>
+          {/* Tabs */}
+          <div className="mb-8 border-b border-white/10 flex items-center gap-8">
+            <button
+              onClick={() => setActiveTab('episodios')}
+              className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors ${
+                activeTab === 'episodios'
+                  ? 'text-white border-b-2 border-[#A05245]'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {t('rewind.episodes', 'Episodios')}
+            </button>
+            <button
+              onClick={() => setActiveTab('transcripcion')}
+              className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors ${
+                activeTab === 'transcripcion'
+                  ? 'text-white border-b-2 border-[#A05245]'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {t('rewind.transcription', 'Transcripción')}
+            </button>
           </div>
-          <div className="flex flex-col border-t border-white/5">
-            {videos.map((video, index) => {
-              const isActive = index === currentVideoIndex;
-              const isLocked = video.status !== 'published';
-              
-              return (
-                <div
-                  key={video.id}
-                  onClick={() => !isLocked && handleVideoClick(video, index)}
-                  className={`group flex justify-between items-center py-4 border-b ${
-                    isActive ? 'border-white/10 text-[#A05245]' : 'border-white/5 text-gray-300 hover:text-white'
-                  } cursor-pointer hover:bg-white/5 px-4 -mx-4 rounded-lg transition-colors duration-200 ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
-                >
-                  <div className={`flex items-center gap-4 ${isActive ? 'font-semibold' : 'font-medium'} text-lg font-display`}>
-                    {isActive ? (
-                      <Play className="h-5 w-5 animate-pulse fill-current" />
-                    ) : (
-                      <span className="w-6 text-center text-sm font-sans text-gray-500 group-hover:text-[#A05245] transition-colors">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto relative">
+            {activeTab === 'transcripcion' ? (
+              <div className="py-6 space-y-8 max-w-3xl">
+                {transcription.map((segment, index) => (
+                  <div
+                    key={index}
+                    className={`group flex gap-6 ${
+                      segment.isActive
+                        ? 'relative'
+                        : 'opacity-50 hover:opacity-80 transition-opacity cursor-pointer'
+                    }`}
+                  >
+                    {segment.isActive && (
+                      <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r"></div>
                     )}
-                    <span className={isActive ? '' : 'group-hover:translate-x-1 transition-transform duration-200'}>
-                      {isActive ? `${String(index + 1).padStart(2, '0')}. ${video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}` : video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}
+                    <span className={`font-mono text-xs pt-1 ${
+                      segment.isActive ? 'text-white font-bold' : 'text-gray-500'
+                    }`}>
+                      {segment.time}
                     </span>
-                    {isLocked && (
-                      <span className="text-xs uppercase tracking-wider font-sans border border-gray-700 rounded px-1.5 py-0.5">
-                        {t('rewind.coming_soon', 'Próximamente')}
-                      </span>
-                    )}
+                    <p className={`leading-relaxed ${
+                      segment.isActive
+                        ? 'text-lg text-white font-normal'
+                        : 'text-base text-gray-300 font-light'
+                    }`}>
+                      {segment.text}
+                    </p>
                   </div>
-                  {isLocked ? (
-                    <Lock className="h-4 w-4 text-gray-600" />
-                  ) : (
-                    <span className={`font-mono text-sm ${isActive ? 'opacity-100 font-medium' : 'text-gray-500 group-hover:text-gray-300'} transition-colors`}>
-                      {formatDuration(video.duration)}
-                    </span>
-                  )}
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-serif font-bold text-white tracking-widest flex items-center gap-3">
+                    <ListOrdered className="h-5 w-5 text-[#A05245]" />
+                    {t('rewind.episodes_list', 'Lista de Episodios')}
+                  </h3>
+                  <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">
+                    {videos.length} {t('rewind.chapters', 'Capítulos')}
+                  </span>
                 </div>
-              );
-            })}
+                <div className="flex flex-col border-t border-white/5">
+                  {videos.map((video, index) => {
+                    const isActive = index === currentVideoIndex;
+                    const isLocked = video.status !== 'published';
+                    
+                    return (
+                      <div
+                        key={video.id}
+                        onClick={() => !isLocked && handleVideoClick(video, index)}
+                        className={`group flex justify-between items-center py-4 border-b ${
+                          isActive ? 'border-white/10 text-[#A05245]' : 'border-white/5 text-gray-300 hover:text-white'
+                        } cursor-pointer hover:bg-white/5 px-4 -mx-4 rounded-lg transition-colors duration-200 ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      >
+                        <div className={`flex items-center gap-4 ${isActive ? 'font-semibold' : 'font-medium'} text-lg font-display`}>
+                          {isActive ? (
+                            <Play className="h-5 w-5 animate-pulse fill-current" />
+                          ) : (
+                            <span className="w-6 text-center text-sm font-sans text-gray-500 group-hover:text-[#A05245] transition-colors">
+                              {String(index + 1).padStart(2, '0')}
+                            </span>
+                          )}
+                          <span className={isActive ? '' : 'group-hover:translate-x-1 transition-transform duration-200'}>
+                            {isActive ? `${String(index + 1).padStart(2, '0')}. ${video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}` : video.title || `${t('rewind.episode', 'Episodio')} ${index + 1}`}
+                          </span>
+                          {isLocked && (
+                            <span className="text-xs uppercase tracking-wider font-sans border border-gray-700 rounded px-1.5 py-0.5">
+                              {t('rewind.coming_soon', 'Próximamente')}
+                            </span>
+                          )}
+                        </div>
+                        {isLocked ? (
+                          <Lock className="h-4 w-4 text-gray-600" />
+                        ) : (
+                          <span className={`font-mono text-sm ${isActive ? 'opacity-100 font-medium' : 'text-gray-500 group-hover:text-gray-300'} transition-colors`}>
+                            {formatDuration(video.duration)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="sticky bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#0A0A0A] to-transparent pointer-events-none"></div>
           </div>
-        </div>
         </div>
       </div>
     </main>

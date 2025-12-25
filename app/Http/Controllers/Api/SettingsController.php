@@ -111,6 +111,7 @@ class SettingsController extends Controller
             'settings.*.label' => 'nullable|string|max:255',
             'settings.*.description' => 'nullable|string',
             'settings.*.locale' => 'nullable|in:en,es,pt', // Allow specifying locale for translations
+            'settings.*.translations' => 'nullable|array', // Allow translations object {en, es, pt}
         ]);
 
         if ($validator->fails()) {
@@ -121,18 +122,67 @@ class SettingsController extends Controller
             $updatedSettings = [];
             
             foreach ($request->settings as $settingData) {
-                $locale = $settingData['locale'] ?? app()->getLocale();
-                
-                $setting = SiteSetting::setValue(
-                    $settingData['key'],
-                    $settingData['value'],
-                    $settingData['type'] ?? 'text',
-                    $settingData['group'] ?? 'general',
-                    $settingData['label'] ?? null,
-                    $settingData['description'] ?? null,
-                    $locale
-                );
-                $updatedSettings[] = $setting;
+                // If translations object is provided, save all translations
+                if (isset($settingData['translations']) && is_array($settingData['translations'])) {
+                    $translations = $settingData['translations'];
+                    
+                    // Save English first (base value)
+                    if (isset($translations['en'])) {
+                        $setting = SiteSetting::setValue(
+                            $settingData['key'],
+                            $translations['en'],
+                            $settingData['type'] ?? 'text',
+                            $settingData['group'] ?? 'general',
+                            $settingData['label'] ?? null,
+                            $settingData['description'] ?? null,
+                            'en'
+                        );
+                    }
+                    
+                    // Save Spanish translation
+                    if (isset($translations['es']) && isset($setting)) {
+                        SiteSetting::setValue(
+                            $settingData['key'],
+                            $translations['es'],
+                            $settingData['type'] ?? 'text',
+                            $settingData['group'] ?? 'general',
+                            $settingData['label'] ?? null,
+                            $settingData['description'] ?? null,
+                            'es'
+                        );
+                    }
+                    
+                    // Save Portuguese translation
+                    if (isset($translations['pt']) && isset($setting)) {
+                        SiteSetting::setValue(
+                            $settingData['key'],
+                            $translations['pt'],
+                            $settingData['type'] ?? 'text',
+                            $settingData['group'] ?? 'general',
+                            $settingData['label'] ?? null,
+                            $settingData['description'] ?? null,
+                            'pt'
+                        );
+                    }
+                    
+                    if (isset($setting)) {
+                        $updatedSettings[] = $setting;
+                    }
+                } else {
+                    // Single locale update (backward compatibility)
+                    $locale = $settingData['locale'] ?? app()->getLocale();
+                    
+                    $setting = SiteSetting::setValue(
+                        $settingData['key'],
+                        $settingData['value'],
+                        $settingData['type'] ?? 'text',
+                        $settingData['group'] ?? 'general',
+                        $settingData['label'] ?? null,
+                        $settingData['description'] ?? null,
+                        $locale
+                    );
+                    $updatedSettings[] = $setting;
+                }
             }
 
             return response()->json(['success' => true, 'data' => $updatedSettings, 'message' => 'Settings updated successfully.']);

@@ -446,7 +446,7 @@ const DirectosArchive = () => {
   };
 
   const VideoCard = ({ video, isArchive = false, showProgress = false }: { video: Video; isArchive?: boolean; showProgress?: boolean }) => {
-    const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || '');
+    const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
     const progress = Math.random() * 100; // Sample progress, replace with real data
     
     return (
@@ -528,7 +528,7 @@ const DirectosArchive = () => {
   };
 
   const TalksVideoCard = ({ video }: { video: Video }) => {
-    const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || '');
+    const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
     const progress = Math.random() * 100;
     
     return (
@@ -580,7 +580,7 @@ const DirectosArchive = () => {
     );
   }
 
-  const latestThumbnail = latestVideo ? getImageUrl(latestVideo.thumbnail_url || latestVideo.intro_image_url || '') : '';
+  const latestThumbnail = latestVideo ? getImageUrl(latestVideo.intro_image_url || latestVideo.intro_image || latestVideo.thumbnail_url || latestVideo.thumbnail || '') : '';
 
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased">

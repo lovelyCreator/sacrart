@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Check if columns already exist (from migration 2025_10_12_040705)
+        if (Schema::hasColumn('videos', 'bunny_video_id')) {
+            // Columns already exist, skip this migration
+            return;
+        }
+
         Schema::table('videos', function (Blueprint $table) {
             // Add Bunny.net specific fields
             $table->string('bunny_video_id')->nullable()->after('video_file_path');

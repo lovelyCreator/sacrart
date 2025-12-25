@@ -6,22 +6,31 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 use App\Models\VideoComment;
-use App\Traits\HasTranslations;
 use Illuminate\Support\Str;
 
 class Video extends Model
 {
-    use HasFactory, HasTranslations;
+    use HasFactory;
 
     protected $fillable = [
         'title',
+        'title_en',
+        'title_es',
+        'title_pt',
         'slug',
         'description',
+        'description_en',
+        'description_es',
+        'description_pt',
         'short_description',
-        'category_id',
-        'series_id', // Legacy support - kept for backward compatibility but maps to category_id
+        'short_description_en',
+        'short_description_es',
+        'short_description_pt',
+        'category_id', // Videos belong to Category (for direct access)
+        'series_id', // Videos belong to Series (Series belong to Category)
         'instructor_id',
         'video_url',
         'video_file_path',
@@ -33,6 +42,13 @@ class Video extends Model
         'thumbnail',
         'intro_image',
         'intro_description',
+        'intro_description_en',
+        'intro_description_es',
+        'intro_description_pt',
+        'transcription',
+        'transcription_en',
+        'transcription_es',
+        'transcription_pt',
         'duration',
         'file_size',
         'video_format',
@@ -85,7 +101,7 @@ class Video extends Model
         'price' => 'decimal:2',
     ];
 
-    protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'series_id', 'bunny_player_url'];
+    protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'bunny_player_url'];
 
     /**
      * Get the route key for the model.
@@ -115,25 +131,22 @@ class Video extends Model
         });
 
         static::saved(function ($video) {
-            // Update category statistics when video is saved (series table no longer exists)
-            if ($video->category) {
-                // Category doesn't have updateStatistics method, so we'll skip this for now
-                // Or implement category statistics update if needed
+            // Update series statistics when video is saved
+            if ($video->series) {
+                $video->series->updateStatistics();
             }
         });
 
         static::deleted(function ($video) {
-            // Update category statistics when video is deleted (series table no longer exists)
-            if ($video->category) {
-                // Category doesn't have updateStatistics method, so we'll skip this for now
-                // Or implement category statistics update if needed
+            // Update series statistics when video is deleted
+            if ($video->series) {
+                $video->series->updateStatistics();
             }
         });
     }
 
     /**
      * Get the category that owns the video.
-     * Note: After refactor, videos have category_id directly (not through series).
      */
     public function category(): BelongsTo
     {
@@ -141,14 +154,11 @@ class Video extends Model
     }
 
     /**
-     * Get the series that owns the video (legacy support).
-     * Note: This is kept for backward compatibility but maps to category.
-     * The series table no longer exists after refactor.
+     * Get the series that owns the video.
      */
     public function series(): BelongsTo
     {
-        // Map to category for backward compatibility
-        return $this->belongsTo(Category::class, 'category_id');
+        return $this->belongsTo(Series::class);
     }
 
     /**
@@ -245,14 +255,6 @@ class Video extends Model
         return null;
     }
 
-    /**
-     * Get series_id attribute (legacy support - maps to category_id).
-     * This is kept for backward compatibility with frontend code.
-     */
-    public function getSeriesIdAttribute()
-    {
-        return $this->category_id;
-    }
 
     /**
      * Scope a query to only include published videos.
@@ -287,11 +289,11 @@ class Video extends Model
     }
 
     /**
-     * Scope a query to only include videos in a category (legacy: was series).
+     * Scope a query to only include videos in a series.
      */
-    public function scopeInSeries($query, int $categoryId)
+    public function scopeInSeries($query, int $seriesId)
     {
-        return $query->where('category_id', $categoryId);
+        return $query->where('series_id', $seriesId);
     }
 
     /**
@@ -363,18 +365,18 @@ class Video extends Model
     {
         $this->increment('views');
         
-        // Also increment category views (series table no longer exists)
-        if ($this->category) {
-            $this->category->increment('total_views');
+        // Also increment series views
+        if ($this->series) {
+            $this->series->increment('total_views');
         }
     }
 
     /**
-     * Get next video in category.
+     * Get next video in series.
      */
     public function getNextVideo()
     {
-        return $this->category->videos()
+        return $this->series->videos()
             ->where('status', 'published')
             ->where('sort_order', '>', $this->sort_order)
             ->orderBy('sort_order')
@@ -382,23 +384,15 @@ class Video extends Model
     }
 
     /**
-     * Get previous video in category.
+     * Get previous video in series.
      */
     public function getPreviousVideo()
     {
-        return $this->category->videos()
+        return $this->series->videos()
             ->where('status', 'published')
             ->where('sort_order', '<', $this->sort_order)
             ->orderBy('sort_order', 'desc')
             ->first();
-    }
-
-    /**
-     * Get translatable fields for this model
-     */
-    protected function getTranslatableFields(): array
-    {
-        return ['title', 'description', 'short_description', 'intro_description', 'meta_title', 'meta_description'];
     }
 
     /**
@@ -407,13 +401,17 @@ class Video extends Model
     public function getTitleAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['title_es'] ?? $this->attributes['title_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['title_pt'] ?? $this->attributes['title_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['title_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['title'] ?? $value;
-        $translation = $this->getTranslation('title', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
@@ -422,13 +420,17 @@ class Video extends Model
     public function getDescriptionAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['description_es'] ?? $this->attributes['description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['description_pt'] ?? $this->attributes['description_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['description_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['description'] ?? $value;
-        $translation = $this->getTranslation('description', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
@@ -437,13 +439,17 @@ class Video extends Model
     public function getShortDescriptionAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['short_description_es'] ?? $this->attributes['short_description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['short_description_pt'] ?? $this->attributes['short_description_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['short_description_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['short_description'] ?? $value;
-        $translation = $this->getTranslation('short_description', $locale);
-        return $translation ?: $rawValue;
     }
 
     /**
@@ -452,42 +458,65 @@ class Video extends Model
     public function getIntroDescriptionAttribute($value): ?string
     {
         $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
+        
+        // Return the appropriate column based on locale
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['intro_description_es'] ?? $this->attributes['intro_description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['intro_description_pt'] ?? $this->attributes['intro_description_en'] ?? $value;
+            case 'en':
+            default:
+                return $this->attributes['intro_description_en'] ?? $value;
         }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['intro_description'] ?? $value;
-        $translation = $this->getTranslation('intro_description', $locale);
-        return $translation ?: $rawValue;
+    }
+
+    /**
+     * Get all translations in structured format
+     */
+    public function getAllTranslations(): array
+    {
+        return [
+            'title' => [
+                'en' => $this->attributes['title_en'] ?? $this->attributes['title'] ?? '',
+                'es' => $this->attributes['title_es'] ?? '',
+                'pt' => $this->attributes['title_pt'] ?? '',
+            ],
+            'description' => [
+                'en' => $this->attributes['description_en'] ?? $this->attributes['description'] ?? '',
+                'es' => $this->attributes['description_es'] ?? '',
+                'pt' => $this->attributes['description_pt'] ?? '',
+            ],
+            'short_description' => [
+                'en' => $this->attributes['short_description_en'] ?? $this->attributes['short_description'] ?? '',
+                'es' => $this->attributes['short_description_es'] ?? '',
+                'pt' => $this->attributes['short_description_pt'] ?? '',
+            ],
+            'intro_description' => [
+                'en' => $this->attributes['intro_description_en'] ?? $this->attributes['intro_description'] ?? '',
+                'es' => $this->attributes['intro_description_es'] ?? '',
+                'pt' => $this->attributes['intro_description_pt'] ?? '',
+            ],
+        ];
     }
 
     /**
      * Get meta_title in current locale
+     * Note: meta_title doesn't have multilingual columns, so return the value as-is
      */
     public function getMetaTitleAttribute($value): ?string
     {
-        $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
-        }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['meta_title'] ?? $value;
-        $translation = $this->getTranslation('meta_title', $locale);
-        return $translation ?: $rawValue;
+        // meta_title doesn't have multilingual columns, return as-is
+        return $value;
     }
 
     /**
      * Get meta_description in current locale
+     * Note: meta_description doesn't have multilingual columns, so return the value as-is
      */
     public function getMetaDescriptionAttribute($value): ?string
     {
-        $locale = app()->getLocale();
-        if ($locale === 'en') {
-            return $value;
-        }
-        // Use raw attribute to avoid recursion
-        $rawValue = $this->attributes['meta_description'] ?? $value;
-        $translation = $this->getTranslation('meta_description', $locale);
-        return $translation ?: $rawValue;
+        // meta_description doesn't have multilingual columns, return as-is
+        return $value;
     }
 }

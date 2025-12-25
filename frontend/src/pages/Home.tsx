@@ -368,11 +368,11 @@ const Home = () => {
     }
     // If it starts with /storage or /, construct full URL
     if (src.startsWith('/storage/') || src.startsWith('/')) {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
       return `${API_BASE_URL.replace('/api', '')}${src}`;
     }
     // If it's a relative path without leading slash, construct full URL
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://72.61.297.64:8000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
     return `${API_BASE_URL.replace('/api', '')}/${src.replace(/^\//, '')}`;
   };
 
@@ -761,7 +761,7 @@ const Home = () => {
             title: firstVideo.title,
             description: firstVideo.short_description || firstVideo.description || '',
             video: firstVideo, // Include full video object for preview
-            image: getImageUrl(firstVideo.thumbnail_url || firstVideo.intro_image_url || firstVideo.thumbnail || firstVideo.intro_image || cover1),
+            image: getImageUrl(firstVideo.intro_image_url || firstVideo.intro_image || firstVideo.thumbnail_url || firstVideo.thumbnail || cover1),
             category: firstVideo.category?.name || t('general.uncategorized'),
             duration: `${Math.floor((firstVideo.duration || 0) / 60)}m`,
             rating: parseFloat(firstVideo.rating || '0'),
@@ -776,7 +776,7 @@ const Home = () => {
             id: video.id,
             title: video.title,
             video: video, // Include full video object for preview
-            image: getImageUrl(video.thumbnail_url || video.intro_image_url || video.thumbnail || video.intro_image || cover1),
+            image: getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || cover1),
             duration: `${Math.floor((video.duration || 0) / 60)}m`,
             rating: parseFloat(video.rating || '0'),
             studentsCount: video.views || 0,
@@ -805,7 +805,7 @@ const Home = () => {
               title: firstVideo.title,
               description: firstVideo.short_description || firstVideo.description || '',
               video: firstVideo,
-              image: getImageUrl(firstVideo.thumbnail_url || firstVideo.intro_image_url || firstVideo.thumbnail || firstVideo.intro_image || cover1),
+              image: getImageUrl(firstVideo.intro_image_url || firstVideo.intro_image || firstVideo.thumbnail_url || firstVideo.thumbnail || cover1),
               category: firstVideo.category?.name || 'Uncategorized',
               duration: `${Math.floor((firstVideo.duration || 0) / 60)}m`,
               rating: parseFloat(firstVideo.rating || '0'),
@@ -819,7 +819,7 @@ const Home = () => {
               id: video.id,
               title: video.title,
               video: video,
-              image: getImageUrl(video.thumbnail_url || video.intro_image_url || video.thumbnail || video.intro_image || cover1),
+              image: getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || cover1),
               duration: `${Math.floor((video.duration || 0) / 60)}m`,
               rating: parseFloat(video.rating || '0'),
               studentsCount: video.views || 0,
@@ -941,7 +941,7 @@ const Home = () => {
               id: video.id,
               title: video.title,
               video: video,
-              image: getImageUrl(video.thumbnail_url || video.intro_image_url || video.thumbnail || video.intro_image || cover1),
+              image: getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || cover1),
               duration: `${Math.floor((video.duration || 0) / 60)}m`,
               rating: parseFloat(video.rating || '0'),
               studentsCount: video.views || 0,
@@ -1760,7 +1760,7 @@ const Home = () => {
                       <div className="relative aspect-video w-full bg-gray-800">
                         <img
                           alt={video.title || 'Video thumbnail'}
-                          src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
+                          src={getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '')}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
@@ -1996,7 +1996,7 @@ const Home = () => {
 
   // Get featured video/series for hero
   const heroVideo = featuredCourse || (homepageVideos.length > 0 ? homepageVideos[0] : null);
-  const heroBgImage = heroVideo?.thumbnail_url || heroVideo?.intro_image_url || heroBgUrls[0] || (heroSettings.hero_background_images ? (() => {
+  const heroBgImage = heroVideo?.intro_image_url || heroVideo?.intro_image || heroVideo?.thumbnail_url || heroVideo?.thumbnail || heroBgUrls[0] || (heroSettings.hero_background_images ? (() => {
     try {
       const customImages = JSON.parse(heroSettings.hero_background_images);
       if (Array.isArray(customImages) && customImages.length > 0) {
@@ -2092,11 +2092,11 @@ const Home = () => {
                   onClick={() => handleCourseClick(video.id)}
                   className="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer"
                 >
-                  <div className="aspect-video w-full overflow-hidden">
+                  <div className="relative aspect-video w-full overflow-hidden">
                     <img
-                      src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
+                      src={getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '')}
                       alt={video.title || ''}
-                      className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                      className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
@@ -2348,7 +2348,7 @@ const Home = () => {
                     <img
                       src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
                       alt={video.title || ''}
-                      className="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';

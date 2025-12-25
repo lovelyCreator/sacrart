@@ -492,7 +492,7 @@ const VideoPlayer = () => {
   }
 
   const hasAccess = canAccessVideo(video.visibility);
-  const thumbnailUrl = getImageUrl(video.thumbnail_url || video.intro_image_url || video.bunny_thumbnail_url || '');
+  const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || video.bunny_thumbnail_url || '');
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 98;
 
   return (

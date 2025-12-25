@@ -50,7 +50,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     // If already absolute
     if (src.startsWith('http://') || src.startsWith('https://')) return src;
     // Determine backend base (prefer VITE_API_BASE_URL without /api, fallback to VITE_API_URL)
-    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_URL || 'http://72.61.297.64:8000/api';
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_URL || 'http://localhsot:8000/api';
     const origin = String(apiBase).replace(/\/?api\/?$/, '');
     // Ensure leading slash for storage/relative paths
     const path = src.startsWith('/') ? src : `/${src}`;
