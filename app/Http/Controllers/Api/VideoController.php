@@ -171,7 +171,7 @@ class VideoController extends Controller
             'series_id' => $request->get('series_id'),
             'status' => $request->get('status'),
         ]);
-        
+
         $videos = $query->paginate($request->get('per_page', 15));
         
         \Log::info('VideoController: Videos Query Results', [
@@ -321,7 +321,7 @@ class VideoController extends Controller
                 'message' => 'Series ID is required.',
             ], 422);
         }
-
+        
         // Ensure series belongs to the specified category
         $series = Series::findOrFail($validated['series_id']);
         if ($series->category_id != $validated['category_id']) {
@@ -433,10 +433,9 @@ class VideoController extends Controller
             unset($validated['category_id']);
         }
 
-        // Auto-extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided
-        // Always try to get duration from Bunny.net if not explicitly provided
-        if ((!isset($validated['duration']) || $validated['duration'] == 0) && 
-            (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id']))) {
+        // Always extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided
+        // This ensures duration is always up-to-date from the source
+        if (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id'])) {
             $bunnyVideoId = $this->extractBunnyVideoId(
                 $validated['bunny_embed_url'] ?? null,
                 $validated['bunny_video_id'] ?? null
@@ -447,7 +446,7 @@ class VideoController extends Controller
                     $bunnyMetadata = $this->bunnyNetService->getVideo($bunnyVideoId);
                     if ($bunnyMetadata['success'] && isset($bunnyMetadata['duration']) && $bunnyMetadata['duration'] > 0) {
                         $validated['duration'] = (int) $bunnyMetadata['duration'];
-                        \Log::info('Auto-extracted duration from Bunny.net on create', [
+                        \Log::info('Auto-extracted duration from Bunny.net API on create', [
                             'video_id' => $bunnyVideoId,
                             'duration' => $validated['duration'],
                             'duration_formatted' => gmdate('H:i:s', $validated['duration']),
@@ -457,12 +456,20 @@ class VideoController extends Controller
                             'video_id' => $bunnyVideoId,
                             'metadata' => $bunnyMetadata,
                         ]);
+                        // If duration not found and not explicitly provided, set to 0
+                        if (!isset($validated['duration']) || $validated['duration'] == 0) {
+                            $validated['duration'] = 0;
+                        }
                     }
                 } catch (\Exception $e) {
                     \Log::warning('Failed to auto-extract duration from Bunny.net on create', [
                         'video_id' => $bunnyVideoId,
                         'error' => $e->getMessage(),
                     ]);
+                    // If extraction fails and duration not provided, set to 0
+                    if (!isset($validated['duration']) || $validated['duration'] == 0) {
+                        $validated['duration'] = 0;
+                    }
                 }
             }
         }
@@ -821,9 +828,10 @@ class VideoController extends Controller
             unset($validated['category_id']);
         }
 
-        // Auto-extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided and duration is not set
-        if ((!isset($validated['duration']) || $validated['duration'] == 0) && 
-            (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id']))) {
+        // Always extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided
+        // This ensures duration is always up-to-date from the source
+        if (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id']) || 
+            $video->bunny_embed_url || $video->bunny_video_id) {
             $bunnyVideoId = $this->extractBunnyVideoId(
                 $validated['bunny_embed_url'] ?? $video->bunny_embed_url ?? null,
                 $validated['bunny_video_id'] ?? $video->bunny_video_id ?? null
@@ -831,7 +839,7 @@ class VideoController extends Controller
             
             if ($bunnyVideoId) {
                 try {
-                    // First try to get duration from Bunny.net API (requires API key)
+                    // Always fetch duration from Bunny.net API (requires API key)
                     $bunnyMetadata = $this->bunnyNetService->getVideo($bunnyVideoId);
                     if ($bunnyMetadata['success'] && isset($bunnyMetadata['duration']) && $bunnyMetadata['duration'] > 0) {
                         $validated['duration'] = (int) $bunnyMetadata['duration'];
@@ -841,18 +849,24 @@ class VideoController extends Controller
                             'duration_formatted' => gmdate('H:i:s', $validated['duration']),
                         ]);
                     } else {
-                        // If API fails, log warning but don't fail video update
-                        \Log::warning('Bunny.net API did not return duration on update. Duration can be set manually.', [
+                        \Log::warning('Bunny.net API did not return duration on update. Keeping existing duration or setting to 0.', [
                             'video_id' => $bunnyVideoId,
                             'metadata' => $bunnyMetadata,
                         ]);
+                        // Keep existing duration if not provided in request
+                        if (!isset($validated['duration'])) {
+                            $validated['duration'] = $video->duration ?? 0;
+                        }
                     }
                 } catch (\Exception $e) {
-                    // If API call fails (e.g., invalid API key), log but don't fail
-                    \Log::warning('Failed to auto-extract duration from Bunny.net API on update. Duration can be set manually.', [
+                    \Log::warning('Failed to auto-extract duration from Bunny.net API on update. Keeping existing duration.', [
                         'video_id' => $bunnyVideoId,
                         'error' => $e->getMessage(),
                     ]);
+                    // Keep existing duration if extraction fails
+                    if (!isset($validated['duration'])) {
+                        $validated['duration'] = $video->duration ?? 0;
+                    }
                 }
             }
         }
@@ -1437,12 +1451,17 @@ class VideoController extends Controller
                 return $matches[1];
             }
             
-            // Format 2: https://vz-xxxxx.b-cdn.net/{video}/play_720p.mp4
+            // Format 2: https://iframe.mediadelivery.net/play/{library}/{video}
+            if (preg_match('/\/play\/[^\/]+\/([^\/\?]+)/', $embedUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 3: https://vz-xxxxx.b-cdn.net/{video}/play_720p.mp4
             if (preg_match('/\/([a-f0-9\-]{36})\//', $embedUrl, $matches)) {
                 return $matches[1];
             }
             
-            // Format 3: Direct video ID in URL
+            // Format 4: Direct video ID in URL (UUID format)
             if (preg_match('/([a-f0-9\-]{36})/', $embedUrl, $matches)) {
                 return $matches[1];
             }
@@ -1516,6 +1535,8 @@ class VideoController extends Controller
                     'duration' => $result['duration'], // Duration in seconds
                     'file_size' => $result['file_size'], // File size in bytes
                     'thumbnail_url' => $result['thumbnail_url'],
+                    'captions' => $result['captions'] ?? [], // Available captions/transcriptions
+                    'transcription' => $result['transcription'] ?? null, // Transcription data
                     'raw_data' => $result['data'], // Full response from Bunny.net
                 ],
             ]);
@@ -1575,5 +1596,110 @@ class VideoController extends Controller
                 'duration_formatted' => gmdate('H:i:s', $duration),
             ],
         ]);
+    }
+
+    /**
+     * Test Bunny.net API credentials
+     * 
+     * @return JsonResponse
+     */
+    public function testBunnyCredentials(): JsonResponse
+    {
+        // Check if user is admin
+        if (!Auth::user() || !Auth::user()->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+
+        $results = [
+            'credentials' => [],
+            'api_test' => null,
+            'all_valid' => false,
+        ];
+
+        // Check each credential
+        $apiKey = config('services.bunny.api_key');
+        $libraryId = config('services.bunny.library_id');
+        $cdnUrl = config('services.bunny.cdn_url');
+        $streamUrl = config('services.bunny.stream_url');
+
+        $results['credentials'] = [
+            'BUNNY_API_KEY' => [
+                'set' => !empty($apiKey),
+                'value_preview' => $apiKey ? substr($apiKey, 0, 8) . '...' . substr($apiKey, -4) : null,
+            ],
+            'BUNNY_LIBRARY_ID' => [
+                'set' => !empty($libraryId),
+                'value' => $libraryId,
+            ],
+            'BUNNY_CDN_URL' => [
+                'set' => !empty($cdnUrl),
+                'value' => $cdnUrl,
+            ],
+            'BUNNY_STREAM_URL' => [
+                'set' => !empty($streamUrl),
+                'value' => $streamUrl,
+            ],
+        ];
+
+        // Check if all credentials are set
+        $allSet = !empty($apiKey) && !empty($libraryId) && !empty($cdnUrl) && !empty($streamUrl);
+
+        if (!$allSet) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Some credentials are missing. Please check your .env file.',
+                'results' => $results,
+            ], 400);
+        }
+
+        // Test API connection by trying to list videos
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'AccessKey' => $apiKey,
+            ])->timeout(10)->get("https://video.bunnycdn.com/library/{$libraryId}/videos?page=1&itemsPerPage=1");
+
+            if ($response->successful()) {
+                $results['api_test'] = [
+                    'success' => true,
+                    'status' => $response->status(),
+                    'message' => 'API connection successful! Credentials are valid.',
+                ];
+                $results['all_valid'] = true;
+            } else {
+                $status = $response->status();
+                $body = $response->body();
+                
+                $errorMessage = 'API connection failed';
+                if ($status === 401) {
+                    $errorMessage = 'Authentication failed. Please check your BUNNY_API_KEY.';
+                } elseif ($status === 404) {
+                    $errorMessage = 'Library not found. Please check your BUNNY_LIBRARY_ID.';
+                }
+
+                $results['api_test'] = [
+                    'success' => false,
+                    'status' => $status,
+                    'message' => $errorMessage,
+                    'response' => $body,
+                ];
+            }
+        } catch (\Exception $e) {
+            $results['api_test'] = [
+                'success' => false,
+                'message' => 'Error testing API: ' . $e->getMessage(),
+                'exception' => get_class($e),
+            ];
+        }
+
+        return response()->json([
+            'success' => $results['all_valid'],
+            'message' => $results['all_valid'] 
+                ? 'All Bunny.net credentials are configured correctly!' 
+                : 'Bunny.net credentials test failed. Please check the details below.',
+            'results' => $results,
+        ], $results['all_valid'] ? 200 : 400);
     }
 }

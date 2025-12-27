@@ -225,6 +225,56 @@ class BunnyNetService
                 'duration' => $data['length'] ?? $data['duration'] ?? null,
             ]);
             
+            // Extract captions/transcriptions if available
+            // Bunny.net API returns captions in a 'captions' array with fields: srclang, label, url
+            $captions = [];
+            if (isset($data['captions']) && is_array($data['captions'])) {
+                foreach ($data['captions'] as $caption) {
+                    $captionUrl = $caption['url'] ?? $caption['src'] ?? null;
+                    $language = $caption['srclang'] ?? $caption['language'] ?? 'en';
+                    $label = $caption['label'] ?? $caption['language'] ?? $language;
+                    
+                    // Try to fetch transcription text if URL is available
+                    $transcriptionText = null;
+                    if ($captionUrl) {
+                        try {
+                            // Fetch VTT or SRT file content
+                            $captionResponse = Http::timeout(10)->get($captionUrl);
+                            if ($captionResponse->successful()) {
+                                $transcriptionText = $captionResponse->body();
+                            }
+                        } catch (\Exception $e) {
+                            Log::debug('Failed to fetch caption content', [
+                                'url' => $captionUrl,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                    
+                    $captions[] = [
+                        'label' => $label,
+                        'language' => $language,
+                        'srclang' => $language,
+                        'url' => $captionUrl,
+                        'default' => $caption['default'] ?? false,
+                        'text' => $transcriptionText, // Full transcription text (VTT/SRT format)
+                    ];
+                }
+            }
+
+            // Also check for transcriptions in other possible fields
+            if (isset($data['transcriptions']) && is_array($data['transcriptions'])) {
+                foreach ($data['transcriptions'] as $transcription) {
+                    $captions[] = [
+                        'label' => $transcription['label'] ?? $transcription['language'] ?? 'Unknown',
+                        'language' => $transcription['language'] ?? 'en',
+                        'url' => $transcription['src'] ?? $transcription['url'] ?? null,
+                        'default' => $transcription['default'] ?? false,
+                        'text' => $transcription['text'] ?? null, // Full transcription text if available
+                    ];
+                }
+            }
+
             return [
                 'success' => true,
                 'data' => $data,
@@ -233,6 +283,8 @@ class BunnyNetService
                 'thumbnail_url' => isset($data['thumbnailFileName']) && $data['thumbnailFileName']
                     ? "https://{$this->cdnUrl}/{$videoId}/{$data['thumbnailFileName']}"
                     : null,
+                'captions' => $captions,
+                'transcription' => !empty($captions) ? $captions : null,
             ];
 
         } catch (\Exception $e) {
@@ -464,6 +516,172 @@ class BunnyNetService
             ]);
 
             return false;
+        }
+    }
+
+    /**
+     * Enable automatic transcription generation for a video
+     * This will generate captions/transcriptions automatically using Bunny.net's AI
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function enableTranscription(string $videoId): array
+    {
+        try {
+            // Request transcription generation
+            $response = Http::withHeaders([
+                'AccessKey' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}", [
+                'transcription' => true,
+            ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message' => 'Transcription generation requested. It may take a few minutes to process.',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Failed to enable transcription: ' . $response->body(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Bunny.net enable transcription exception', [
+                'video_id' => $videoId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Exception during transcription request: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Upload captions/subtitles to a video
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @param string $captionContent VTT or SRT file content
+     * @param string $language Language code (e.g., 'en', 'es', 'pt')
+     * @param string $label Label for the caption track (e.g., 'English', 'Spanish')
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function uploadCaptions(string $videoId, string $captionContent, string $language = 'en', string $label = 'English'): array
+    {
+        try {
+            // Bunny.net API endpoint for uploading captions
+            // Note: This may require using the video library API endpoint
+            // Check Bunny.net documentation for the exact endpoint
+            
+            // For now, we'll use the update video endpoint with captions data
+            // Note: Actual implementation may vary based on Bunny.net API version
+            $response = Http::withHeaders([
+                'AccessKey' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}/captions", [
+                'srclang' => $language,
+                'label' => $label,
+                'content' => $captionContent,
+            ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message' => 'Captions uploaded successfully.',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Failed to upload captions: ' . $response->body(),
+                'status' => $response->status(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Bunny.net upload captions exception', [
+                'video_id' => $videoId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Exception during caption upload: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Upload audio track as a separate video (Bunny.net doesn't support multiple audio tracks in one video)
+     * Alternative: Create a video with only audio track, then link it to main video
+     * 
+     * @param string $audioFilePath Path to audio file
+     * @param string $title Title for the audio track video
+     * @param string $language Language code (e.g., 'en', 'es', 'pt')
+     * @return array ['success' => bool, 'video_id' => string|null, 'message' => string]
+     */
+    public function uploadAudioTrack(string $audioFilePath, string $title, string $language = 'en'): array
+    {
+        try {
+            // Create a video entry for the audio track
+            $createResponse = $this->createVideo($title);
+            
+            if (!$createResponse['success']) {
+                return $createResponse;
+            }
+
+            $audioVideoId = $createResponse['video_id'];
+
+            // Upload audio file
+            $uploadUrl = "https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$audioVideoId}";
+            
+            $fileContent = file_get_contents($audioFilePath);
+            
+            $uploadResponse = Http::timeout(3600)
+                ->withHeaders([
+                    'AccessKey' => $this->apiKey,
+                ])
+                ->withBody($fileContent, 'application/octet-stream')
+                ->put($uploadUrl);
+
+            if (!$uploadResponse->successful()) {
+                Log::error('Bunny.net audio track upload failed', [
+                    'audio_video_id' => $audioVideoId,
+                    'status' => $uploadResponse->status(),
+                    'response' => $uploadResponse->body(),
+                ]);
+
+                $this->deleteVideo($audioVideoId);
+
+                return [
+                    'success' => false,
+                    'video_id' => null,
+                    'message' => 'Failed to upload audio track: ' . $uploadResponse->body(),
+                ];
+            }
+
+            return [
+                'success' => true,
+                'video_id' => $audioVideoId,
+                'language' => $language,
+                'message' => 'Audio track uploaded successfully.',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Bunny.net upload audio track exception', [
+                'audio_file' => $audioFilePath,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'video_id' => null,
+                'message' => 'Exception during audio track upload: ' . $e->getMessage(),
+            ];
         }
     }
 }

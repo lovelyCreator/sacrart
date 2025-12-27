@@ -1038,7 +1038,9 @@ const ContentManagement = () => {
     }
   };
 
-  // Fetch duration using Player.js (client-side, no API key needed)
+  // DEPRECATED: Fetch duration using Player.js (client-side fallback)
+  // Note: This is no longer the primary method. Backend API is used instead.
+  // Kept only as a last resort if backend completely fails.
   const fetchDurationWithPlayerJs = async (embedUrl: string): Promise<number | null> => {
     return new Promise((resolve) => {
       // Wait for Player.js to be available
@@ -1092,7 +1094,8 @@ const ContentManagement = () => {
       return;
     }
 
-    // First try backend API (requires API key)
+    // Always use backend API to fetch duration (server-side, more reliable)
+    // Duration will be automatically saved to database when video is created/updated
     try {
       const response = await videoApi.getBunnyVideoMetadata(videoId, embedUrl);
       
@@ -1107,45 +1110,26 @@ const ContentManagement = () => {
           bunny_thumbnail_url: thumbnail_url || prev?.bunny_thumbnail_url || null,
         }));
         
-        if (duration) {
-          toast.success(`Video duration extracted: ${Math.floor(duration / 60)}m ${duration % 60}s`);
+        if (duration && duration > 0) {
+          toast.success(`Video duration fetched from server: ${Math.floor(duration / 60)}m ${duration % 60}s`);
+        } else {
+          toast.warning('Duration not available. It will be fetched automatically when you save the video.');
         }
-        return; // Success, no need to try Player.js
+        return; // Success
       }
     } catch (error: any) {
-      console.log('Backend API failed, trying Player.js fallback...', error);
-    }
-
-    // If backend API fails (e.g., API key issue), try Player.js (client-side, no API key needed)
-    if (embedUrl) {
-      try {
-        // Convert /play/ URLs to /embed/ URLs for Player.js
-        let playerUrl = embedUrl;
-        if (embedUrl.includes('/play/')) {
-          const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
-          if (playMatch) {
-            const libraryId = playMatch[1];
-            const videoId = playMatch[2];
-            playerUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
-          }
-        }
-
-        toast.info('Fetching duration using Player.js...');
-        const duration = await fetchDurationWithPlayerJs(playerUrl);
-        
-        if (duration && duration > 0) {
-          setSelectedVideo(prev => ({
-            ...prev!,
-            duration: Math.floor(duration),
-          }));
-          toast.success(`Video duration extracted via Player.js: ${Math.floor(duration / 60)}m ${duration % 60}s`);
-        } else {
-          toast.warning('Could not fetch duration. Please enter it manually.');
-        }
-      } catch (error: any) {
-        console.error('Error fetching duration with Player.js:', error);
-        toast.warning('Could not fetch duration. Please enter it manually.');
+      console.error('Failed to fetch duration from server:', error);
+      
+      // Show helpful error message
+      const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      if (errorMessage.includes('API key') || errorMessage.includes('authentication')) {
+        toast.error('Bunny.net API key not configured. Duration will be set to 0. Please configure API credentials.');
+      } else {
+        toast.warning(`Could not fetch duration: ${errorMessage}. Duration will be fetched automatically when you save the video.`);
       }
+      
+      // Note: Duration will still be fetched automatically by backend when video is saved
+      // So we don't need Player.js fallback here - backend handles it
     }
   };
 
@@ -1937,13 +1921,13 @@ const ContentManagement = () => {
                               {t('admin.content_edit', 'Edit')}
                             </DropdownMenuItem>
                             {video.bunny_embed_url && (!video.duration || video.duration === 0) && (
-                              <DropdownMenuItem 
+                            <DropdownMenuItem 
                                 onClick={() => fetchAndUpdateVideoDuration(video)}
-                              >
+                            >
                                 <Clock className="mr-2 h-4 w-4" />
                                 Fetch Duration
-                              </DropdownMenuItem>
-                            )}
+                            </DropdownMenuItem>
+                              )}
                             <DropdownMenuItem 
                               onClick={() => handleDeleteVideo(video.id)}
                               className="text-destructive"
@@ -2466,244 +2450,283 @@ const ContentManagement = () => {
                 className="mb-4"
               />
               
-              {/* Title - Multilingual */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="videoTitle" className="text-right">
-                  Title <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="videoTitle"
-                  value={videoMultilingual.title[contentLocale]}
-                  onChange={(e) => setVideoMultilingual({
-                    ...videoMultilingual,
-                    title: { ...videoMultilingual.title, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
-                />
-              </div>
-              
-              {/* Description - Multilingual */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="videoDescription" className="text-right pt-2">
-                  Description
-                </Label>
-                <Textarea
-                  id="videoDescription"
-                  value={videoMultilingual.description[contentLocale]}
-                  onChange={(e) => setVideoMultilingual({
-                    ...videoMultilingual,
-                    description: { ...videoMultilingual.description, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
-                  rows={4}
-                />
-              </div>
-              
-              {/* Short Description - Multilingual */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="shortDescription" className="text-right pt-2">
-                  Short Description
-                </Label>
-                <Textarea
-                  id="shortDescription"
-                  value={videoMultilingual.short_description[contentLocale] || ''}
-                  onChange={(e) => setVideoMultilingual({
-                    ...videoMultilingual,
-                    short_description: { ...videoMultilingual.short_description, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
-                  rows={2}
-                />
-              </div>
-              
-              {/* Intro Description - Multilingual */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="introDescription" className="text-right pt-2">
-                  Intro Description
-                </Label>
-                <Textarea
-                  id="introDescription"
-                  value={videoMultilingual.intro_description[contentLocale] || ''}
-                  onChange={(e) => setVideoMultilingual({
-                    ...videoMultilingual,
-                    intro_description: { ...videoMultilingual.intro_description, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter intro description in ${contentLocale.toUpperCase()}`}
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="introImage" className="text-right">
-                  Intro Image URL (Bunny.net)
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="introImage"
-                    value={selectedVideo.intro_image || ''}
-                    onChange={(e) => setSelectedVideo({...selectedVideo, intro_image: e.target.value})}
-                    placeholder="https://vz-xxx.b-cdn.net/intro.jpg"
-                    disabled={isSubmitting}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Paste the Bunny.net intro image URL from your dashboard.
-                  </p>
+              {/* Two Column Layout: Left - Text Fields, Right - Images */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Text Inputs */}
+                <div className="space-y-4">
+                  {/* Title - Multilingual */}
+                  <div className="space-y-2">
+                    <Label htmlFor="videoTitle">
+                      Title <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="videoTitle"
+                      value={videoMultilingual.title[contentLocale]}
+                      onChange={(e) => setVideoMultilingual({
+                        ...videoMultilingual,
+                        title: { ...videoMultilingual.title, [contentLocale]: e.target.value }
+                      })}
+                      placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
+                    />
+                  </div>
+                  
+                  {/* Description - Multilingual */}
+                  <div className="space-y-2">
+                    <Label htmlFor="videoDescription">Description</Label>
+                    <Textarea
+                      id="videoDescription"
+                      value={videoMultilingual.description[contentLocale]}
+                      onChange={(e) => setVideoMultilingual({
+                        ...videoMultilingual,
+                        description: { ...videoMultilingual.description, [contentLocale]: e.target.value }
+                      })}
+                      placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
+                      rows={4}
+                    />
+                  </div>
+                  
+                  {/* Short Description - Multilingual */}
+                  <div className="space-y-2">
+                    <Label htmlFor="shortDescription">Short Description</Label>
+                    <Textarea
+                      id="shortDescription"
+                      value={videoMultilingual.short_description[contentLocale] || ''}
+                      onChange={(e) => setVideoMultilingual({
+                        ...videoMultilingual,
+                        short_description: { ...videoMultilingual.short_description, [contentLocale]: e.target.value }
+                      })}
+                      placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
+                      rows={2}
+                    />
+                  </div>
+                  
+                  {/* Intro Description - Multilingual */}
+                  <div className="space-y-2">
+                    <Label htmlFor="introDescription">Intro Description</Label>
+                    <Textarea
+                      id="introDescription"
+                      value={videoMultilingual.intro_description[contentLocale] || ''}
+                      onChange={(e) => setVideoMultilingual({
+                        ...videoMultilingual,
+                        intro_description: { ...videoMultilingual.intro_description, [contentLocale]: e.target.value }
+                      })}
+                      placeholder={`Enter intro description in ${contentLocale.toUpperCase()}`}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                {/* Right Column: Image Previews and URLs */}
+                <div className="space-y-4">
+                  {/* Intro Image */}
+                  <div className="space-y-2">
+                    <Label htmlFor="introImage">Intro Image URL (Bunny.net)</Label>
+                    <Input
+                      id="introImage"
+                      value={selectedVideo.intro_image || ''}
+                      onChange={(e) => setSelectedVideo({...selectedVideo, intro_image: e.target.value})}
+                      placeholder="https://vz-xxx.b-cdn.net/intro.jpg"
+                      disabled={isSubmitting}
+                    />
+                    {selectedVideo.intro_image && (
+                      <div className="mt-2 border rounded-lg overflow-hidden bg-muted/50">
+                        <img 
+                          src={selectedVideo.intro_image} 
+                          alt="Intro preview" 
+                          className="w-full h-48 object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Paste the Bunny.net intro image URL from your dashboard.
+                    </p>
+                  </div>
+
+                  {/* Thumbnail Image */}
+                  <div className="space-y-2">
+                    <Label htmlFor="thumbnail">Thumbnail URL (Bunny.net)</Label>
+                    <Input
+                      id="thumbnail"
+                      value={selectedVideo.thumbnail || selectedVideo.bunny_thumbnail_url || ''}
+                      onChange={(e) => setSelectedVideo({
+                        ...selectedVideo,
+                        thumbnail: e.target.value,
+                        bunny_thumbnail_url: e.target.value
+                      })}
+                      placeholder="https://vz-xxx.b-cdn.net/thumbnail.jpg"
+                      disabled={isSubmitting}
+                    />
+                    {(selectedVideo.thumbnail || selectedVideo.bunny_thumbnail_url) && (
+                      <div className="mt-2 border rounded-lg overflow-hidden bg-muted/50">
+                        <img 
+                          src={selectedVideo.thumbnail || selectedVideo.bunny_thumbnail_url || ''} 
+                          alt="Thumbnail preview" 
+                          className="w-full h-48 object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Paste the Bunny.net thumbnail URL from your dashboard.
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="thumbnail" className="text-right">
-                  Thumbnail URL (Bunny.net)
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="thumbnail"
-                    value={selectedVideo.thumbnail || selectedVideo.bunny_thumbnail_url || ''}
-                    onChange={(e) => setSelectedVideo({
-                      ...selectedVideo,
-                      thumbnail: e.target.value,
-                      bunny_thumbnail_url: e.target.value
-                    })}
-                    placeholder="https://vz-xxx.b-cdn.net/thumbnail.jpg"
-                    disabled={isSubmitting}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Paste the Bunny.net thumbnail URL from your dashboard.
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="bunnyEmbedUrl" className="text-right">
-                  Bunny Embed URL
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="bunnyEmbedUrl"
-                    value={selectedVideo.bunny_embed_url || ''}
-                    onChange={(e) => {
-                      setSelectedVideo({
+
+              {/* Bunny.net Video Settings */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-lg font-semibold mb-4">Bunny.net Video Settings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bunnyEmbedUrl">
+                      Bunny Embed URL <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="bunnyEmbedUrl"
+                      value={selectedVideo.bunny_embed_url || ''}
+                      onChange={(e) => {
+                        setSelectedVideo({
                         ...selectedVideo,
                         bunny_embed_url: e.target.value,
-                      });
-                    }}
-                    onBlur={() => {
-                      if (selectedVideo.bunny_embed_url || selectedVideo.bunny_video_id) {
-                        fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
-                      }
-                    }}
-                    placeholder="https://iframe.mediadelivery.net/embed/{library}/{video}"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Paste the Bunny.net embed URL from your Bunny dashboard.
-                  </p>
+                        });
+                      }}
+                      onBlur={() => {
+                        if (selectedVideo.bunny_embed_url || selectedVideo.bunny_video_id) {
+                          fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
+                        }
+                      }}
+                      placeholder="https://iframe.mediadelivery.net/embed/{library}/{video}"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Paste the Bunny.net embed URL from your Bunny dashboard.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bunnyVideoId">Bunny Video ID (optional)</Label>
+                    <Input
+                      id="bunnyVideoId"
+                      value={selectedVideo.bunny_video_id || ''}
+                      onChange={(e) => {
+                        const videoId = e.target.value;
+                        setSelectedVideo({
+                      ...selectedVideo,
+                          bunny_video_id: videoId,
+                        });
+                        // Fetch metadata if video ID is provided
+                        if (videoId) {
+                          setTimeout(() => {
+                            fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, videoId);
+                          }, 1000);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (selectedVideo.bunny_video_id || selectedVideo.bunny_embed_url) {
+                          fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
+                        }
+                      }}
+                      placeholder="Video GUID from Bunny (optional)"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Video ID will be auto-extracted from embed URL.
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="bunnyVideoId" className="text-right">
-                  Bunny Video ID (optional)
-                </Label>
-                  <Input
-                    id="bunnyVideoId"
-                    value={selectedVideo.bunny_video_id || ''}
-                    onChange={(e) => {
-                      const videoId = e.target.value;
-                      setSelectedVideo({
-                        ...selectedVideo,
-                        bunny_video_id: videoId,
-                      });
-                      // Fetch metadata if video ID is provided
-                      if (videoId) {
-                        setTimeout(() => {
-                          fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, videoId);
-                        }, 1000);
-                      }
-                    }}
-                    onBlur={() => {
-                      if (selectedVideo.bunny_video_id || selectedVideo.bunny_embed_url) {
-                        fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
-                      }
-                    }}
-                    className="col-span-3"
-                    placeholder="Video GUID from Bunny (optional)"
-                  />
-              </div>
-              {/* Duration input removed — duration is now auto-calculated on backend */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="videoVisibility" className="text-right">
-                  Visibility
-                </Label>
-                <Select
-                  value={selectedVideo.visibility}
-                  onValueChange={(value) => setSelectedVideo({...selectedVideo, visibility: value as 'freemium' | 'basic' | 'premium'})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    <SelectItem value="freemium" className="focus:bg-accent">Freemium</SelectItem>
-                    <SelectItem value="basic" className="focus:bg-accent">Basic</SelectItem>
-                    <SelectItem value="premium" className="focus:bg-accent">Premium</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="videoSeries" className="text-right">
-                  Series <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={selectedVideo.series_id?.toString() || ''}
-                  onValueChange={(value) => {
-                    const seriesId = parseInt(value);
-                    const selectedSeries = series.find(s => s.id === seriesId);
-                    setSelectedVideo({
-                      ...selectedVideo,
-                      series_id: seriesId,
-                      category_id: selectedSeries?.category_id || null // Update category_id from selected series
-                    });
-                  }}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder={t('admin.content_label_select_series', 'Select a series')} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {series.length === 0 ? (
-                      <SelectItem value="" disabled>
-                        {t('admin.content_no_series_available', 'No series available. Please create a series first.')}
-                      </SelectItem>
-                    ) : (
-                      series.map((serie) => (
-                        <SelectItem key={serie.id} value={serie.id.toString()} className="focus:bg-accent">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{getSeriesTitle(serie)}</span>
-                            {getSeriesDescription(serie) && (
-                              <span className="text-sm text-muted-foreground line-clamp-1">{getSeriesDescription(serie)}</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="videoStatus" className="text-right">
-                  Status
-                </Label>
-                <Select
-                  value={selectedVideo.status}
-                  onValueChange={(value) => setSelectedVideo({...selectedVideo, status: value as 'draft' | 'published' | 'archived'})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    <SelectItem value="draft" className="focus:bg-accent">Draft</SelectItem>
-                    <SelectItem value="published" className="focus:bg-accent">Published</SelectItem>
-                    <SelectItem value="archived" className="focus:bg-accent">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Video Settings */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-lg font-semibold mb-4">Video Settings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="videoSeries">
+                      Series <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={selectedVideo.series_id?.toString() || ''}
+                      onValueChange={(value) => {
+                        const seriesId = parseInt(value);
+                        const selectedSeries = series.find(s => s.id === seriesId);
+                        setSelectedVideo({
+                          ...selectedVideo,
+                          series_id: seriesId,
+                          category_id: selectedSeries?.category_id || null // Update category_id from selected series
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('admin.content_label_select_series', 'Select a series')} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        {series.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            {t('admin.content_no_series_available', 'No series available. Please create a series first.')}
+                          </SelectItem>
+                        ) : (
+                          series.map((serie) => (
+                            <SelectItem key={serie.id} value={serie.id.toString()} className="focus:bg-accent">
+                              <div className="flex flex-col">
+                                <span className="font-medium">{getSeriesTitle(serie)}</span>
+                                {getSeriesDescription(serie) && (
+                                  <span className="text-sm text-muted-foreground line-clamp-1">{getSeriesDescription(serie)}</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="videoVisibility">Visibility</Label>
+                    <Select
+                      value={selectedVideo.visibility}
+                      onValueChange={(value) => setSelectedVideo({...selectedVideo, visibility: value as 'freemium' | 'basic' | 'premium'})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        <SelectItem value="freemium" className="focus:bg-accent">Freemium</SelectItem>
+                        <SelectItem value="basic" className="focus:bg-accent">Basic</SelectItem>
+                        <SelectItem value="premium" className="focus:bg-accent">Premium</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="videoStatus">Status</Label>
+                    <Select
+                      value={selectedVideo.status}
+                      onValueChange={(value) => setSelectedVideo({...selectedVideo, status: value as 'draft' | 'published' | 'archived'})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        <SelectItem value="draft" className="focus:bg-accent">Draft</SelectItem>
+                        <SelectItem value="published" className="focus:bg-accent">Published</SelectItem>
+                        <SelectItem value="archived" className="focus:bg-accent">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {/* Duration display (read-only, auto-calculated) */}
+                {selectedVideo.duration && selectedVideo.duration > 0 && (
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Duration:</span>
+                      <span className="font-medium">
+                        {Math.floor(selectedVideo.duration / 60)}m {selectedVideo.duration % 60}s
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-2">(Auto-calculated from Bunny.net)</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -230,11 +230,11 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                       const target = e.target as HTMLImageElement;
                       const src = target.src;
                       if (!src.startsWith('http') && !src.startsWith('/')) {
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
+                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                         target.src = `${API_BASE_URL.replace('/api', '')}/storage/${src}`;
                       } else if (src.startsWith('/')) {
                         // If relative path, construct full URL
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
+                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                         target.src = `${API_BASE_URL.replace('/api', '')}${src}`;
                       }
                     }}
@@ -254,7 +254,7 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                       const target = e.target as HTMLImageElement;
                       const src = target.src;
                       if (!src.startsWith('http') && !src.startsWith('/')) {
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
+                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                         target.src = `${API_BASE_URL.replace('/api', '')}/storage/${src}`;
                       }
                     }}
@@ -306,7 +306,7 @@ const CourseHeroSection: React.FC<CourseHeroSectionProps> = ({
                         const target = e.target as HTMLImageElement;
                         const src = target.src;
                         if (!src.startsWith('http') && !src.startsWith('/')) {
-                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
+                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                           target.src = `${API_BASE_URL.replace('/api', '')}/storage/${src}`;
                         }
                       }}

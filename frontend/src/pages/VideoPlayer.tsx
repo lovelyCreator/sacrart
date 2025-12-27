@@ -461,7 +461,7 @@ const VideoPlayer = () => {
     if (src.startsWith('http://') || src.startsWith('https://')) {
       return src;
     }
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const baseUrl = import.meta.env.VITE_SERVER_BASE_URL;
     return `${baseUrl.replace('/api', '')}${src.startsWith('/') ? '' : '/'}${src}`;
   };
 

@@ -45,4 +45,10 @@ return [
         'cdn_url' => env('BUNNY_CDN_URL'),
         'stream_url' => env('BUNNY_STREAM_URL'),
     ],
+
+    'google_cloud' => [
+        'project_id' => env('GOOGLE_CLOUD_PROJECT_ID'),
+        'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS'),
+        'api_key' => env('GOOGLE_CLOUD_API_KEY'), // REST API key (AIzaSy... format)
+    ],
 ];

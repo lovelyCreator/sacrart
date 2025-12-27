@@ -66,18 +66,18 @@ const Auth = () => {
     try {
       if (isLogin) {
         console.log('Calling login function...');
-        const loginResponse = await login(email, password);
-        console.log('Login successful!');
-        toast.success(t('auth.login_successful'));
-        
-        // Check if user is admin and redirect accordingly
-        if (loginResponse?.is_admin) {
-          const locale = localStorage.getItem('i18nextLng') || 'en';
-          navigate(`/${locale}/admin`);
-        } else {
-          const locale = localStorage.getItem('i18nextLng') || 'en';
-          navigate(`/${locale}`);
-        }
+               const loginResponse = await login(email, password);
+               console.log('Login successful!');
+               toast.success(t('auth.login_successful'));
+               
+               // Check if user is admin and redirect accordingly
+               if (loginResponse?.is_admin) {
+                 const locale = localStorage.getItem('i18nextLng') || 'en';
+                 navigate(`/${locale}/admin`);
+               } else {
+                 const locale = localStorage.getItem('i18nextLng') || 'en';
+                 navigate(`/${locale}`);
+               }
       } else {
         // Validate passwords match
         if (password !== confirmPassword) {
@@ -132,13 +132,13 @@ const Auth = () => {
             <img 
               alt="SACRART Logo White" 
               className="h-16 w-auto object-contain opacity-90 drop-shadow-lg" 
-              src={logoImage}
+                src={logoImage} 
             />
           </div>
           <div className="absolute bottom-12 left-10 z-20 max-w-lg">
             <p className="text-white/90 text-xl font-serif italic drop-shadow-md">
               {t('auth.quote', '"El arte es la oración hecha visible."')}
-            </p>
+          </p>
           </div>
         </div>
 
@@ -198,7 +198,7 @@ const Auth = () => {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Register: First Name and Last Name */}
-              {!isLogin && (
+          {!isLogin && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400" htmlFor="firstname">
@@ -219,7 +219,7 @@ const Auth = () => {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
+            <div className="space-y-2">
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400" htmlFor="lastname">
                       {t('auth.last_name', 'Apellidos')}
                     </label>
@@ -231,18 +231,18 @@ const Auth = () => {
                         className="block w-full pl-10 pr-3 py-3 bg-[#161616] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#A05245] focus:border-[#A05245] transition-all sm:text-sm"
                         id="lastname"
                         placeholder={t('auth.last_name_placeholder', 'Tus Apellidos')}
-                        type="text"
+                type="text"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         required={!isLogin}
-                      />
+              />
                     </div>
                   </div>
-                </div>
-              )}
+            </div>
+          )}
 
               {/* Email */}
-              <div className="space-y-2">
+          <div className="space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-400" htmlFor="email">
                   {t('auth.email', 'Correo Electrónico')}
                 </label>
@@ -252,18 +252,18 @@ const Auth = () => {
                   </div>
                   <input
                     className="block w-full pl-10 pr-3 py-3 bg-[#161616] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#A05245] focus:border-[#A05245] transition-all sm:text-sm"
-                    id="email"
+              id="email"
                     placeholder={t('auth.email_placeholder', 'tu@email.com')}
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
                 </div>
-              </div>
+          </div>
 
               {/* Password */}
-              <div className="space-y-2">
+          <div className="space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-400" htmlFor="password">
                   {t('auth.password', 'Contraseña')}
                 </label>
@@ -273,13 +273,13 @@ const Auth = () => {
                   </div>
                   <input
                     className="block w-full pl-10 pr-10 py-3 bg-[#161616] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#A05245] focus:border-[#A05245] transition-all sm:text-sm"
-                    id="password"
+              id="password"
                     placeholder={t('auth.password_placeholder', '••••••')}
                     type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
                   <div 
                     className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-gray-500 hover:text-white transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
@@ -291,7 +291,7 @@ const Auth = () => {
                     )}
                   </div>
                 </div>
-              </div>
+          </div>
 
               {/* Register: Confirm Password */}
               {!isLogin && (
@@ -373,9 +373,9 @@ const Auth = () => {
               <div>
                 <button
                   className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-[#A05245] to-[#8a463b] hover:from-[#b35b4c] hover:to-[#9e5043] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#A05245] focus:ring-offset-[#0A0A0A] transition-all transform hover:scale-[1.01] uppercase tracking-widest shadow-lg shadow-[#A05245]/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                  type="submit"
-                  disabled={isLoading}
-                >
+            type="submit" 
+            disabled={isLoading}
+          >
                   {isLoading 
                     ? t('common.loading', 'Cargando...')
                     : isLogin 
@@ -384,7 +384,7 @@ const Auth = () => {
                   }
                 </button>
               </div>
-            </form>
+        </form>
 
             {/* Social Login */}
             <div className="mt-8">

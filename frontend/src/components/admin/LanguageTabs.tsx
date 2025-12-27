@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Languages } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const languages = [
   { code: 'pt' as const, name: 'Português', flag: '🇵🇹' },
 ];
 
-export const LanguageTabs = ({ activeLanguage, onLanguageChange, className = '' }: LanguageTabsProps) => {
+export const LanguageTabs = memo(({ activeLanguage, onLanguageChange, className = '' }: LanguageTabsProps) => {
   return (
     <div className={`flex items-center gap-2 border-b ${className}`}>
       <Languages className="h-4 w-4 text-muted-foreground" />
@@ -22,9 +22,14 @@ export const LanguageTabs = ({ activeLanguage, onLanguageChange, className = '' 
       {languages.map((lang) => (
         <Button
           key={lang.code}
+          type="button"
           variant={activeLanguage === lang.code ? 'default' : 'ghost'}
           size="sm"
-          onClick={() => onLanguageChange(lang.code)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onLanguageChange(lang.code);
+          }}
           className={`h-8 px-3 ${
             activeLanguage === lang.code
               ? 'bg-primary text-primary-foreground'
@@ -37,7 +42,9 @@ export const LanguageTabs = ({ activeLanguage, onLanguageChange, className = '' 
       ))}
     </div>
   );
-};
+});
+
+LanguageTabs.displayName = 'LanguageTabs';
 
 export default LanguageTabs;
 

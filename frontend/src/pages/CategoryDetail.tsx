@@ -85,7 +85,7 @@ const CategoryDetail = () => {
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
     }
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const baseUrl = import.meta.env.VITE_SERVER_BASE_URL;
     return `${baseUrl.replace('/api', '')}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,8 @@ import {
   X,
   Folder,
   Languages,
-  Play
+  Play,
+  Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +57,9 @@ const TRANSLATABLE_KEYS = [
   'hero_title',
   'hero_subtitle',
   'hero_description',
+  'hero_cta_text',
+  'hero_cta_button_text',
+  'hero_disclaimer',
   'hero_stat_1_value',
   'hero_stat_1_label',
   'hero_stat_2_value',
@@ -64,13 +68,32 @@ const TRANSLATABLE_KEYS = [
   'hero_stat_3_label',
   'hero_stat_4_value',
   'hero_stat_4_label',
+  'presentation_video_badge',
+  'presentation_video_series',
+  'presentation_video_title',
+  'presentation_video_description',
   'about_title',
   'about_description',
   'about_text_1',
   'about_text_2',
   'about_text_3',
+  'about_stat_1_label',
+  'about_stat_2_label',
+  'about_stat_3_label',
   'testimonial_title',
   'testimonial_subtitle',
+  'why_sacrart_title',
+  'why_sacrart_description',
+  'why_sacrart_artist_title',
+  'why_sacrart_artist_description',
+  'why_sacrart_art_lover_title',
+  'why_sacrart_art_lover_description',
+  'why_sacrart_quality_title',
+  'why_sacrart_quality_description',
+  'why_sacrart_multilang_title',
+  'why_sacrart_multilang_description',
+  'why_sacrart_platform_title',
+  'why_sacrart_platform_description',
   'site_name',
   'site_tagline',
   'footer_copyright',
@@ -91,6 +114,12 @@ const Settings = () => {
   
   // Multilingual state for translatable settings
   const [settingsMultilingual, setSettingsMultilingual] = useState<Record<string, MultilingualData>>({});
+  
+  // Memoized language change handler to prevent unnecessary re-renders
+  const handleLanguageChange = useCallback((lang: 'en' | 'es' | 'pt') => {
+    setContentLocale(lang);
+  }, []);
+  
   const [selectedHeroBackgrounds, setSelectedHeroBackgrounds] = useState<any[]>([]);
   // Fixed hero background images (16 slots only)
   const HERO_SLOTS = 16;
@@ -140,13 +169,9 @@ const Settings = () => {
     fetchVideos();
   }, []);
 
-  // Refetch settings and FAQs when content locale changes
-  useEffect(() => {
-    fetchSettings();
-    if (user) {
-      fetchFaqs();
-    }
-  }, [contentLocale]);
+  // Note: We do NOT refetch settings when contentLocale changes
+  // contentLocale is only for input language selection, not for fetching data
+  // All translations are loaded at once and stored in settingsMultilingual
 
   // Update currentAboutImage when settings are loaded
   useEffect(() => {
@@ -168,16 +193,24 @@ const Settings = () => {
           processedUrl = trimmedUrl.includes('?') ? `${trimmedUrl}&t=${Date.now()}` : `${trimmedUrl}?t=${Date.now()}`;
         }
       } else {
+        // Remove /storage/ prefix if present (Laravel serves from /data_section/ directly, not /storage/data_section/)
+        let cleanPath = trimmedUrl;
+        if (cleanPath.startsWith('/storage/')) {
+          cleanPath = cleanPath.replace('/storage/', '/');
+        } else if (cleanPath.startsWith('storage/')) {
+          cleanPath = '/' + cleanPath.replace('storage/', '');
+        }
+        
         // Use buildAbsoluteUrl for relative paths
-        const abs = buildAbsoluteUrl(trimmedUrl);
+        const abs = buildAbsoluteUrl(cleanPath);
         if (abs && abs.includes('://') && abs.length > 7) {
           processedUrl = abs.includes('?') ? `${abs}&t=${Date.now()}` : `${abs}?t=${Date.now()}`;
         } else {
           // Fallback: try to construct URL manually
-          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
+          const apiBase = import.meta.env.VITE_API_BASE_URL;
           const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
-          if (origin && trimmedUrl.startsWith('/')) {
-            processedUrl = `${origin}${trimmedUrl}?t=${Date.now()}`;
+          if (origin && cleanPath.startsWith('/')) {
+            processedUrl = `${origin}${cleanPath}?t=${Date.now()}`;
           }
         }
       }
@@ -214,7 +247,7 @@ const Settings = () => {
     }
     
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
+      const apiBase = import.meta.env.VITE_API_BASE_URL;
       const origin = String(apiBase).replace(/\/?api\/?$/, '').trim();
       
       if (!origin || origin === '') {
@@ -222,8 +255,16 @@ const Settings = () => {
         return '';
       }
       
-      // Clean the path
-      const cleanPath = trimmedUrl.startsWith('/') ? trimmedUrl : `/${trimmedUrl}`;
+      // Remove /storage/ prefix if present (Laravel serves from /data_section/ directly, not /storage/data_section/)
+      let cleanPath = trimmedUrl;
+      if (cleanPath.startsWith('/storage/')) {
+        cleanPath = cleanPath.replace('/storage/', '/');
+      } else if (cleanPath.startsWith('storage/')) {
+        cleanPath = '/' + cleanPath.replace('storage/', '');
+      }
+      
+      // Ensure path starts with /
+      cleanPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
       
       // Construct full URL
       const fullUrl = `${origin}${cleanPath}`;
@@ -336,11 +377,24 @@ const Settings = () => {
       const selectedVideosSetting = settings.homepage.find(s => s.key === 'homepage_video_ids');
       if (selectedVideosSetting && selectedVideosSetting.value) {
         try {
-          const parsedIds = JSON.parse(selectedVideosSetting.value);
-          setSelectedHomepageVideos(parsedIds);
+          const value = selectedVideosSetting.value;
+          // Handle both string and array formats
+          const parsedIds = typeof value === 'string' ? JSON.parse(value) : value;
+          if (Array.isArray(parsedIds)) {
+            console.log('Loaded homepage video IDs from database:', parsedIds);
+            setSelectedHomepageVideos(parsedIds);
+          } else {
+            console.warn('homepage_video_ids is not an array:', parsedIds);
+            setSelectedHomepageVideos([]);
+          }
         } catch (error) {
-          console.error('Error parsing homepage videos:', error);
+          console.error('Error parsing homepage videos:', error, 'Raw value:', selectedVideosSetting.value);
+          setSelectedHomepageVideos([]);
         }
+      } else {
+        // No setting found, clear selection
+        console.log('No homepage_video_ids setting found, clearing selection');
+        setSelectedHomepageVideos([]);
       }
     }
   }, [settings]);
@@ -348,43 +402,66 @@ const Settings = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      // Pass locale directly to API instead of using localStorage
-      const response = await settingsApi.getAll(contentLocale);
+      // Always use the website locale, NOT contentLocale
+      // contentLocale is only for input language selection, not for fetching data
+      // All translations are loaded at once from the backend
+      const response = await settingsApi.getAll(locale);
       if (response.success && response.data) {
-        const groupedSettings: Record<string, SiteSetting[]> = {};
-        const settingsData = response.data;
-        
-        // Group settings by their group property
-        Object.values(settingsData).forEach((setting: any) => {
-          const group = setting.group || 'general';
-          if (!groupedSettings[group]) {
-            groupedSettings[group] = [];
-          }
-          groupedSettings[group].push(setting);
-        });
+        // Backend already returns settings grouped by group
+        // response.data structure: { "about": [settings...], "hero": [settings...], ... }
+        const groupedSettings: Record<string, SiteSetting[]> = response.data as Record<string, SiteSetting[]>;
         
         setSettings(groupedSettings);
         
-        // Load multilingual data from settings
+        // Debug: Log about group settings to see if stat values are loaded
+        console.log('About settings loaded:', groupedSettings.about);
+        if (groupedSettings.about) {
+          const statValues = groupedSettings.about.filter(s => s.key?.startsWith('about_stat_') && s.key?.endsWith('_value'));
+          console.log('Stat values found in about group:', statValues);
+        }
+        
+        // Load multilingual data from settings - prioritize database values
         const multilingualData: Record<string, MultilingualData> = {};
         TRANSLATABLE_KEYS.forEach(key => {
-          // Try to get translations from settings
-          const setting = Object.values(settingsData).find((s: any) => s.key === key) as any;
+          // Find setting in all groups (settingsData is already grouped by group)
+          let setting: any = null;
+          Object.values(groupedSettings).forEach((group: SiteSetting[]) => {
+            if (Array.isArray(group)) {
+              const found = group.find((s: SiteSetting) => s.key === key);
+              if (found) setting = found;
+            }
+          });
+          
           if (setting) {
+            // Use translations from database first, then fallback to value
             const translations = setting.translations || {};
-            // Preserve existing multilingual data if available, merge with fetched data
-            const existing = settingsMultilingual[key] || { en: '', es: '', pt: '' };
             multilingualData[key] = {
-              en: translations.en || setting.value || existing.en || '',
-              es: translations.es || existing.es || '',
-              pt: translations.pt || existing.pt || '',
+              en: translations.en !== undefined ? translations.en : (setting.value || ''),
+              es: translations.es !== undefined ? translations.es : '',
+              pt: translations.pt !== undefined ? translations.pt : '',
             };
           } else {
-            // Keep existing data if setting not found
-            multilingualData[key] = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+            // If setting not found, initialize with empty values
+            multilingualData[key] = { en: '', es: '', pt: '' };
           }
         });
-        setSettingsMultilingual(multilingualData);
+        
+        // Merge with existing settingsMultilingual to preserve any user input that hasn't been saved yet
+        setSettingsMultilingual(prev => {
+          const merged: Record<string, MultilingualData> = { ...multilingualData };
+          // Preserve any user input that exists in prev - prioritize user input over database values
+          Object.keys(prev).forEach(key => {
+            if (TRANSLATABLE_KEYS.includes(key) && prev[key]) {
+              // If user has typed something in prev, preserve it (even if empty string)
+              merged[key] = {
+                en: prev[key].en !== undefined ? prev[key].en : (multilingualData[key]?.en || ''),
+                es: prev[key].es !== undefined ? prev[key].es : (multilingualData[key]?.es || ''),
+                pt: prev[key].pt !== undefined ? prev[key].pt : (multilingualData[key]?.pt || ''),
+              };
+            }
+          });
+          return merged;
+        });
       }
     } catch (error: any) {
       console.error('Error fetching settings:', error);
@@ -399,27 +476,8 @@ const Settings = () => {
       setSaving(true);
       const groupSettings = settings[groupName] || [];
       
-      // Define translatable keys
-      const translatableKeys = [
-        'hero_title',
-        'hero_subtitle',
-        'hero_cta_text',
-        'hero_cta_button_text',
-        'hero_disclaimer',
-  'about_title',
-  'about_description',
-  'about_text_1',
-  'about_text_2',
-  'about_text_3',
-  'testimonial_title',
-        'testimonial_subtitle',
-        'site_name',
-        'site_tagline',
-        'footer_copyright',
-        'footer_description',
-        'footer_address',
-        'contact_address',
-      ];
+      // Define translatable keys - use the same list as TRANSLATABLE_KEYS
+      const translatableKeys = TRANSLATABLE_KEYS;
       
       const updateData: SettingsUpdateRequest[] = [];
       
@@ -502,7 +560,88 @@ const Settings = () => {
         });
       }
 
-      // Handle about settings (including about_text fields)
+      // Handle about settings (including about_text fields) - save all multilingual data
+      if (groupName === 'about') {
+        // Save all about translatable fields
+        TRANSLATABLE_KEYS.filter(key => key.startsWith('about_')).forEach(key => {
+          const currentMultilingual = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+          const existingSetting = settings.about?.find(s => s.key === key) as any;
+          
+          // Merge with existing translations to preserve all languages
+          const mergedTranslations = {
+            en: currentMultilingual.en !== undefined ? currentMultilingual.en : (existingSetting?.translations?.en || existingSetting?.value || ''),
+            es: currentMultilingual.es !== undefined ? currentMultilingual.es : (existingSetting?.translations?.es || ''),
+            pt: currentMultilingual.pt !== undefined ? currentMultilingual.pt : (existingSetting?.translations?.pt || ''),
+          };
+          
+          // Always save, even if all values are empty (to create the setting)
+          const existingInUpdate = updateData.find(s => s.key === key);
+          if (!existingInUpdate) {
+            updateData.push({
+              key: key,
+              value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
+              type: 'text',
+              group: 'about',
+              label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              description: '',
+              locale: 'en',
+              translations: mergedTranslations,
+            } as any);
+          }
+        });
+        
+        // Also handle about_image if it exists (non-translatable)
+        const aboutImageSetting = settings.about?.find(s => s.key === 'about_image');
+        if (aboutImageSetting || currentAboutImage) {
+          const imageValue = currentAboutImage || aboutImageSetting?.value || '';
+          // Extract just the path from the URL if it's a full URL
+          let imagePath = imageValue;
+          if (imageValue && (imageValue.startsWith('http://') || imageValue.startsWith('https://'))) {
+            try {
+              const url = new URL(imageValue);
+              imagePath = url.pathname; // Get just the path, e.g., /storage/images/...
+            } catch (e) {
+              // If URL parsing fails, try to extract path manually
+              const match = imageValue.match(/\/storage\/[^?]+/);
+              if (match) {
+                imagePath = match[0];
+              }
+            }
+          }
+          
+          const existingImageInUpdate = updateData.find(s => s.key === 'about_image');
+          if (!existingImageInUpdate) {
+            updateData.push({
+              key: 'about_image',
+              value: imagePath, // Store just the path, not full URL
+              type: 'text',
+              group: 'about',
+              label: 'About Image',
+              description: 'Image for the about section',
+            });
+          }
+        }
+        
+        // Handle stat values (non-translatable)
+        ['about_stat_1_value', 'about_stat_2_value', 'about_stat_3_value'].forEach(key => {
+          const statValueSetting = settings.about?.find(s => s.key === key);
+          if (statValueSetting) {
+            const existingInUpdate = updateData.find(s => s.key === key);
+            if (!existingInUpdate) {
+              updateData.push({
+                key: key,
+                value: statValueSetting.value || '',
+                type: 'text',
+                group: 'about',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+              });
+            }
+          }
+        });
+      }
+      
+      // Legacy code for about settings (keeping for backward compatibility)
       if (groupName === 'about') {
         ['about_title', 'about_description', 'about_text_1', 'about_text_2', 'about_text_3'].forEach(key => {
           if (settingsMultilingual[key]) {
@@ -524,24 +663,77 @@ const Settings = () => {
         });
       }
       
-      // Handle testimonial settings
-      if (groupName === 'testimonial') {
-        ['testimonial_title', 'testimonial_subtitle'].forEach(key => {
+      // Handle hero settings - ensure all translatable hero fields are saved
+      if (groupName === 'hero') {
+        // Get all hero translatable keys
+        const heroTranslatableKeys = TRANSLATABLE_KEYS.filter(key => key.startsWith('hero_'));
+        heroTranslatableKeys.forEach(key => {
           if (settingsMultilingual[key]) {
             const multilingualValue = settingsMultilingual[key];
             const existingSetting = updateData.find(s => s.key === key);
             if (!existingSetting) {
               updateData.push({
                 key: key,
-                value: multilingualValue.en || '',
+                value: multilingualValue.en || multilingualValue.es || multilingualValue.pt || '',
                 type: 'text',
-                group: 'testimonial',
+                group: 'hero',
                 label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 description: '',
                 locale: 'en',
                 translations: multilingualValue,
               } as any);
             }
+          }
+        });
+        
+        // Handle non-translatable hero settings (like hero_price, hero_background_images)
+        const nonTranslatableHeroKeys = ['hero_price', 'hero_background_images'];
+        nonTranslatableHeroKeys.forEach(key => {
+          const setting = groupSettings.find(s => s && s.key === key);
+          if (setting) {
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: setting.value || '',
+                type: setting.type || (key === 'hero_background_images' ? 'json' : 'text'),
+                group: 'hero',
+                label: setting.label || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: setting.description || '',
+              });
+            }
+          }
+        });
+      }
+      
+      // Handle testimonial settings
+      if (groupName === 'testimonial') {
+        // Always save testimonial_title and testimonial_subtitle if they exist in settingsMultilingual
+        ['testimonial_title', 'testimonial_subtitle'].forEach(key => {
+          const multilingualValue = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+          const existingSetting = settings.testimonial?.find(s => s.key === key);
+          
+          // Merge with existing translations to preserve all languages
+          const existingTranslations = (existingSetting as any)?.translations || {};
+          const mergedTranslations = {
+            en: multilingualValue.en !== undefined ? multilingualValue.en : (existingTranslations.en || existingSetting?.value || ''),
+            es: multilingualValue.es !== undefined ? multilingualValue.es : (existingTranslations.es || ''),
+            pt: multilingualValue.pt !== undefined ? multilingualValue.pt : (existingTranslations.pt || ''),
+          };
+          
+          // Always include in updateData, even if empty (to create the setting)
+          const existingInUpdate = updateData.find(s => s.key === key);
+          if (!existingInUpdate) {
+            updateData.push({
+              key: key,
+              value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
+              type: 'text',
+              group: 'testimonial',
+              label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              description: '',
+              locale: 'en',
+              translations: mergedTranslations,
+            } as any);
           }
         });
         
@@ -855,7 +1047,7 @@ const Settings = () => {
         throw new Error('Invalid file type. Please upload JPEG, PNG, or WebP image');
       }
 
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhsot:8000/api';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       const token = localStorage.getItem('auth_token');
       
       console.log('Uploading about image:', {
@@ -960,9 +1152,55 @@ const Settings = () => {
         }
       }
       
+      // Extract just the path from the URL (not full URL) for storage
+      let imagePath = rawImageUrl;
+      if (rawImageUrl.startsWith('http://') || rawImageUrl.startsWith('https://')) {
+        try {
+          const url = new URL(rawImageUrl);
+          imagePath = url.pathname; // Get just the path, e.g., /storage/images/...
+        } catch (e) {
+          // If URL parsing fails, try to extract path manually
+          const match = rawImageUrl.match(/\/storage\/[^?]+/);
+          if (match) {
+            imagePath = match[0];
+          } else {
+            // Fallback: try to extract any path after domain
+            const pathMatch = rawImageUrl.match(/https?:\/\/[^\/]+(\/.*?)(?:\?|$)/);
+            if (pathMatch && pathMatch[1]) {
+              imagePath = pathMatch[1];
+            }
+          }
+        }
+      }
+      
+      console.log('Extracted image path for storage:', imagePath, 'from URL:', rawImageUrl);
+      
+      // Save the path (not full URL) to database
+      try {
+        await settingsApi.bulkUpdate([{
+          key: 'about_image',
+          value: imagePath, // Store just the path
+          type: 'text',
+          group: 'about',
+          label: 'About Image',
+          description: 'Image path for the about section',
+        }]);
+        
+        // Update local state with the full URL for display
+        setCurrentAboutImage(processedUrl);
+        
+        // Refresh settings to get updated value
+        await fetchSettings();
+        
+        toast.success('About image uploaded and saved successfully');
+      } catch (saveError: any) {
+        console.error('Error saving about image path:', saveError);
+        toast.error(`Image uploaded but failed to save: ${saveError.message || 'Unknown error'}`);
+      }
+      
       // Delete old image if exists (optional cleanup)
       const currentAboutImage = settings.about?.find(s => s.key === 'about_image')?.value;
-      if (currentAboutImage && currentAboutImage !== rawImageUrl) {
+      if (currentAboutImage && currentAboutImage !== imagePath) {
         try {
           // Extract path from URL if it's a full URL
           let pathToDelete = currentAboutImage;
@@ -996,18 +1234,8 @@ const Settings = () => {
         }
       }
       
-      // Update local state IMMEDIATELY for preview (use processed URL) - do this BEFORE saving
-      console.log('Setting currentAboutImage after upload:', processedUrl);
-      setCurrentAboutImage(processedUrl);
-      
-      // Save URL to site_settings table (use rawImageUrl, not processedUrl, so backend can handle it)
-      await settingsApi.bulkUpdate([{ key: 'about_image', value: rawImageUrl, group: 'about' }]);
-      updateSetting('about', 'about_image', rawImageUrl);
-      
-      // Don't refresh settings immediately - it might reset the state
-      // The state is already updated above, and settings will be refreshed on next page load
-      
-      toast.success('About image updated successfully');
+      // Image path is already saved above, so we don't need to save again here
+      // The processedUrl is used for display preview only
       
       // Return processed URL for preview - FileUpload will use this
       return processedUrl;
@@ -1057,12 +1285,19 @@ const Settings = () => {
     try {
       setTestimonialLoading(true);
       const response = await feedbackApi.getAll({ type: 'general_feedback' });
+      console.log('Testimonials API response:', response);
       if (response.success) {
-        setTestimonials(response.data?.data || response.data || []);
+        const testimonialsData = response.data?.data || response.data || [];
+        console.log('Testimonials loaded:', testimonialsData.length, testimonialsData);
+        setTestimonials(testimonialsData);
+      } else {
+        console.warn('Testimonials API returned success: false', response);
+        setTestimonials([]);
       }
     } catch (error) {
       console.error('Error fetching testimonials:', error);
       toast.error('Failed to fetch testimonials');
+      setTestimonials([]);
     } finally {
       setTestimonialLoading(false);
     }
@@ -1131,14 +1366,23 @@ const Settings = () => {
   const fetchVideos = async () => {
     try {
       setVideoLoading(true);
-      const response = await videoApi.getAll({ status: 'published', per_page: 1000 });
+      // Fetch all videos (not just published) so admin can select drafts too
+      // Homepage will filter to only show published videos
+      const response = await videoApi.getAll({ per_page: 1000 });
+      console.log('Videos API response:', response);
       if (response.success) {
         const videosData = response.data?.data || response.data || [];
-        setVideos(Array.isArray(videosData) ? videosData : []);
+        const videosArray = Array.isArray(videosData) ? videosData : [];
+        console.log('Videos loaded:', videosArray.length, videosArray);
+        setVideos(videosArray);
+      } else {
+        console.warn('Videos API returned success: false', response);
+        setVideos([]);
       }
     } catch (error) {
       console.error('Error fetching videos:', error);
       toast.error('Failed to fetch videos');
+      setVideos([]);
     } finally {
       setVideoLoading(false);
     }
@@ -1146,24 +1390,48 @@ const Settings = () => {
 
   const handleToggleHomepageVideo = async (videoId: number) => {
     try {
-      const updatedIds = selectedHomepageVideos.includes(videoId)
+      const isCurrentlySelected = selectedHomepageVideos.includes(videoId);
+      const updatedIds = isCurrentlySelected
         ? selectedHomepageVideos.filter(id => id !== videoId)
         : [...selectedHomepageVideos, videoId];
 
+      // Optimistically update UI
       setSelectedHomepageVideos(updatedIds);
 
       // Save to settings
       const updateData: SettingsUpdateRequest[] = [{
         key: 'homepage_video_ids',
         value: JSON.stringify(updatedIds),
-        group: 'homepage'
+        type: 'text',
+        group: 'homepage',
+        label: 'Homepage Video IDs',
+        description: 'Array of video IDs to display on homepage',
       }];
 
-      await settingsApi.bulkUpdate(updateData);
-      toast.success('Homepage videos updated');
-    } catch (error) {
+      console.log('Saving homepage video IDs:', updatedIds);
+      const response = await settingsApi.bulkUpdate(updateData);
+      
+      if (response.success) {
+        toast.success(
+          isCurrentlySelected 
+            ? 'Video removed from homepage' 
+            : 'Video added to homepage'
+        );
+        // Refresh settings to ensure sync
+        await fetchSettings();
+      } else {
+        throw new Error('Save failed');
+      }
+    } catch (error: any) {
       console.error('Error updating homepage videos:', error);
-      toast.error('Failed to update homepage videos');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      toast.error(`Failed to update homepage videos: ${errorMessage}`);
+      
+      // Revert selection on error
+      const revertedIds = selectedHomepageVideos.includes(videoId)
+        ? selectedHomepageVideos.filter(id => id !== videoId)
+        : [...selectedHomepageVideos, videoId];
+      setSelectedHomepageVideos(revertedIds);
     }
   };
 
@@ -1503,12 +1771,19 @@ const Settings = () => {
     );
   };
 
-  // Helper function to get hero field value with fallback
+  // Helper function to get hero field value - only from settingsMultilingual to preserve user input
   const getHeroFieldValue = (key: string) => {
-    return settingsMultilingual[key]?.[contentLocale] || 
-           (settings.hero?.find(s => s.key === key) as any)?.translations?.[contentLocale] || 
-           settings.hero?.find(s => s.key === key)?.value || 
-           '';
+    // Always use settingsMultilingual first to preserve user input when switching languages
+    if (settingsMultilingual[key]?.[contentLocale] !== undefined) {
+      return settingsMultilingual[key][contentLocale];
+    }
+    // Fallback to database values only if user hasn't typed anything yet
+    const setting = settings.hero?.find(s => s.key === key) as any;
+    if (setting?.translations?.[contentLocale]) {
+      return setting.translations[contentLocale];
+    }
+    // If no translation, use English value as fallback
+    return setting?.value || '';
   };
 
   if (loading) {
@@ -1551,11 +1826,15 @@ const Settings = () => {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           {/* Hero tab retained for general text settings; background images managed via About only */}
           <TabsTrigger value="hero" className="flex items-center">
             <Home className="mr-2 h-4 w-4" />
             {t('admin.settings_page.tabs.hero')}
+          </TabsTrigger>
+          <TabsTrigger value="why" className="flex items-center">
+            <HelpCircle className="mr-2 h-4 w-4" />
+            Why SACRART
           </TabsTrigger>
           <TabsTrigger value="about" className="flex items-center">
             <FileText className="mr-2 h-4 w-4" />
@@ -1605,12 +1884,14 @@ const Settings = () => {
                       <Label htmlFor="hero_badge">Hero Badge <span className="text-muted-foreground text-xs">(e.g., "Nueva Masterclass Disponible")</span></Label>
                       <Input
                         id="hero_badge"
-                        value={settingsMultilingual.hero_badge?.[contentLocale] || (settings.hero?.find(s => s.key === 'hero_badge') as any)?.translations?.[contentLocale] || settings.hero?.find(s => s.key === 'hero_badge')?.value || ''}
+                        value={getHeroFieldValue('hero_badge')}
                         onChange={(e) => {
                           setSettingsMultilingual(prev => ({
                             ...prev,
                             hero_badge: {
-                              ...(prev.hero_badge || { en: '', es: '', pt: '' }),
+                              en: prev.hero_badge?.en || '',
+                              es: prev.hero_badge?.es || '',
+                              pt: prev.hero_badge?.pt || '',
                               [contentLocale]: e.target.value,
                             },
                           }));
@@ -1822,35 +2103,47 @@ const Settings = () => {
                             const updateData: any[] = [];
                             
                             // Add all multilingual hero settings - preserve all language data
-                            TRANSLATABLE_KEYS.filter(key => key.startsWith('hero_')).forEach(key => {
+                            // Include both hero_ and presentation_video_ keys
+                            const keysToSave = TRANSLATABLE_KEYS.filter(key => key.startsWith('hero_') || key.startsWith('presentation_video_'));
+                            console.log('Saving hero and presentation video settings. Keys to save:', keysToSave);
+                            console.log('Current settingsMultilingual state:', settingsMultilingual);
+                            
+                            keysToSave.forEach(key => {
                               // Get current multilingual value from state, or from existing settings
                               const currentMultilingual = settingsMultilingual[key] || { en: '', es: '', pt: '' };
                               const existingSetting = settings.hero?.find(s => s.key === key) as any;
                               
+                              console.log(`Processing key: ${key}`, {
+                                currentMultilingual,
+                                existingSetting: existingSetting ? { value: existingSetting.value, translations: existingSetting.translations } : null
+                              });
+                              
                               // Merge with existing translations to preserve all languages
+                              // Prioritize currentMultilingual (user input) over existing settings
                               const mergedTranslations = {
                                 en: currentMultilingual.en || existingSetting?.translations?.en || existingSetting?.value || '',
                                 es: currentMultilingual.es || existingSetting?.translations?.es || '',
                                 pt: currentMultilingual.pt || existingSetting?.translations?.pt || '',
                               };
                               
-                              // Only add if there's at least one value
-                              if (mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt) {
-                                updateData.push({
-                                  key: key,
-                                  value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
-                                  type: 'text',
-                                  group: 'hero',
-                                  label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                                  description: '',
-                                  locale: 'en',
-                                  translations: mergedTranslations,
-                                });
-                              }
+                              // Always save, even if all values are empty (to create the setting)
+                              updateData.push({
+                                key: key,
+                                value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
+                                type: 'text',
+                                group: 'hero',
+                                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                                description: '',
+                                locale: 'en',
+                                translations: mergedTranslations,
+                              });
                             });
+                            
+                            console.log('Update data to send:', updateData);
                             
                             if (updateData.length > 0) {
                               const response = await settingsApi.bulkUpdate(updateData, contentLocale);
+                              console.log('Save response:', response);
                               if (response.success) {
                                 toast.success('Hero settings updated successfully');
                                 // Refresh settings to load saved data
@@ -1911,6 +2204,283 @@ const Settings = () => {
               </div>
             </Card>
 
+            {/* Presentation Video Section */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Presentation Video (Homepage Right Side)</h3>
+                <Badge variant="secondary">Autoplay</Badge>
+              </div>
+              <div className="space-y-6">
+                {/* Language Tabs for Presentation Video Text Fields */}
+                <div className="mb-4">
+                  <LanguageTabs 
+                    activeLanguage={contentLocale} 
+                    onLanguageChange={handleLanguageChange}
+                  />
+                </div>
+
+                {/* Presentation Video Text Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="presentation_video_badge">Badge Text</Label>
+                    <Input
+                      id="presentation_video_badge"
+                      value={getHeroFieldValue('presentation_video_badge')}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          presentation_video_badge: {
+                            ...(prev.presentation_video_badge || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                      }}
+                      placeholder={`Enter badge text in ${contentLocale.toUpperCase()} (e.g., "NUEVO")`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="presentation_video_series">Series Name</Label>
+                    <Input
+                      id="presentation_video_series"
+                      value={getHeroFieldValue('presentation_video_series')}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          presentation_video_series: {
+                            ...(prev.presentation_video_series || { en: '', es: '', pt: '' }),
+                            [contentLocale]: e.target.value,
+                          },
+                        }));
+                      }}
+                      placeholder={`Enter series name in ${contentLocale.toUpperCase()}`}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="presentation_video_title">Title</Label>
+                  <Input
+                    id="presentation_video_title"
+                    value={getHeroFieldValue('presentation_video_title')}
+                    onChange={(e) => {
+                      setSettingsMultilingual(prev => ({
+                        ...prev,
+                        presentation_video_title: {
+                          ...(prev.presentation_video_title || { en: '', es: '', pt: '' }),
+                          [contentLocale]: e.target.value,
+                        },
+                      }));
+                    }}
+                    placeholder={`Enter video title in ${contentLocale.toUpperCase()}`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="presentation_video_description">Description</Label>
+                  <textarea
+                    id="presentation_video_description"
+                    value={getHeroFieldValue('presentation_video_description')}
+                    onChange={(e) => {
+                      setSettingsMultilingual(prev => ({
+                        ...prev,
+                        presentation_video_description: {
+                          ...(prev.presentation_video_description || { en: '', es: '', pt: '' }),
+                          [contentLocale]: e.target.value,
+                        },
+                      }));
+                    }}
+                    placeholder={`Enter video description in ${contentLocale.toUpperCase()}`}
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Video URL Upload */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label>Presentation Video URL</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Upload a video file or enter a video URL (Bunny.net embed URL, YouTube URL, or direct video URL)
+                    </p>
+                    <FileUpload
+                      type="video"
+                      label="Upload Presentation Video"
+                      onFileSelect={() => {}}
+                      onFileUpload={async (file) => {
+                        try {
+                          const token = localStorage.getItem('auth_token');
+                          const formData = new FormData();
+                          // Backend expects videos as an array, so use bracket notation
+                          formData.append('videos[]', file);
+                          
+                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+                          const response = await fetch(`${API_BASE_URL}/media/videos`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              // Don't set Content-Type header - let browser set it with boundary for FormData
+                            },
+                            body: formData,
+                          });
+                          
+                          const data = await response.json();
+                          
+                          if (!response.ok) {
+                            // Extract error message from response
+                            const errorMessage = data.message || 
+                              (data.errors ? JSON.stringify(data.errors) : 'Failed to upload video');
+                            console.error('Video upload error response:', data);
+                            throw new Error(errorMessage);
+                          }
+                          
+                          if (data.success && data.data && data.data.length > 0) {
+                            let videoUrl = data.data[0].url || data.data[0].path;
+                            if (!videoUrl) {
+                              throw new Error('No video URL returned from server');
+                            }
+                            
+                            // Fix URL: strip /storage/ prefix if present (like images)
+                            if (videoUrl.includes('/storage/')) {
+                              videoUrl = videoUrl.replace('/storage/', '/');
+                            }
+                            
+                            // Save to settings
+                            await settingsApi.bulkUpdate([{
+                              key: 'presentation_video_url',
+                              value: videoUrl,
+                              type: 'text',
+                              group: 'hero',
+                              label: 'Presentation Video URL',
+                              description: 'Video URL for homepage presentation (autoplay before login)'
+                            }]);
+                            toast.success('Presentation video uploaded successfully');
+                            await fetchSettings();
+                            return videoUrl;
+                          }
+                          throw new Error('No video URL returned');
+                        } catch (error: any) {
+                          console.error('Error uploading presentation video:', error);
+                          const errorMessage = error?.message || 'Failed to upload video';
+                          toast.error(`Failed to upload video: ${errorMessage}`);
+                          throw error;
+                        }
+                      }}
+                      currentFile={settings.hero?.find(s => s.key === 'presentation_video_url')?.value || ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="presentation_video_url">Or Enter Video URL</Label>
+                    <Input
+                      id="presentation_video_url"
+                      value={settings.hero?.find(s => s.key === 'presentation_video_url')?.value || ''}
+                      onChange={(e) => {
+                        updateSetting('hero', 'presentation_video_url', e.target.value);
+                      }}
+                      placeholder="Enter video URL (Bunny.net, YouTube, or direct video URL)"
+                    />
+                  </div>
+                  {settings.hero?.find(s => s.key === 'presentation_video_url')?.value && (
+                    <div className="mt-4 p-4 bg-muted rounded-lg">
+                      <p className="text-sm font-medium mb-2">Current Video:</p>
+                      <p className="text-xs text-muted-foreground break-all">
+                        {settings.hero.find(s => s.key === 'presentation_video_url')?.value}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end items-center pt-4 border-t">
+                  <p className="text-xs text-muted-foreground mr-4">
+                    Save all presentation video text fields and video URL
+                  </p>
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        setSaving(true);
+                        // Save all multilingual presentation video settings
+                        const updateData: any[] = [];
+                        
+                        // Include presentation_video_ keys
+                        const keysToSave = TRANSLATABLE_KEYS.filter(key => key.startsWith('presentation_video_'));
+                        console.log('Saving presentation video settings. Keys to save:', keysToSave);
+                        console.log('Current settingsMultilingual state:', settingsMultilingual);
+                        
+                        keysToSave.forEach(key => {
+                          // Get current multilingual value from state, or from existing settings
+                          const currentMultilingual = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+                          const existingSetting = settings.hero?.find(s => s.key === key) as any;
+                          
+                          console.log(`Processing key: ${key}`, {
+                            currentMultilingual,
+                            existingSetting: existingSetting ? { value: existingSetting.value, translations: existingSetting.translations } : null
+                          });
+                          
+                          // Merge with existing translations to preserve all languages
+                          const mergedTranslations = {
+                            en: currentMultilingual.en || existingSetting?.translations?.en || existingSetting?.value || '',
+                            es: currentMultilingual.es || existingSetting?.translations?.es || '',
+                            pt: currentMultilingual.pt || existingSetting?.translations?.pt || '',
+                          };
+                          
+                          // Always save, even if all values are empty (to create the setting)
+                          updateData.push({
+                            key: key,
+                            value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
+                            type: 'text',
+                            group: 'hero',
+                            label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                            description: '',
+                            locale: 'en',
+                            translations: mergedTranslations,
+                          });
+                        });
+                        
+                        // Also save presentation_video_url if it exists
+                        const videoUrlSetting = settings.hero?.find(s => s.key === 'presentation_video_url');
+                        if (videoUrlSetting) {
+                          updateData.push({
+                            key: 'presentation_video_url',
+                            value: videoUrlSetting.value || '',
+                            type: 'text',
+                            group: 'hero',
+                            label: 'Presentation Video URL',
+                            description: 'Video URL for homepage presentation (autoplay before login)',
+                          });
+                        }
+                        
+                        console.log('Update data to send:', updateData);
+                        
+                        if (updateData.length > 0) {
+                          const response = await settingsApi.bulkUpdate(updateData, contentLocale);
+                          console.log('Save response:', response);
+                          if (response.success) {
+                            toast.success('Presentation video settings saved successfully');
+                            // Refresh settings to load saved data
+                            await fetchSettings();
+                          } else {
+                            toast.error('Failed to save presentation video settings');
+                          }
+                        } else {
+                          toast.warning('No presentation video settings to save');
+                        }
+                      } catch (error: any) {
+                        console.error('Error saving presentation video settings:', error);
+                        toast.error(`Failed to save settings: ${error.message || 'Unknown error'}`);
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                    className="flex items-center"
+                  >
+                    {saving ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {t('admin.common_save')}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
             {/* Background Images Control (like initial) */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -1938,48 +2508,402 @@ const Settings = () => {
           </div>
         </TabsContent>
 
+        {/* Why SACRART Section Settings */}
+        <TabsContent value="why" className="mt-6">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold">Why SACRART Section</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Manage the "¿Por qué SACRART?" section content on the homepage (before login)
+                </p>
+              </div>
+              <LanguageTabs
+                activeLanguage={contentLocale}
+                onLanguageChange={handleLanguageChange}
+              />
+            </div>
+
+            <div className="space-y-6">
+              {/* Section Header */}
+              <div className="space-y-4 border-b pb-6">
+                <h3 className="text-lg font-medium">Section Header</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={settingsMultilingual.why_sacrart_title?.[contentLocale] || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          why_sacrart_title: {
+                            ...prev.why_sacrart_title,
+                            [contentLocale]: e.target.value
+                          }
+                        }));
+                      }}
+                      placeholder="¿Por qué SACRART?"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={settingsMultilingual.why_sacrart_description?.[contentLocale] || ''}
+                      onChange={(e) => {
+                        setSettingsMultilingual(prev => ({
+                          ...prev,
+                          why_sacrart_description: {
+                            ...prev.why_sacrart_description,
+                            [contentLocale]: e.target.value
+                          }
+                        }));
+                      }}
+                      placeholder="Sumérgete en el conocimiento ancestral del arte sacro desde cualquier dispositivo."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Cards */}
+              <div className="space-y-4 border-b pb-6">
+                <h3 className="text-lg font-medium">Main Cards</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Artist Card */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm text-muted-foreground">Card 1: For Artists</h4>
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_artist_title?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_artist_title: {
+                              ...prev.why_sacrart_artist_title,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Para el Artista o Aprendiz"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={settingsMultilingual.why_sacrart_artist_description?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_artist_description: {
+                              ...prev.why_sacrart_artist_description,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Que busca perfeccionar su técnica, aprender métodos tradicionales y modernos y encontrar inspiración en una artista que abre las puertas de su taller."
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Art Lover Card */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm text-muted-foreground">Card 2: For Art Lovers</h4>
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_art_lover_title?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_art_lover_title: {
+                              ...prev.why_sacrart_art_lover_title,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Para el Apasionado del Arte"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={settingsMultilingual.why_sacrart_art_lover_description?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_art_lover_description: {
+                              ...prev.why_sacrart_art_lover_description,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Que disfruta viendo nacer y crecer una imagen, sin necesidad de practicar: solo curiosidad y emoción por el proceso."
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature Cards */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Feature Cards</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Quality Card */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm text-muted-foreground">Feature 1: Quality</h4>
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_quality_title?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_quality_title: {
+                              ...prev.why_sacrart_quality_title,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Calidad 4K HDR"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_quality_description?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_quality_description: {
+                              ...prev.why_sacrart_quality_description,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="No pierdas detalle de cada pincelada."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Multilanguage Card */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm text-muted-foreground">Feature 2: Multilanguage</h4>
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_multilang_title?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_multilang_title: {
+                              ...prev.why_sacrart_multilang_title,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Multilenguaje"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_multilang_description?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_multilang_description: {
+                              ...prev.why_sacrart_multilang_description,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Doblados y subtitulados al inglés y portugués."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Platform Card */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm text-muted-foreground">Feature 3: Platform</h4>
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_platform_title?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_platform_title: {
+                              ...prev.why_sacrart_platform_title,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Multiplataforma"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={settingsMultilingual.why_sacrart_platform_description?.[contentLocale] || ''}
+                        onChange={(e) => {
+                          setSettingsMultilingual(prev => ({
+                            ...prev,
+                            why_sacrart_platform_description: {
+                              ...prev.why_sacrart_platform_description,
+                              [contentLocale]: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Web, tablet y móvil."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex justify-end pt-4 border-t">
+                <Button
+                  onClick={async () => {
+                    try {
+                      setSaving(true);
+                      // Save all multilingual settings
+                      const updateData: any[] = [];
+                      
+                      // Add all multilingual why_sacrart settings - preserve all language data
+                      TRANSLATABLE_KEYS.filter(key => key.startsWith('why_sacrart_')).forEach(key => {
+                        // Get current multilingual value from state, or from existing settings
+                        const currentMultilingual = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+                        const existingSetting = settings.why_sacrart?.find(s => s.key === key) as any;
+                        
+                        // Merge with existing translations to preserve all languages
+                        const mergedTranslations = {
+                          en: currentMultilingual.en !== undefined ? currentMultilingual.en : (existingSetting?.translations?.en || existingSetting?.value || ''),
+                          es: currentMultilingual.es !== undefined ? currentMultilingual.es : (existingSetting?.translations?.es || ''),
+                          pt: currentMultilingual.pt !== undefined ? currentMultilingual.pt : (existingSetting?.translations?.pt || ''),
+                        };
+                        
+                        // Always save, even if all values are empty (to create the setting)
+                        updateData.push({
+                          key: key,
+                          value: mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '',
+                          type: 'text',
+                          group: 'why_sacrart',
+                          label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                          description: '',
+                          locale: 'en',
+                          translations: mergedTranslations,
+                        });
+                      });
+                      
+                      if (updateData.length > 0) {
+                        const response = await settingsApi.bulkUpdate(updateData, contentLocale);
+                        if (response.success) {
+                          toast.success('Why SACRART settings saved successfully');
+                          // Refresh settings to load saved data
+                          await fetchSettings();
+                        } else {
+                          toast.error('Failed to save Why SACRART settings');
+                        }
+                      } else {
+                        toast.warning('No Why SACRART settings to save');
+                      }
+                    } catch (error: any) {
+                      console.error('Error saving Why SACRART settings:', error);
+                      toast.error(`Failed to save settings: ${error.message || 'Unknown error'}`);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={saving}
+                  className="flex items-center"
+                >
+                  {saving ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {t('admin.common_save')}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
         {/* About Section Settings */}
         <TabsContent value="about" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.about.title')}</h2>
-            {/* About Image Uploader */}
-            <div className="mb-6">
-              <FileUpload
-                type="image"
-                label={t('admin.settings_page.about.image')}
-                onFileSelect={() => {}}
-                onFileUpload={uploadAboutImage}
-                currentFile={currentAboutImage || settings.about?.find(s => s.key === 'about_image')?.value || ''}
-              />
-            </div>
-            {settings.about && settings.about.length > 0 ? (
-              renderSettingsGroup('about', settings.about.filter(s => s && s.key && s.key !== 'about_image'))
-            ) : (
+            
+            {/* Two-column layout: Image on left, Inputs on right */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Left Column: Image Uploader */}
               <div className="space-y-4">
-                {/* <p className="text-muted-foreground mb-4">{t('admin.settings_page.about.no_settings') || 'No about settings found. Create them below:'}</p> */}
-                
-                {/* Language Tabs */}
-                <LanguageTabs 
-                  activeLanguage={contentLocale} 
-                  onLanguageChange={(lang) => setContentLocale(lang)}
-                  className="mb-4"
+                <div>
+                  <Label className="mb-2 block">{t('admin.settings_page.about.image')}</Label>
+                  <div className="relative">
+                    {currentAboutImage || settings.about?.find(s => s.key === 'about_image')?.value ? (
+                      <div className="relative w-full h-96 rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50">
+                        <img 
+                          src={currentAboutImage || settings.about?.find(s => s.key === 'about_image')?.value || ''} 
+                          alt="About section image" 
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-96 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <Upload className="h-12 w-12 mx-auto mb-2" />
+                          <p className="text-sm">No image uploaded</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <FileUpload
+                  type="image"
+                  label={t('admin.settings_page.about.image')}
+                  onFileSelect={() => {}}
+                  onFileUpload={uploadAboutImage}
+                  currentFile={currentAboutImage || settings.about?.find(s => s.key === 'about_image')?.value || ''}
                 />
+              </div>
+              
+              {/* Right Column: Input Fields */}
+              <div className="space-y-4">
+                {/* Language Tabs - Always visible for translatable fields */}
+                <div className="mb-4">
+                  <LanguageTabs 
+                    activeLanguage={contentLocale} 
+                    onLanguageChange={handleLanguageChange}
+                  />
+                </div>
                 
+                {/* Always show input form for About section */}
                 <div className="space-y-4">
+                  {/* <p className="text-muted-foreground mb-4">{t('admin.settings_page.about.no_settings') || 'No about settings found. Create them below:'}</p> */}
                   <div className="space-y-2">
                     <Label htmlFor="about_title">About Title</Label>
                     <Input
                       id="about_title"
-                      value={settingsMultilingual.about_title?.[contentLocale] || settings.about?.find(s => s.key === 'about_title')?.value || ''}
+                      value={settingsMultilingual.about_title?.[contentLocale] || ''}
                       onChange={(e) => {
                         setSettingsMultilingual(prev => ({
                           ...prev,
                           about_title: {
-                            ...(prev.about_title || { en: '', es: '', pt: '' }),
+                            en: prev.about_title?.en || '',
+                            es: prev.about_title?.es || '',
+                            pt: prev.about_title?.pt || '',
                             [contentLocale]: e.target.value,
                           },
                         }));
-                        // Don't call updateSetting here - only update on save
                       }}
                       placeholder={`Enter about title in ${contentLocale.toUpperCase()}`}
                     />
@@ -1988,16 +2912,17 @@ const Settings = () => {
                     <Label htmlFor="about_description">About Description</Label>
                     <Textarea
                       id="about_description"
-                      value={settingsMultilingual.about_description?.[contentLocale] || settings.about?.find(s => s.key === 'about_description')?.value || ''}
+                      value={settingsMultilingual.about_description?.[contentLocale] || ''}
                       onChange={(e) => {
                         setSettingsMultilingual(prev => ({
                           ...prev,
                           about_description: {
-                            ...(prev.about_description || { en: '', es: '', pt: '' }),
+                            en: prev.about_description?.en || '',
+                            es: prev.about_description?.es || '',
+                            pt: prev.about_description?.pt || '',
                             [contentLocale]: e.target.value,
                           },
                         }));
-                        // Don't call updateSetting here - only update on save
                       }}
                       placeholder={`Enter about description in ${contentLocale.toUpperCase()}`}
                       className="min-h-[100px]"
@@ -2007,12 +2932,14 @@ const Settings = () => {
                     <Label htmlFor="about_text_1">About Text 1</Label>
                     <Textarea
                       id="about_text_1"
-                      value={settingsMultilingual.about_text_1?.[contentLocale] || settings.about?.find(s => s.key === 'about_text_1')?.value || ''}
+                      value={settingsMultilingual.about_text_1?.[contentLocale] || ''}
                       onChange={(e) => {
                         setSettingsMultilingual(prev => ({
                           ...prev,
                           about_text_1: {
-                            ...(prev.about_text_1 || { en: '', es: '', pt: '' }),
+                            en: prev.about_text_1?.en || '',
+                            es: prev.about_text_1?.es || '',
+                            pt: prev.about_text_1?.pt || '',
                             [contentLocale]: e.target.value,
                           },
                         }));
@@ -2025,12 +2952,14 @@ const Settings = () => {
                     <Label htmlFor="about_text_2">About Text 2</Label>
                     <Textarea
                       id="about_text_2"
-                      value={settingsMultilingual.about_text_2?.[contentLocale] || settings.about?.find(s => s.key === 'about_text_2')?.value || ''}
+                      value={settingsMultilingual.about_text_2?.[contentLocale] || ''}
                       onChange={(e) => {
                         setSettingsMultilingual(prev => ({
                           ...prev,
                           about_text_2: {
-                            ...(prev.about_text_2 || { en: '', es: '', pt: '' }),
+                            en: prev.about_text_2?.en || '',
+                            es: prev.about_text_2?.es || '',
+                            pt: prev.about_text_2?.pt || '',
                             [contentLocale]: e.target.value,
                           },
                         }));
@@ -2043,12 +2972,14 @@ const Settings = () => {
                     <Label htmlFor="about_text_3">About Text 3</Label>
                     <Textarea
                       id="about_text_3"
-                      value={settingsMultilingual.about_text_3?.[contentLocale] || settings.about?.find(s => s.key === 'about_text_3')?.value || ''}
+                      value={settingsMultilingual.about_text_3?.[contentLocale] || ''}
                       onChange={(e) => {
                         setSettingsMultilingual(prev => ({
                           ...prev,
                           about_text_3: {
-                            ...(prev.about_text_3 || { en: '', es: '', pt: '' }),
+                            en: prev.about_text_3?.en || '',
+                            es: prev.about_text_3?.es || '',
+                            pt: prev.about_text_3?.pt || '',
                             [contentLocale]: e.target.value,
                           },
                         }));
@@ -2057,9 +2988,379 @@ const Settings = () => {
                       className="min-h-[100px]"
                     />
                   </div>
+                  
+                  {/* Stats Section */}
+                  <div className="space-y-4 border-t pt-6">
+                    <h3 className="text-lg font-medium">Stats</h3>
+                    
+                    {/* Stat 1 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="about_stat_1_value">Stat 1 Value (Same for all languages)</Label>
+                        <Input
+                          id="about_stat_1_value"
+                          value={(() => {
+                            // First check if there's a value in the settings state (from database)
+                            const statSetting = settings.about?.find(s => s.key === 'about_stat_1_value');
+                            const value = statSetting?.value ?? '';
+                            // Debug log to see what's being loaded
+                            if (statSetting) {
+                              console.log('Stat 1 loaded from DB:', { key: statSetting.key, value: statSetting.value, fullSetting: statSetting });
+                            }
+                            return String(value || '');
+                          })()}
+                          onChange={(e) => {
+                            // Update the setting directly (non-translatable) without triggering re-render
+                            const existingSetting = settings.about?.find(s => s.key === 'about_stat_1_value');
+                            if (existingSetting) {
+                              // Update existing setting in state without calling updateSetting (which triggers fetch)
+                              setSettings(prev => ({
+                                ...prev,
+                                about: (prev.about || []).map(s => 
+                                  s.key === 'about_stat_1_value' 
+                                    ? { ...s, value: e.target.value }
+                                    : s
+                                )
+                              }));
+                            } else {
+                              // Add new setting to state
+                              setSettings(prev => ({
+                                ...prev,
+                                about: [
+                                  ...(prev.about || []),
+                                  {
+                                    id: 0,
+                                    key: 'about_stat_1_value',
+                                    value: e.target.value,
+                                    type: 'text',
+                                    group: 'about',
+                                    label: 'About Stat 1 Value',
+                                    description: '',
+                                    is_active: true,
+                                    sort_order: 0,
+                                  } as SiteSetting
+                                ]
+                              }));
+                            }
+                          }}
+                          placeholder="+400 mil"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="about_stat_1_label">Stat 1 Label</Label>
+                        <Input
+                          id="about_stat_1_label"
+                          value={settingsMultilingual.about_stat_1_label?.[contentLocale] || ''}
+                          onChange={(e) => {
+                            setSettingsMultilingual(prev => ({
+                              ...prev,
+                              about_stat_1_label: {
+                                en: prev.about_stat_1_label?.en || '',
+                                es: prev.about_stat_1_label?.es || '',
+                                pt: prev.about_stat_1_label?.pt || '',
+                                [contentLocale]: e.target.value,
+                              },
+                            }));
+                          }}
+                          placeholder="Seguidores en redes sociales"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Stat 2 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="about_stat_2_value">Stat 2 Value (Same for all languages)</Label>
+                        <Input
+                          id="about_stat_2_value"
+                          value={(() => {
+                            // First check if there's a value in the settings state (from database)
+                            const statSetting = settings.about?.find(s => s.key === 'about_stat_2_value');
+                            const value = statSetting?.value ?? '';
+                            // Debug log to see what's being loaded
+                            if (statSetting) {
+                              console.log('Stat 2 loaded from DB:', { key: statSetting.key, value: statSetting.value, fullSetting: statSetting });
+                            }
+                            return String(value || '');
+                          })()}
+                          onChange={(e) => {
+                            // Update the setting directly (non-translatable) without triggering re-render
+                            const existingSetting = settings.about?.find(s => s.key === 'about_stat_2_value');
+                            if (existingSetting) {
+                              setSettings(prev => ({
+                                ...prev,
+                                about: (prev.about || []).map(s => 
+                                  s.key === 'about_stat_2_value' 
+                                    ? { ...s, value: e.target.value }
+                                    : s
+                                )
+                              }));
+                            } else {
+                              setSettings(prev => ({
+                                ...prev,
+                                about: [
+                                  ...(prev.about || []),
+                                  {
+                                    id: 0,
+                                    key: 'about_stat_2_value',
+                                    value: e.target.value,
+                                    type: 'text',
+                                    group: 'about',
+                                    label: 'About Stat 2 Value',
+                                    description: '',
+                                    is_active: true,
+                                    sort_order: 0,
+                                  } as SiteSetting
+                                ]
+                              }));
+                            }
+                          }}
+                          placeholder="15+"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="about_stat_2_label">Stat 2 Label</Label>
+                        <Input
+                          id="about_stat_2_label"
+                          value={settingsMultilingual.about_stat_2_label?.[contentLocale] || ''}
+                          onChange={(e) => {
+                            setSettingsMultilingual(prev => ({
+                              ...prev,
+                              about_stat_2_label: {
+                                en: prev.about_stat_2_label?.en || '',
+                                es: prev.about_stat_2_label?.es || '',
+                                pt: prev.about_stat_2_label?.pt || '',
+                                [contentLocale]: e.target.value,
+                              },
+                            }));
+                          }}
+                          placeholder="Años de experiencia"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Stat 3 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="about_stat_3_value">Stat 3 Value (Same for all languages)</Label>
+                        <Input
+                          id="about_stat_3_value"
+                          value={(() => {
+                            // First check if there's a value in the settings state (from database)
+                            const statSetting = settings.about?.find(s => s.key === 'about_stat_3_value');
+                            const value = statSetting?.value ?? '';
+                            // Debug log to see what's being loaded
+                            if (statSetting) {
+                              console.log('Stat 3 loaded from DB:', { key: statSetting.key, value: statSetting.value, fullSetting: statSetting });
+                            }
+                            return String(value || '');
+                          })()}
+                          onChange={(e) => {
+                            // Update the setting directly (non-translatable) without triggering re-render
+                            const existingSetting = settings.about?.find(s => s.key === 'about_stat_3_value');
+                            if (existingSetting) {
+                              setSettings(prev => ({
+                                ...prev,
+                                about: (prev.about || []).map(s => 
+                                  s.key === 'about_stat_3_value' 
+                                    ? { ...s, value: e.target.value }
+                                    : s
+                                )
+                              }));
+                            } else {
+                              setSettings(prev => ({
+                                ...prev,
+                                about: [
+                                  ...(prev.about || []),
+                                  {
+                                    id: 0,
+                                    key: 'about_stat_3_value',
+                                    value: e.target.value,
+                                    type: 'text',
+                                    group: 'about',
+                                    label: 'About Stat 3 Value',
+                                    description: '',
+                                    is_active: true,
+                                    sort_order: 0,
+                                  } as SiteSetting
+                                ]
+                              }));
+                            }
+                          }}
+                          placeholder="100+"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="about_stat_3_label">Stat 3 Label</Label>
+                        <Input
+                          id="about_stat_3_label"
+                          value={settingsMultilingual.about_stat_3_label?.[contentLocale] || ''}
+                          onChange={(e) => {
+                            setSettingsMultilingual(prev => ({
+                              ...prev,
+                              about_stat_3_label: {
+                                en: prev.about_stat_3_label?.en || '',
+                                es: prev.about_stat_3_label?.es || '',
+                                pt: prev.about_stat_3_label?.pt || '',
+                                [contentLocale]: e.target.value,
+                              },
+                            }));
+                          }}
+                          placeholder="Obras creadas"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="flex justify-end pt-4 border-t">
                     <Button 
-                      onClick={() => handleSaveSettings('about')}
+                      onClick={async () => {
+                        try {
+                          setSaving(true);
+                          // Save all multilingual settings
+                          const updateData: any[] = [];
+                          
+                          // Add all multilingual about settings - preserve all language data
+                          TRANSLATABLE_KEYS.filter(key => key.startsWith('about_')).forEach(key => {
+                            // Get current multilingual value from state, or from existing settings
+                            const currentMultilingual = settingsMultilingual[key] || { en: '', es: '', pt: '' };
+                            const existingSetting = settings.about?.find(s => s.key === key) as any;
+                            
+                            // Merge with existing translations to preserve all languages
+                            const mergedTranslations = {
+                              en: currentMultilingual.en !== undefined ? currentMultilingual.en : (existingSetting?.translations?.en || existingSetting?.value || ''),
+                              es: currentMultilingual.es !== undefined ? currentMultilingual.es : (existingSetting?.translations?.es || ''),
+                              pt: currentMultilingual.pt !== undefined ? currentMultilingual.pt : (existingSetting?.translations?.pt || ''),
+                            };
+                            
+                            // Always save, even if all values are empty (to create the setting)
+                            // Ensure value is always a string (not null or undefined)
+                            const settingValue = mergedTranslations.en || mergedTranslations.es || mergedTranslations.pt || '';
+                            updateData.push({
+                              key: key,
+                              value: String(settingValue), // Ensure it's always a string
+                              type: 'text',
+                              group: 'about',
+                              label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                              description: '',
+                              locale: 'en',
+                              translations: mergedTranslations,
+                            });
+                          });
+                          
+                          // Also handle about_image if it exists (non-translatable)
+                          const aboutImageSetting = settings.about?.find(s => s.key === 'about_image');
+                          if (aboutImageSetting || currentAboutImage) {
+                            const imageValue = currentAboutImage || aboutImageSetting?.value || '';
+                            // Extract just the path from the URL if it's a full URL
+                            let imagePath = imageValue;
+                            if (imageValue && (imageValue.startsWith('http://') || imageValue.startsWith('https://'))) {
+                              try {
+                                const url = new URL(imageValue);
+                                imagePath = url.pathname; // Get just the path, e.g., /storage/images/...
+                              } catch (e) {
+                                // If URL parsing fails, try to extract path manually
+                                const match = imageValue.match(/\/storage\/[^?]+/);
+                                if (match) {
+                                  imagePath = match[0];
+                                }
+                              }
+                            }
+                            
+                            const existingImageInUpdate = updateData.find(s => s.key === 'about_image');
+                            if (!existingImageInUpdate) {
+                              updateData.push({
+                                key: 'about_image',
+                                value: imagePath, // Store just the path, not full URL
+                                type: 'text',
+                                group: 'about',
+                                label: 'About Image',
+                                description: 'Image path for the about section',
+                              });
+                            }
+                          }
+                          
+                          // Handle stat values (non-translatable) - always include them, send "" or "0" if empty
+                          ['about_stat_1_value', 'about_stat_2_value', 'about_stat_3_value'].forEach(key => {
+                            const existingInUpdate = updateData.find(s => s.key === key);
+                            if (!existingInUpdate) {
+                              // Get value from state (which is updated when user types)
+                              const statValueSetting = settings.about?.find(s => s.key === key);
+                              const currentValue = statValueSetting?.value ?? '';
+                              
+                              // Always include stat values, send empty string if removed/empty (optional fields)
+                              // User can send "" or "0" to indicate the stat should be hidden
+                              const valueToSend = currentValue === null || currentValue === undefined ? '' : String(currentValue);
+                              updateData.push({
+                                key: key,
+                                value: valueToSend, // Send "" or "0" if empty (so API can handle it correctly)
+                                type: 'text',
+                                group: 'about',
+                                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                                description: '',
+                                // Don't include translations or locale for non-translatable fields
+                              });
+                            }
+                          });
+                          
+                          if (updateData.length > 0) {
+                            // Validate and clean all data before sending
+                            const validatedData = updateData.map((item, index) => {
+                              // Ensure value is always a string (not null, undefined, or missing)
+                              const cleanValue = (item.value !== null && item.value !== undefined) 
+                                ? String(item.value) 
+                                : '';
+                              
+                              // Log any problematic items
+                              if (!item.key || item.key.trim() === '') {
+                                console.warn(`Item at index ${index} has invalid key:`, item);
+                              }
+                              
+                              return {
+                                key: String(item.key || ''),
+                                value: cleanValue,
+                                type: item.type || 'text',
+                                group: item.group || 'about',
+                                label: item.label || '',
+                                description: item.description || '',
+                                ...(item.locale && { locale: item.locale }),
+                                ...(item.translations && { translations: item.translations }),
+                              };
+                            });
+                            
+                            console.log('Sending validated updateData to backend:', JSON.stringify(validatedData, null, 2));
+                            console.log('Validation check - items with potential issues:', validatedData.map((item, idx) => ({
+                              index: idx,
+                              key: item.key,
+                              value: item.value,
+                              valueType: typeof item.value,
+                              hasValue: item.value !== null && item.value !== undefined && item.value !== '',
+                            })).filter(item => !item.hasValue));
+                            
+                            const response = await settingsApi.bulkUpdate(validatedData, contentLocale);
+                            if (response.success) {
+                              toast.success('About settings saved successfully');
+                              // Refresh settings to load saved data
+                              await fetchSettings();
+                            } else {
+                              toast.error('Failed to save About settings');
+                            }
+                          } else {
+                            toast.warning('No About settings to save');
+                          }
+                        } catch (error: any) {
+                          console.error('Error saving About settings:', error);
+                          console.error('Error response:', error?.response?.data);
+                          console.error('Error response errors:', error?.response?.data?.errors);
+                          const errorMessage = error?.response?.data?.message 
+                            || (error?.response?.data?.errors && JSON.stringify(error.response.data.errors))
+                            || error?.message 
+                            || 'Unknown error';
+                          toast.error(`Failed to save settings: ${errorMessage}`);
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
                       disabled={saving}
                       className="flex items-center"
                     >
@@ -2073,7 +3374,7 @@ const Settings = () => {
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </Card>
         </TabsContent>
 
@@ -2099,16 +3400,32 @@ const Settings = () => {
                   </Label>
                   <Input
                     id="testimonial_title"
-                    value={settingsMultilingual.testimonial_title?.[contentLocale] || settings.testimonial?.find(s => s.key === 'testimonial_title')?.value || ''}
+                    value={(() => {
+                      // First check if user has typed something in current language
+                      if (settingsMultilingual.testimonial_title?.[contentLocale] !== undefined) {
+                        return settingsMultilingual.testimonial_title[contentLocale];
+                      }
+                      // Then check database translations
+                      const dbSetting = settings.testimonial?.find(s => s.key === 'testimonial_title');
+                      const dbTranslations = (dbSetting as any)?.translations || {};
+                      if (dbTranslations[contentLocale]) {
+                        return dbTranslations[contentLocale];
+                      }
+                      // Fallback to value field
+                      return dbSetting?.value || '';
+                    })()}
                     onChange={(e) => {
+                      const dbSetting = settings.testimonial?.find(s => s.key === 'testimonial_title');
+                      const dbTranslations = (dbSetting as any)?.translations || {};
                       setSettingsMultilingual(prev => ({
                         ...prev,
                         testimonial_title: {
-                          ...(prev.testimonial_title || { en: '', es: '', pt: '' }),
+                          en: prev.testimonial_title?.en || dbTranslations.en || dbSetting?.value || '',
+                          es: prev.testimonial_title?.es || dbTranslations.es || '',
+                          pt: prev.testimonial_title?.pt || dbTranslations.pt || '',
                           [contentLocale]: e.target.value,
                         },
                       }));
-                      // Don't call updateSetting here - only update on save
                     }}
                     className="w-full"
                     placeholder={`Enter testimonial title in ${contentLocale.toUpperCase()}`}
@@ -2120,16 +3437,32 @@ const Settings = () => {
                   </Label>
                   <Input
                     id="testimonial_subtitle"
-                    value={settingsMultilingual.testimonial_subtitle?.[contentLocale] || settings.testimonial?.find(s => s.key === 'testimonial_subtitle')?.value || ''}
+                    value={(() => {
+                      // First check if user has typed something in current language
+                      if (settingsMultilingual.testimonial_subtitle?.[contentLocale] !== undefined) {
+                        return settingsMultilingual.testimonial_subtitle[contentLocale];
+                      }
+                      // Then check database translations
+                      const dbSetting = settings.testimonial?.find(s => s.key === 'testimonial_subtitle');
+                      const dbTranslations = (dbSetting as any)?.translations || {};
+                      if (dbTranslations[contentLocale]) {
+                        return dbTranslations[contentLocale];
+                      }
+                      // Fallback to value field
+                      return dbSetting?.value || '';
+                    })()}
                     onChange={(e) => {
+                      const dbSetting = settings.testimonial?.find(s => s.key === 'testimonial_subtitle');
+                      const dbTranslations = (dbSetting as any)?.translations || {};
                       setSettingsMultilingual(prev => ({
                         ...prev,
                         testimonial_subtitle: {
-                          ...(prev.testimonial_subtitle || { en: '', es: '', pt: '' }),
+                          en: prev.testimonial_subtitle?.en || dbTranslations.en || dbSetting?.value || '',
+                          es: prev.testimonial_subtitle?.es || dbTranslations.es || '',
+                          pt: prev.testimonial_subtitle?.pt || dbTranslations.pt || '',
                           [contentLocale]: e.target.value,
                         },
                       }));
-                      // Don't call updateSetting here - only update on save
                     }}
                     className="w-full"
                     placeholder={`Enter testimonial subtitle in ${contentLocale.toUpperCase()}`}
@@ -2226,21 +3559,31 @@ const Settings = () => {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">{t('admin.settings_page.testimonials.loading')}</p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {testimonials
-                  .filter(t => {
-                    if (testimonialSearch) {
-                      const search = testimonialSearch.toLowerCase();
-                      return (t.user?.name || '').toLowerCase().includes(search) || 
-                             t.description.toLowerCase().includes(search) ||
-                             (t.user?.email || '').toLowerCase().includes(search);
-                    }
-                    if (testimonialFilter === 'approved') return t.status === 'resolved';
-                    if (testimonialFilter === 'pending') return t.status !== 'resolved';
-                    return true;
-                  })
-                  .map((testimonial) => (
+            ) : testimonials.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-2">{t('admin.settings_page.testimonials.no_testimonials', 'No testimonials found.')}</p>
+                <p className="text-sm text-muted-foreground">{t('admin.settings_page.testimonials.no_testimonials_desc', 'Testimonials will appear here when users submit feedback with type "general_feedback".')}</p>
+              </div>
+            ) : (() => {
+              const filteredTestimonials = testimonials.filter(t => {
+                if (testimonialSearch) {
+                  const search = testimonialSearch.toLowerCase();
+                  return (t.user?.name || '').toLowerCase().includes(search) || 
+                         (t.description || '').toLowerCase().includes(search) ||
+                         (t.user?.email || '').toLowerCase().includes(search);
+                }
+                if (testimonialFilter === 'approved') return t.status === 'resolved';
+                if (testimonialFilter === 'pending') return t.status !== 'resolved';
+                return true;
+              });
+
+              return filteredTestimonials.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">{t('admin.settings_page.testimonials.no_matching', 'No testimonials match your search or filter criteria.')}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredTestimonials.map((testimonial) => (
                     <div 
                       key={testimonial.id} 
                       className={`border rounded-lg p-4 transition-colors cursor-pointer ${
@@ -2301,23 +3644,9 @@ const Settings = () => {
                       </div>
                     </div>
                   ))}
-                {testimonials.filter(t => {
-                  if (testimonialSearch) {
-                    const search = testimonialSearch.toLowerCase();
-                    return (t.user?.name || '').toLowerCase().includes(search) || 
-                           t.description.toLowerCase().includes(search) ||
-                           (t.user?.email || '').toLowerCase().includes(search);
-                  }
-                  if (testimonialFilter === 'approved') return t.status === 'resolved';
-                  if (testimonialFilter === 'pending') return t.status !== 'resolved';
-                  return true;
-                }).length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {t('admin.settings_page.testimonials.no_reviews')}
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </Card>
         </TabsContent>
 
@@ -2396,20 +3725,30 @@ const Settings = () => {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading videos...</p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {videos
-                  .filter(v => {
-                    if (videoSearch) {
-                      const search = videoSearch.toLowerCase();
-                      return (v.title || '').toLowerCase().includes(search) || 
-                             (v.description || '').toLowerCase().includes(search);
-                    }
-                    if (videoFilter === 'published') return v.status === 'published';
-                    if (videoFilter === 'draft') return v.status === 'draft';
-                    return true;
-                  })
-                  .map((video) => (
+            ) : videos.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-2">No videos found.</p>
+                <p className="text-sm text-muted-foreground">Create videos in Content Management to select them for homepage.</p>
+              </div>
+            ) : (() => {
+              const filteredVideos = videos.filter(v => {
+                if (videoSearch) {
+                  const search = videoSearch.toLowerCase();
+                  return (v.title || '').toLowerCase().includes(search) || 
+                         (v.description || '').toLowerCase().includes(search);
+                }
+                if (videoFilter === 'published') return v.status === 'published';
+                if (videoFilter === 'draft') return v.status === 'draft';
+                return true;
+              });
+
+              return filteredVideos.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No videos match your search or filter criteria.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredVideos.map((video) => (
                     <div 
                       key={video.id} 
                       className={`border rounded-lg p-4 transition-colors cursor-pointer ${
@@ -2453,22 +3792,9 @@ const Settings = () => {
                       </div>
                     </div>
                   ))}
-                {videos.filter(v => {
-                  if (videoSearch) {
-                    const search = videoSearch.toLowerCase();
-                    return (v.title || '').toLowerCase().includes(search) || 
-                           (v.description || '').toLowerCase().includes(search);
-                  }
-                  if (videoFilter === 'published') return v.status === 'published';
-                  if (videoFilter === 'draft') return v.status === 'draft';
-                  return true;
-                }).length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No videos found
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </Card>
         </TabsContent>
 

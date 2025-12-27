@@ -119,6 +119,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Videos (Admin CRUD) - Use ID-based routing for admin operations
         // IMPORTANT: Specific routes (like bunny-metadata) must come BEFORE parameterized routes
+        Route::get('/admin/videos/test-bunny-credentials', [VideoController::class, 'testBunnyCredentials']);
         Route::post('/admin/videos/bunny-metadata', [VideoController::class, 'getBunnyVideoMetadata']);
         Route::post('/admin/videos', [VideoController::class, 'store']);
         Route::put('/admin/videos/{id}', [VideoController::class, 'update']);

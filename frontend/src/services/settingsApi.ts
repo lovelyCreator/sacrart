@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Helper function to get locale from localStorage or default to 'en'
 const getLocale = (): string => {
@@ -21,14 +21,18 @@ const getAuthHeaders = (localeOverride?: string): HeadersInit => {
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = `HTTP error! status: ${response.status}`;
+    let errorData: any = null;
     try {
       const error = await response.json();
-      errorMessage = error.message || errorMessage;
+      errorData = error;
+      errorMessage = error.message || error.errors || JSON.stringify(error) || errorMessage;
     } catch {
       // If response is not JSON, use status text
       errorMessage = response.statusText || errorMessage;
     }
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage) as any;
+    error.response = { data: errorData, status: response.status };
+    throw error;
   }
   
   const contentType = response.headers.get('content-type');
@@ -110,9 +114,9 @@ export const settingsApi = {
   },
 
   // Get public settings (for frontend use)
-  async getPublicSettings(): Promise<{ success: boolean; data: Record<string, string> }> {
+  async getPublicSettings(locale?: string): Promise<{ success: boolean; data: Record<string, string> }> {
     const response = await fetch(`${API_BASE_URL}/settings/public`, {
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(locale),
     });
     return handleResponse(response);
   },

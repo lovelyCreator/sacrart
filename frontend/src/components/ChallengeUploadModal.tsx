@@ -34,7 +34,7 @@ const ChallengeUploadModal = ({ challenge, onClose, onSuccess }: ChallengeUpload
   const coverImageDropRef = useRef<HTMLDivElement>(null);
   const videoDropRef = useRef<HTMLDivElement>(null);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const handleCoverImageSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {

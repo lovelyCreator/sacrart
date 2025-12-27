@@ -90,6 +90,12 @@ const Home = () => {
   const [videosLoading, setVideosLoading] = useState(true);
   const [landingSettings, setLandingSettings] = useState<Record<string, any>>({});
   const [landingSettingsLoading, setLandingSettingsLoading] = useState(true);
+  // Separate loading states for progressive loading
+  const [heroSettingsLoading, setHeroSettingsLoading] = useState(true);
+  const [heroPrioritySettings, setHeroPrioritySettings] = useState<Record<string, any>>({});
+  const [otherSectionsLoading, setOtherSectionsLoading] = useState(true);
+  // Video loading state for presentation video
+  const [presentationVideoReady, setPresentationVideoReady] = useState(false);
 
   // Helper function to parse features from description (one feature per line)
   const parseFeatures = (description: string | undefined | null): string[] => {
@@ -366,14 +372,23 @@ const Home = () => {
     if (src.startsWith('http://') || src.startsWith('https://')) {
       return src;
     }
-    // If it starts with /storage or /, construct full URL
-    if (src.startsWith('/storage/') || src.startsWith('/')) {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
-      return `${API_BASE_URL.replace('/api', '')}${src}`;
+    
+    // Remove /storage/ prefix if present (Laravel serves from /data_section/ directly, not /storage/data_section/)
+    let cleanPath = src.trim();
+    if (cleanPath.startsWith('/storage/')) {
+      cleanPath = cleanPath.replace('/storage/', '/');
+    } else if (cleanPath.startsWith('storage/')) {
+      cleanPath = '/' + cleanPath.replace('storage/', '');
+    }
+    
+    // If it starts with /, construct full URL
+    if (cleanPath.startsWith('/')) {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+      return `${API_BASE_URL.replace('/api', '')}${cleanPath}`;
     }
     // If it's a relative path without leading slash, construct full URL
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhsot:8000';
-    return `${API_BASE_URL.replace('/api', '')}/${src.replace(/^\//, '')}`;
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    return `${API_BASE_URL.replace('/api', '')}/${cleanPath.replace(/^\//, '')}`;
   };
 
   // HBO Max style poster collage data - pulled from DB when available
@@ -551,7 +566,7 @@ const Home = () => {
     const fetchHeroSettings = async () => {
       setSettingsLoading(true);
       try {
-        const response = await settingsApi.getPublicSettings();
+        const response = await settingsApi.getPublicSettings(locale);
         if (response.success) {
           console.log('Hero settings loaded:', response.data);
           console.log('About image URL:', response.data.about_image);
@@ -574,12 +589,66 @@ const Home = () => {
     };
 
     fetchHeroSettings();
-  }, []);
+  }, [locale]); // Refetch when locale changes
 
-  // Fetch landing page data (for unauthenticated users)
+  // Fetch landing page data (for unauthenticated users) - PRIORITY ORDER
   useEffect(() => {
     if (!isAuthenticated) {
-      // Fetch trending videos
+      // STEP 1: Fetch hero and presentation video data FIRST (above-the-fold content)
+      const fetchHeroData = async () => {
+        setHeroSettingsLoading(true);
+        try {
+          const response = await settingsApi.getPublicSettings(locale);
+          if (response.success && response.data) {
+            // Extract only hero and presentation video fields for immediate display
+            const heroData: Record<string, any> = {};
+            const heroFields = [
+              'hero_badge', 'hero_title', 'hero_subtitle', 'hero_description',
+              'hero_stat_1_value', 'hero_stat_1_label', 'hero_stat_2_value', 'hero_stat_2_label',
+              'hero_stat_3_value', 'hero_stat_3_label', 'hero_stat_4_value', 'hero_stat_4_label',
+              'hero_background_images', 'hero_cta_text', 'hero_cta_button_text', 'hero_price', 'hero_disclaimer',
+              'presentation_video_url', 'presentation_video_badge', 'presentation_video_series',
+              'presentation_video_title', 'presentation_video_description'
+            ];
+            
+            heroFields.forEach(field => {
+              if (response.data[field] !== undefined) {
+                heroData[field] = response.data[field];
+              }
+            });
+            
+            console.log('Hero settings loaded (priority):', heroData);
+            setHeroPrioritySettings(heroData);
+            
+            // STEP 2: After hero data is loaded, fetch remaining sections
+            // Store all settings for other sections
+            const otherSectionsData: Record<string, any> = {};
+            Object.keys(response.data).forEach(key => {
+              if (!heroFields.includes(key)) {
+                otherSectionsData[key] = response.data[key];
+              }
+            });
+            
+            // Merge hero and other sections for complete settings
+            setLandingSettings({ ...heroData, ...otherSectionsData });
+            setOtherSectionsLoading(false);
+          } else {
+            console.warn('Settings response not successful:', response);
+            setHeroPrioritySettings({});
+            setLandingSettings({});
+            setOtherSectionsLoading(false);
+          }
+        } catch (error) {
+          console.error('Error fetching hero settings:', error);
+          setHeroPrioritySettings({});
+          setLandingSettings({});
+          setOtherSectionsLoading(false);
+        } finally {
+          setHeroSettingsLoading(false);
+        }
+      };
+
+      // STEP 3: Fetch trending videos (can load in parallel with other sections)
       const fetchTrendingVideos = async () => {
         setVideosLoading(true);
         try {
@@ -587,7 +656,7 @@ const Home = () => {
             status: 'published',
             sort_by: 'views',
             sort_order: 'desc',
-            per_page: 20 // Get more videos for the carousel
+            per_page: 20
           });
           const videosData = response.data?.data || response.data || [];
           setTrendingVideos(Array.isArray(videosData) ? videosData : []);
@@ -599,24 +668,11 @@ const Home = () => {
         }
       };
 
-      // Fetch landing settings
-      const fetchLandingSettings = async () => {
-        setLandingSettingsLoading(true);
-        try {
-          const response = await settingsApi.getPublicSettings();
-          if (response.success && response.data) {
-            setLandingSettings(response.data);
-          }
-        } catch (error) {
-          console.error('Error fetching landing settings:', error);
-          setLandingSettings({});
-        } finally {
-          setLandingSettingsLoading(false);
-        }
-      };
-
+      // Start with hero data (priority)
+      fetchHeroData();
+      
+      // Fetch videos in parallel (non-blocking)
       fetchTrendingVideos();
-      fetchLandingSettings();
     }
   }, [isAuthenticated, locale]);
 
@@ -1360,7 +1416,12 @@ const Home = () => {
   };
 
   const getSetting = (key: string, defaultValue: string = ''): string => {
-    const value = landingSettings[key];
+    // First check heroPrioritySettings (priority data loaded first), then landingSettings (complete data)
+    const value = heroPrioritySettings[key] || landingSettings[key];
+    // Debug log for missing values
+    if (!value && defaultValue) {
+      console.warn(`Setting "${key}" not found in settings, using default:`, defaultValue);
+    }
     // Only return if it's a string, otherwise return default
     if (value && typeof value === 'string') {
       return value;
@@ -1380,8 +1441,44 @@ const Home = () => {
     }
   }, [isAuthenticated]);
 
+  // Reset video ready state when video URL changes
+  useEffect(() => {
+    const videoUrl = getSetting('presentation_video_url');
+    if (videoUrl) {
+      setPresentationVideoReady(false);
+    }
+  }, [heroPrioritySettings.presentation_video_url, landingSettings.presentation_video_url]);
+
   // Render landing page for unauthenticated users
   const renderLandingPage = () => {
+    // Show loading state ONLY while hero settings are being fetched (priority content)
+    // Once hero data is loaded, show the page even if other sections are still loading
+    if (heroSettingsLoading) {
+      return (
+        <div className="min-h-screen bg-background-dark">
+          {/* Background */}
+          <div className="fixed inset-0 z-0">
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url('https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop')`
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/90 to-background-dark/60" />
+            <div className="absolute inset-0 bg-gradient-to-r from-background-dark/80 via-transparent to-background-dark/80" />
+          </div>
+
+          {/* Loading Content */}
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-400">{t('common.loading')}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden antialiased selection:bg-primary selection:text-white">
         {/* Fixed Background */}
@@ -1548,66 +1645,232 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* Right Featured Video Card (Desktop Only) */}
+              {/* Right Presentation Video (Desktop Only) */}
               <div className="hidden lg:flex lg:justify-end">
-                <div className="relative group cursor-pointer">
-                  <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary to-orange-700 opacity-25 blur transition duration-1000 group-hover:opacity-75 group-hover:duration-200" />
-                  <div className="relative h-[500px] w-[380px] overflow-hidden rounded-xl bg-surface-dark border border-border-dark shadow-2xl">
-                    <div 
-                      className="absolute inset-0 h-full w-full bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                      style={{
-                        backgroundImage: `url('${trendingVideos[0]?.thumbnail_url ? getImageUrl(trendingVideos[0].thumbnail_url) : 'https://images.unsplash.com/photo-1576504677634-06b2130bd1f3?q=80&w=1974&auto=format&fit=crop'}')`
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/90 text-white backdrop-blur-sm shadow-xl">
-                        <Play className="h-8 w-8 ml-1" fill="currentColor" />
+                {(() => {
+                  const videoUrl = getSetting('presentation_video_url');
+                  const badge = getSetting('presentation_video_badge');
+                  const series = getSetting('presentation_video_series');
+                  const title = getSetting('presentation_video_title');
+                  const description = getSetting('presentation_video_description');
+                  
+                  // Show text content immediately if we have any text, even if video URL is not ready
+                  const hasTextContent = badge || series || title || description;
+                  
+                  if (videoUrl || hasTextContent) {
+                    return (
+                      <div className="relative group cursor-pointer">
+                        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary to-orange-700 opacity-25 blur transition duration-1000 group-hover:opacity-75 group-hover:duration-200" />
+                        <div className="relative h-[500px] w-[380px] overflow-hidden rounded-xl bg-surface-dark border border-border-dark shadow-2xl">
+                          {/* Background placeholder - shows immediately */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 z-0">
+                            {/* Optional: Add a subtle pattern or gradient */}
+                            <div className="absolute inset-0 opacity-20" style={{
+                              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                            }} />
+                          </div>
+                          
+                          {/* Video - loads asynchronously */}
+                          {videoUrl && (() => {
+                            let processedUrl = videoUrl;
+                            // Fix URL: strip /storage/ prefix if present (like images)
+                            if (processedUrl.includes('/storage/')) {
+                              processedUrl = processedUrl.replace('/storage/', '/');
+                            }
+                            // Construct full URL if it's a relative path
+                            if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+                              const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+                              processedUrl = `${API_BASE_URL}${processedUrl.startsWith('/') ? processedUrl : '/' + processedUrl}`;
+                            }
+                            
+                            // Check if it's a Bunny.net embed URL
+                            if (processedUrl.includes('bunny.net') && (processedUrl.includes('/embed/') || processedUrl.includes('/play/'))) {
+                              const embedUrl = processedUrl.includes('/play/') 
+                                ? processedUrl.replace('/play/', '/embed/')
+                                : processedUrl;
+                              const separator = embedUrl.includes('?') ? '&' : '?';
+                              const autoplayUrl = `${embedUrl}${separator}autoplay=true&muted=true&loop=true&responsive=true`;
+                              return (
+                                <iframe
+                                  src={autoplayUrl}
+                                  className={`absolute inset-0 w-full h-full z-0 transition-opacity duration-500 ${presentationVideoReady ? 'opacity-100' : 'opacity-0'}`}
+                                  allow="autoplay; encrypted-media"
+                                  allowFullScreen
+                                  style={{ border: 'none' }}
+                                  onLoad={() => setPresentationVideoReady(true)}
+                                />
+                              );
+                            }
+                            // Check if it's a YouTube URL
+                            else if (processedUrl.includes('youtube.com') || processedUrl.includes('youtu.be')) {
+                              const getYouTubeId = (url: string) => {
+                                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                                const match = url.match(regExp);
+                                return (match && match[2].length === 11) ? match[2] : null;
+                              };
+                              const videoId = getYouTubeId(processedUrl);
+                              if (videoId) {
+                                return (
+                                  <iframe
+                                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0`}
+                                    className={`absolute inset-0 w-full h-full z-0 transition-opacity duration-500 ${presentationVideoReady ? 'opacity-100' : 'opacity-0'}`}
+                                    allow="autoplay; encrypted-media"
+                                    allowFullScreen
+                                    style={{ border: 'none' }}
+                                    onLoad={() => setPresentationVideoReady(true)}
+                                  />
+                                );
+                              }
+                            }
+                            // Direct video URL (MP4, etc.)
+                            return (
+                              <video
+                                src={processedUrl}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-500 ${presentationVideoReady ? 'opacity-100' : 'opacity-0'}`}
+                                onLoadedData={() => setPresentationVideoReady(true)}
+                                onCanPlay={() => setPresentationVideoReady(true)}
+                              />
+                            );
+                          })()}
+                          
+                          {/* Video loading indicator - shows while video is loading */}
+                          {videoUrl && !presentationVideoReady && (
+                            <div className="absolute inset-0 flex items-center justify-center z-5 bg-gray-900/30">
+                              <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                                <p className="text-xs text-gray-400">Loading video...</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Text overlay - shows immediately */}
+                          {(badge || series || title || description) && (
+                            <>
+                              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none z-10" />
+                              <div className="absolute bottom-0 left-0 w-full p-6 pointer-events-none z-20">
+                                {(badge || series) && (
+                                  <div className="mb-2 flex items-center gap-2">
+                                    {badge && (
+                                      <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-md">
+                                        {badge}
+                                      </span>
+                                    )}
+                                    {series && (
+                                      <span className="text-xs font-medium text-gray-300">
+                                        {series}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {title && (
+                                  <h3 className="mb-1 text-2xl font-bold text-white drop-shadow-lg">
+                                    {title}
+                                  </h3>
+                                )}
+                                {description && (
+                                  <p className="line-clamp-2 text-sm text-gray-300 drop-shadow-md">
+                                    {description}
+                                  </p>
+                                )}
+                                <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // Fallback: No video URL and no text content
+                  return (
+                    <div className="relative group cursor-pointer">
+                      <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary to-orange-700 opacity-25 blur transition duration-1000 group-hover:opacity-75 group-hover:duration-200" />
+                      <div className="relative h-[500px] w-[380px] overflow-hidden rounded-xl bg-surface-dark border border-border-dark shadow-2xl">
+                        <div 
+                          className="absolute inset-0 h-full w-full bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                          style={{
+                            backgroundImage: `url('${trendingVideos[0]?.thumbnail_url ? getImageUrl(trendingVideos[0].thumbnail_url) : 'https://images.unsplash.com/photo-1576504677634-06b2130bd1f3?q=80&w=1974&auto=format&fit=crop'}')`
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/90 text-white backdrop-blur-sm shadow-xl">
+                            <Play className="h-8 w-8 ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 w-full p-6">
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-md">{t('index.hero.featured_badge', 'NUEVO')}</span>
+                            <span className="text-xs font-medium text-gray-300">{trendingVideos[0]?.series_title || t('index.hero.featured_series', 'Temporada 1')}</span>
+                          </div>
+                          <h3 className="mb-1 text-2xl font-bold text-white">
+                            {typeof trendingVideos[0]?.title === 'string' ? trendingVideos[0].title : t('index.hero.featured_title', 'Técnicas de Dorado')}
+                          </h3>
+                          <p className="line-clamp-2 text-sm text-gray-300">
+                            {typeof trendingVideos[0]?.description === 'string' ? trendingVideos[0].description : t('index.hero.featured_description', 'Descubre los secretos del pan de oro y las técnicas de estofado utilizadas en el siglo XVII.')}
+                          </p>
+                          <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 w-full p-6">
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-md">{t('index.hero.featured_badge', 'NUEVO')}</span>
-                        <span className="text-xs font-medium text-gray-300">{trendingVideos[0]?.series_title || t('index.hero.featured_series', 'Temporada 1')}</span>
-                      </div>
-                      <h3 className="mb-1 text-2xl font-bold text-white">
-                        {typeof trendingVideos[0]?.title === 'string' ? trendingVideos[0].title : t('index.hero.featured_title', 'Técnicas de Dorado')}
-                      </h3>
-                      <p className="line-clamp-2 text-sm text-gray-300">
-                        {typeof trendingVideos[0]?.description === 'string' ? trendingVideos[0].description : t('index.hero.featured_description', 'Descubre los secretos del pan de oro y las técnicas de estofado utilizadas en el siglo XVII.')}
-                      </p>
-                      <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-white/20">
-                        <div className="h-full w-1/3 bg-primary" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
+
+                
               </div>
             </div>
           </div>
         </main>
 
-        {/* Why SACRART Section */}
-        <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16 md:py-20">
-          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
-            <div className="mb-8 sm:mb-12 text-center">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{t('index.why_sacrart.title', '¿Por qué SACRART?')}</h2>
-              <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400 px-4">{t('index.why_sacrart.description', 'Sumérgete en el conocimiento ancestral del arte sacro desde cualquier dispositivo.')}</p>
+        {/* Why SACRART Section - Show loading state if other sections are still loading */}
+        {otherSectionsLoading ? (
+          <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16 md:py-20">
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-gray-400 text-sm">{t('common.loading')}</p>
+              </div>
             </div>
+          </section>
+        ) : (
+          <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16 md:py-20">
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+              <div className="mb-8 sm:mb-12 text-center">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+                  {getSetting('why_sacrart_title', t('index.why_sacrart.title', '¿Por qué SACRART?'))}
+                </h2>
+                <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400 px-4">
+                  {getSetting('why_sacrart_description', t('index.why_sacrart.description', 'Sumérgete en el conocimiento ancestral del arte sacro desde cualquier dispositivo.'))}
+                </p>
+              </div>
             <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 max-w-5xl mx-auto">
               <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-6 sm:p-8 transition-colors hover:bg-surface-dark hover:border-primary/50">
                 <div className="mb-4 inline-flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                   <Brush className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <h3 className="mb-2 text-lg sm:text-xl font-bold text-white">{t('index.why_sacrart.artist_title', 'Para el Artista o Aprendiz')}</h3>
-                <p className="text-xs sm:text-sm leading-relaxed text-gray-400">{t('index.why_sacrart.artist_description', 'Que busca perfeccionar su técnica, aprender métodos tradicionales y modernos y encontrar inspiración en una artista que abre las puertas de su taller.')}</p>
+                <h3 className="mb-2 text-lg sm:text-xl font-bold text-white">
+                  {getSetting('why_sacrart_artist_title', t('index.why_sacrart.artist_title', 'Para el Artista o Aprendiz'))}
+                </h3>
+                <p className="text-xs sm:text-sm leading-relaxed text-gray-400">
+                  {getSetting('why_sacrart_artist_description', t('index.why_sacrart.artist_description', 'Que busca perfeccionar su técnica, aprender métodos tradicionales y modernos y encontrar inspiración en una artista que abre las puertas de su taller.'))}
+                </p>
               </div>
               <div className="group rounded-xl border border-border-dark bg-surface-dark/50 p-6 sm:p-8 transition-colors hover:bg-surface-dark hover:border-primary/50">
                 <div className="mb-4 inline-flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                   <Heart className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <h3 className="mb-2 text-lg sm:text-xl font-bold text-white">{t('index.why_sacrart.art_lover_title', 'Para el Apasionado del Arte')}</h3>
-                <p className="text-xs sm:text-sm leading-relaxed text-gray-400">{t('index.why_sacrart.art_lover_description', 'Que disfruta viendo nacer y crecer una imagen, sin necesidad de practicar: solo curiosidad y emoción por el proceso.')}</p>
+                <h3 className="mb-2 text-lg sm:text-xl font-bold text-white">
+                  {getSetting('why_sacrart_art_lover_title', t('index.why_sacrart.art_lover_title', 'Para el Apasionado del Arte'))}
+                </h3>
+                <p className="text-xs sm:text-sm leading-relaxed text-gray-400">
+                  {getSetting('why_sacrart_art_lover_description', t('index.why_sacrart.art_lover_description', 'Que disfruta viendo nacer y crecer una imagen, sin necesidad de practicar: solo curiosidad y emoción por el proceso.'))}
+                </p>
               </div>
             </div>
             <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
@@ -1617,8 +1880,12 @@ const Home = () => {
                     <Film className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm sm:text-base font-bold text-white">{t('index.why_sacrart.quality_title', 'Calidad 4K HDR')}</h3>
-                    <p className="text-[10px] sm:text-xs text-gray-400">{t('index.why_sacrart.quality_description', 'No pierdas detalle de cada pincelada.')}</p>
+                    <h3 className="text-sm sm:text-base font-bold text-white">
+                      {getSetting('why_sacrart_quality_title', t('index.why_sacrart.quality_title', 'Calidad 4K HDR'))}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400">
+                      {getSetting('why_sacrart_quality_description', t('index.why_sacrart.quality_description', 'No pierdas detalle de cada pincelada.'))}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1628,8 +1895,12 @@ const Home = () => {
                     <Languages className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm sm:text-base font-bold text-white">{t('index.why_sacrart.multilang_title', 'Multilenguaje')}</h3>
-                    <p className="text-[10px] sm:text-xs text-gray-400">{t('index.why_sacrart.multilang_description', 'Doblados y subtitulados al inglés y portugués.')}</p>
+                    <h3 className="text-sm sm:text-base font-bold text-white">
+                      {getSetting('why_sacrart_multilang_title', t('index.why_sacrart.multilang_title', 'Multilenguaje'))}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400">
+                      {getSetting('why_sacrart_multilang_description', t('index.why_sacrart.multilang_description', 'Doblados y subtitulados al inglés y portugués.'))}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1639,14 +1910,19 @@ const Home = () => {
                     <Monitor className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm sm:text-base font-bold text-white">{t('index.why_sacrart.platform_title', 'Multiplataforma')}</h3>
-                    <p className="text-[10px] sm:text-xs text-gray-400">{t('index.why_sacrart.platform_description', 'Web, tablet y móvil.')}</p>
+                    <h3 className="text-sm sm:text-base font-bold text-white">
+                      {getSetting('why_sacrart_platform_title', t('index.why_sacrart.platform_title', 'Multiplataforma'))}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400">
+                      {getSetting('why_sacrart_platform_description', t('index.why_sacrart.platform_description', 'Web, tablet y móvil.'))}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
+        )}
 
         {/* Subscription Plans Section */}
         <section className="relative z-10 border-t border-white/5 bg-background-dark py-12 sm:py-16 md:py-20">
@@ -1802,7 +2078,18 @@ const Home = () => {
                   <img
                     alt={t('index.about.ana_rey_image_alt', 'Ana Rey trabajando en una escultura')}
                     className="h-full min-h-[300px] sm:min-h-[400px] w-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                    src={getSetting('about_image', 'https://lh3.googleusercontent.com/aida-public/AB6AXuCP3XaE1D6DBXIoP-vyVcoJi6m3H2S_Sn7WOWwvQHLRf5b2rsKArv9EPpH82yyLEYQCRgA3E5I0NbwWszYst20KB2koDVGlrS_8R_DxVcERAcjo0GFNk8-yHtGUmUe8ZuHIobotfwAWdR1G5i5Q2iCAtokysx8wOezlxSvoQJHSBOakpj4MJxJdD4csypcy7Vak--j8V6Wv_EW05lqrgT_e0hEQQu2e4UCn9ML2FrPuk5HiWAUTCODrcYbNvhIz84BwvsKGuAcJuQ4')}
+                    src={(() => {
+                      const imagePath = getSetting('about_image', '');
+                      if (!imagePath) {
+                        return 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                      }
+                      // If it's already a full URL, use it; otherwise construct full URL from path
+                      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+                        return imagePath;
+                      }
+                      // Construct full URL from path
+                      return getImageUrl(imagePath);
+                    })()}
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
@@ -1813,7 +2100,12 @@ const Home = () => {
                   <div className="w-fit rounded bg-primary/20 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary">
                     {t('index.about.badge', 'Artista Principal')}
                   </div>
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{t('index.about.title', 'Sobre Ana Rey')}</h2>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+                    {getSetting('about_title', t('index.about.title', 'Sobre Ana Rey'))}
+                  </h2>
+                  <p className="text-gray-300 text-base sm:text-lg mt-2 mb-4">
+                    {getSetting('about_description', '')}
+                  </p>
                   <div className="space-y-3 sm:space-y-4 text-gray-400 leading-relaxed text-sm sm:text-base">
                     <p>
                       {getSetting('about_text_1', t('index.about.text_1', 'Ana Rey es una reconocida escultora española especializada en imaginería religiosa realista. Con 15 años de experiencia, ha perfeccionado las técnicas de talla en madera y policromía.'))}
@@ -1825,22 +2117,152 @@ const Home = () => {
                       {getSetting('about_text_3', t('index.about.text_3', 'Galardonada con el Premio La Hornacina —tanto en la categoría del público como en la del experto—, comparte ahora su conocimiento y pasión por el arte sacro a través de SACRART, ofreciendo una perspectiva única del proceso creativo desde dentro.'))}
                     </p>
                   </div>
-                  <div className="mt-4 pt-4 sm:pt-6 border-t border-white/10">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Heart className="h-5 w-5 sm:h-6 sm:w-6" />
+                  {(() => {
+                    // Get stat values and filter out empty/zero values
+                    const stat1Value = getSetting('about_stat_1_value', '');
+                    const stat2Value = getSetting('about_stat_2_value', '');
+                    const stat3Value = getSetting('about_stat_3_value', '');
+                    
+                    const stats = [];
+                    
+                    // Helper function to check if value is valid (not empty, not "0", not just whitespace)
+                    const isValidStatValue = (value: string | null | undefined): boolean => {
+                      if (!value) return false;
+                      if (typeof value !== 'string') return false;
+                      const trimmed = value.trim();
+                      // Hide if empty, "0", or just whitespace
+                      return trimmed !== '' && trimmed !== '0';
+                    };
+                    
+                    // Stat 1
+                    if (isValidStatValue(stat1Value)) {
+                      stats.push({
+                        value: stat1Value.trim(),
+                        label: getSetting('about_stat_1_label', 'Seguidores en redes sociales'),
+                        icon: Heart,
+                      });
+                    }
+                    
+                    // Stat 2
+                    if (isValidStatValue(stat2Value)) {
+                      stats.push({
+                        value: stat2Value.trim(),
+                        label: getSetting('about_stat_2_label', 'Años de experiencia'),
+                        icon: Award,
+                      });
+                    }
+                    
+                    // Stat 3
+                    if (isValidStatValue(stat3Value)) {
+                      stats.push({
+                        value: stat3Value.trim(),
+                        label: getSetting('about_stat_3_label', 'Obras creadas'),
+                        icon: Brush,
+                      });
+                    }
+                    
+                    // Only render if there's at least one stat
+                    if (stats.length === 0) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div className="mt-4 pt-4 sm:pt-6 border-t border-white/10">
+                        <div className={`grid grid-cols-1 ${stats.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-4 sm:gap-6`}>
+                          {stats.map((stat, index) => {
+                            const IconComponent = stat.icon;
+                            return (
+                              <div key={index} className="flex items-center gap-3">
+                                <div className="flex h-10 sm:h-12 w-10 sm:w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                  <IconComponent className="h-5 w-5 sm:h-6 sm:w-6" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-xl sm:text-2xl font-bold text-white leading-none">
+                                    {stat.value}
+                                  </span>
+                                  <span className="text-xs sm:text-sm font-medium text-gray-400">
+                                    {stat.label}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-xl sm:text-2xl font-bold text-white leading-none">{getSetting('about_stat_value', '+400 mil')}</span>
-                        <span className="text-xs sm:text-sm font-medium text-gray-400">{t('index.about.stat_label', 'Seguidores en redes sociales')}</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Testimonials Section */}
+        {testimonials.length > 0 && (
+          <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16">
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+              <div className="text-center mb-8 sm:mb-12">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 sm:mb-4">
+                  {getSetting('testimonial_title', t('index.testimonials.title', 'Lo que dicen nuestros usuarios'))}
+                </h2>
+                {getSetting('testimonial_subtitle', '') && (
+                  <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
+                    {getSetting('testimonial_subtitle', '')}
+                  </p>
+                )}
+              </div>
+              {testimonialsLoading ? (
+                <div className="text-center text-gray-400 py-8">{t('common.loading')}</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                  {testimonials.map((testimonial) => (
+                    <div
+                      key={testimonial.id}
+                      className="bg-surface-dark/50 border border-white/5 rounded-xl p-6 sm:p-8 hover:border-primary/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                          <span className="text-primary font-bold text-lg">
+                            {(testimonial.user?.name || 'A')[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-white text-sm sm:text-base truncate">
+                            {testimonial.user?.name || t('general.anonymous', 'Anónimo')}
+                          </h4>
+                          {testimonial.user?.email && (
+                            <p className="text-xs text-gray-400 truncate">{testimonial.user.email}</p>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-gray-300 text-sm sm:text-base leading-relaxed line-clamp-4">
+                        {testimonial.description}
+                      </p>
+                      {testimonial.rating && (
+                        <div className="mt-4 flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg
+                              key={i}
+                              className={`w-4 h-4 ${
+                                i < (testimonial.rating || 0)
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-600'
+                              }`}
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* FAQ Section - Using code.html design */}
         <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16">

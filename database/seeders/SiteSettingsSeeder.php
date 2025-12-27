@@ -119,5 +119,347 @@ class SiteSettingsSeeder extends Seeder
             'Footer Description',
             'Description text displayed in the footer'
         );
+
+        // Why SACRART Section Settings
+        SiteSetting::setValue(
+            'why_sacrart_title',
+            '¿Por qué SACRART?',
+            'text',
+            'why_sacrart',
+            'Why SACRART Title',
+            'Main title for the Why SACRART section',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_title',
+            '¿Por qué SACRART?',
+            'text',
+            'why_sacrart',
+            'Why SACRART Title',
+            'Main title for the Why SACRART section',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_title',
+            'Por que SACRART?',
+            'text',
+            'why_sacrart',
+            'Why SACRART Title',
+            'Main title for the Why SACRART section',
+            'pt'
+        );
+
+        SiteSetting::setValue(
+            'why_sacrart_description',
+            'Immerse yourself in the ancestral knowledge of sacred art from any device.',
+            'text',
+            'why_sacrart',
+            'Why SACRART Description',
+            'Description text for the Why SACRART section',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_description',
+            'Sumérgete en el conocimiento ancestral del arte sacro desde cualquier dispositivo.',
+            'text',
+            'why_sacrart',
+            'Why SACRART Description',
+            'Description text for the Why SACRART section',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_description',
+            'Mergulhe no conhecimento ancestral da arte sacra de qualquer dispositivo.',
+            'text',
+            'why_sacrart',
+            'Why SACRART Description',
+            'Description text for the Why SACRART section',
+            'pt'
+        );
+
+        // Artist Card
+        SiteSetting::setValue(
+            'why_sacrart_artist_title',
+            'For the Artist or Apprentice',
+            'text',
+            'why_sacrart',
+            'Artist Card Title',
+            'Title for the artist/apprentice card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_artist_title',
+            'Para el Artista o Aprendiz',
+            'text',
+            'why_sacrart',
+            'Artist Card Title',
+            'Title for the artist/apprentice card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_artist_title',
+            'Para o Artista ou Aprendiz',
+            'text',
+            'why_sacrart',
+            'Artist Card Title',
+            'Title for the artist/apprentice card',
+            'pt'
+        );
+
+        SiteSetting::setValue(
+            'why_sacrart_artist_description',
+            'Who seeks to perfect their technique, learn traditional and modern methods, and find inspiration in an artist who opens the doors of her workshop.',
+            'text',
+            'why_sacrart',
+            'Artist Card Description',
+            'Description for the artist/apprentice card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_artist_description',
+            'Que busca perfeccionar su técnica, aprender métodos tradicionales y modernos y encontrar inspiración en una artista que abre las puertas de su taller.',
+            'text',
+            'why_sacrart',
+            'Artist Card Description',
+            'Description for the artist/apprentice card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_artist_description',
+            'Que busca aperfeiçoar sua técnica, aprender métodos tradicionais e modernos e encontrar inspiração em uma artista que abre as portas de seu ateliê.',
+            'text',
+            'why_sacrart',
+            'Artist Card Description',
+            'Description for the artist/apprentice card',
+            'pt'
+        );
+
+        // Art Lover Card
+        SiteSetting::setValue(
+            'why_sacrart_art_lover_title',
+            'For the Art Enthusiast',
+            'text',
+            'why_sacrart',
+            'Art Lover Card Title',
+            'Title for the art lover card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_art_lover_title',
+            'Para el Apasionado del Arte',
+            'text',
+            'why_sacrart',
+            'Art Lover Card Title',
+            'Title for the art lover card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_art_lover_title',
+            'Para o Apaixonado pela Arte',
+            'text',
+            'why_sacrart',
+            'Art Lover Card Title',
+            'Title for the art lover card',
+            'pt'
+        );
+
+        SiteSetting::setValue(
+            'why_sacrart_art_lover_description',
+            'Who enjoys watching an image being born and grow, without needing to practice: just curiosity and excitement for the process.',
+            'text',
+            'why_sacrart',
+            'Art Lover Card Description',
+            'Description for the art lover card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_art_lover_description',
+            'Que disfruta viendo nacer y crecer una imagen, sin necesidad de practicar: solo curiosidad y emoción por el proceso.',
+            'text',
+            'why_sacrart',
+            'Art Lover Card Description',
+            'Description for the art lover card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_art_lover_description',
+            'Que gosta de ver uma imagem nascer e crescer, sem necessidade de praticar: apenas curiosidade e emoção pelo processo.',
+            'text',
+            'why_sacrart',
+            'Art Lover Card Description',
+            'Description for the art lover card',
+            'pt'
+        );
+
+        // Quality Feature
+        SiteSetting::setValue(
+            'why_sacrart_quality_title',
+            '4K HDR Quality',
+            'text',
+            'why_sacrart',
+            'Quality Feature Title',
+            'Title for the quality feature card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_quality_title',
+            'Calidad 4K HDR',
+            'text',
+            'why_sacrart',
+            'Quality Feature Title',
+            'Title for the quality feature card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_quality_title',
+            'Qualidade 4K HDR',
+            'text',
+            'why_sacrart',
+            'Quality Feature Title',
+            'Title for the quality feature card',
+            'pt'
+        );
+
+        SiteSetting::setValue(
+            'why_sacrart_quality_description',
+            'Don\'t miss a single brushstroke detail.',
+            'text',
+            'why_sacrart',
+            'Quality Feature Description',
+            'Description for the quality feature card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_quality_description',
+            'No pierdas detalle de cada pincelada.',
+            'text',
+            'why_sacrart',
+            'Quality Feature Description',
+            'Description for the quality feature card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_quality_description',
+            'Não perca nenhum detalhe de cada pincelada.',
+            'text',
+            'why_sacrart',
+            'Quality Feature Description',
+            'Description for the quality feature card',
+            'pt'
+        );
+
+        // Multilanguage Feature
+        SiteSetting::setValue(
+            'why_sacrart_multilang_title',
+            'Multilanguage',
+            'text',
+            'why_sacrart',
+            'Multilanguage Feature Title',
+            'Title for the multilanguage feature card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_multilang_title',
+            'Multilenguaje',
+            'text',
+            'why_sacrart',
+            'Multilanguage Feature Title',
+            'Title for the multilanguage feature card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_multilang_title',
+            'Multilíngue',
+            'text',
+            'why_sacrart',
+            'Multilanguage Feature Title',
+            'Title for the multilanguage feature card',
+            'pt'
+        );
+
+        SiteSetting::setValue(
+            'why_sacrart_multilang_description',
+            'Dubbed and subtitled in English and Portuguese.',
+            'text',
+            'why_sacrart',
+            'Multilanguage Feature Description',
+            'Description for the multilanguage feature card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_multilang_description',
+            'Doblados y subtitulados al inglés y portugués.',
+            'text',
+            'why_sacrart',
+            'Multilanguage Feature Description',
+            'Description for the multilanguage feature card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_multilang_description',
+            'Dublados e legendados em inglês e português.',
+            'text',
+            'why_sacrart',
+            'Multilanguage Feature Description',
+            'Description for the multilanguage feature card',
+            'pt'
+        );
+
+        // Platform Feature
+        SiteSetting::setValue(
+            'why_sacrart_platform_title',
+            'Multiplatform',
+            'text',
+            'why_sacrart',
+            'Platform Feature Title',
+            'Title for the platform feature card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_platform_title',
+            'Multiplataforma',
+            'text',
+            'why_sacrart',
+            'Platform Feature Title',
+            'Title for the platform feature card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_platform_title',
+            'Multiplataforma',
+            'text',
+            'why_sacrart',
+            'Platform Feature Title',
+            'Title for the platform feature card',
+            'pt'
+        );
+
+        SiteSetting::setValue(
+            'why_sacrart_platform_description',
+            'Web, tablet and mobile.',
+            'text',
+            'why_sacrart',
+            'Platform Feature Description',
+            'Description for the platform feature card',
+            'en'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_platform_description',
+            'Web, tablet y móvil.',
+            'text',
+            'why_sacrart',
+            'Platform Feature Description',
+            'Description for the platform feature card',
+            'es'
+        );
+        SiteSetting::setValue(
+            'why_sacrart_platform_description',
+            'Web, tablet e celular.',
+            'text',
+            'why_sacrart',
+            'Platform Feature Description',
+            'Description for the platform feature card',
+            'pt'
+        );
     }
 }

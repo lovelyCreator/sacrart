@@ -286,7 +286,7 @@ const EpisodeDetail = () => {
         } else if (videoData.allow_download && (videoData.bunny_video_url || videoData.video_url)) {
           // Fallback for non-Bunny.net videos
           const videoDownloadUrl = videoData.bunny_video_url || videoData.video_url || 
-            (videoData.id ? `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:8000'}/api/videos/${videoData.id}/stream` : null);
+            (videoData.id ? `${(import.meta.env.VITE_SERVER_BASE_URL.replace('/api', ''))}/api/videos/${videoData.id}/stream` : null);
           
           if (videoDownloadUrl) {
             const videoTitle = videoData.title || 'video';
@@ -410,7 +410,7 @@ const EpisodeDetail = () => {
     if (src.startsWith('http://') || src.startsWith('https://')) {
       return src;
     }
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const baseUrl = import.meta.env.VITE_SERVER_BASE_URL;
     return `${baseUrl.replace('/api', '')}${src.startsWith('/') ? '' : '/'}${src}`;
   };
 
@@ -617,7 +617,7 @@ const EpisodeDetail = () => {
         if (resource.url && resource.url.startsWith('api://download-video/') && resource.video_id) {
           try {
             // Fetch download URL from API
-            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+            const apiBaseUrl = import.meta.env.VITE_SERVER_BASE_URL;
             const response = await fetch(`${apiBaseUrl}/videos/${resource.video_id}/download-url?quality=720`, {
               method: 'GET',
               headers: {
@@ -671,7 +671,7 @@ const EpisodeDetail = () => {
             
             // If it's a relative URL, prepend the API base URL
             if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://') && !downloadUrl.startsWith('api://')) {
-              const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+              const baseUrl = import.meta.env.VITE_SERVER_BASE_URL;
               downloadUrl = `${baseUrl.replace('/api', '')}${downloadUrl.startsWith('/') ? '' : '/'}${downloadUrl}`;
             }
             
