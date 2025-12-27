@@ -1567,7 +1567,7 @@ const Home = () => {
                 <span className="sm:hidden">{t('common.sign_in').split(' ')[0]}</span>
               </Button>
               <Button
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/auth', { state: { mode: 'signup' } })}
                 className="flex h-9 sm:h-10 items-center justify-center rounded-lg bg-primary px-3 sm:px-5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-[#8a4539]"
               >
                 {t('common.sign_up')}
@@ -1608,7 +1608,7 @@ const Home = () => {
                 {/* CTA Buttons */}
                 <div className="mt-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 lg:justify-start">
                   <Button
-                    onClick={() => navigate('/auth')}
+                    onClick={() => navigate('/auth', { state: { mode: 'signup' } })}
                     className="flex h-12 sm:h-14 w-full sm:w-auto min-w-[200px] items-center justify-center gap-2 rounded-lg bg-primary px-6 sm:px-8 text-sm sm:text-base font-bold text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105 active:scale-95"
                   >
                     <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
@@ -1973,7 +1973,7 @@ const Home = () => {
                         ))}
                       </ul>
                       <Button
-                        onClick={() => navigate('/auth')}
+                        onClick={() => navigate('/auth', { state: { mode: 'signup' } })}
                         className={`mt-auto w-full rounded-lg py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white transition-colors ${
                           isPopular
                             ? 'bg-primary hover:bg-[#8a4539] shadow-lg shadow-primary/25'
@@ -2308,7 +2308,7 @@ const Home = () => {
               <h3 className="mb-3 sm:mb-4 text-xl sm:text-2xl font-bold text-white">{t('faq.cta_title', '¿Aún tienes dudas?')}</h3>
               <p className="mb-4 sm:mb-6 text-sm sm:text-base text-gray-400">{t('faq.cta_description', 'Escríbenos y estaremos encantados de atenderte')}</p>
               <Button
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/auth', { state: { mode: 'signup' } })}
                 className="flex h-10 sm:h-12 w-full max-w-[200px] items-center justify-center gap-2 rounded-lg bg-primary px-6 sm:px-8 text-sm sm:text-base font-bold text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105 active:scale-95 sm:w-auto mx-auto hover:bg-[#8a4539]"
               >
                 {t('faq.cta_button', 'Tengo dudas')}

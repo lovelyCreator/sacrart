@@ -29,10 +29,18 @@ const Auth = () => {
   // Background image URL from code.html
   const backgroundImageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk";
 
-  // Handle email from navigation state or localStorage
+  // Handle email from navigation state or localStorage, and signup mode
   useEffect(() => {
     const stateEmail = location.state?.email;
+    const stateMode = location.state?.mode;
     const storedEmail = localStorage.getItem('signup_email');
+    const urlParams = new URLSearchParams(location.search);
+    const urlMode = urlParams.get('mode');
+    
+    // Check if signup mode is requested (from state, URL param, or email provided)
+    if (stateMode === 'signup' || urlMode === 'signup') {
+      setIsLogin(false);
+    }
     
     if (stateEmail) {
       setEmail(stateEmail);
@@ -42,7 +50,7 @@ const Auth = () => {
       setIsLogin(false); // Switch to signup mode if email is provided
       localStorage.removeItem('signup_email'); // Clean up
     }
-  }, [location.state]);
+  }, [location.state, location.search]);
 
   // Redirect if already authenticated
   useEffect(() => {
