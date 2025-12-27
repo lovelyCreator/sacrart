@@ -115,11 +115,27 @@ class UserProgress extends Model
     {
         $progressPercentage = $videoDuration > 0 ? min(100, round(($timeWatched / $videoDuration) * 100)) : 0;
         $isCompleted = $progressPercentage >= 90; // Consider 90% as completed
+        $isFinished = $progressPercentage >= 100; // Consider 100% as fully finished
 
         // Find existing progress
         $progress = static::where('user_id', $user->id)
             ->where('video_id', $video->id)
             ->first();
+
+        // If video is fully finished (100%), delete the progress record
+        if ($isFinished && $progress) {
+            // Update series progress before deleting (if needed)
+            if ($video->series_id) {
+                $series = $video->series;
+                if ($series) {
+                    $progressInstance = new static();
+                    $progressInstance->updateSeriesProgress($user, $series);
+                }
+            }
+            
+            $progress->delete();
+            return null; // Return null since record is deleted
+        }
 
         if ($progress) {
             // Update existing progress with DB::raw for increments

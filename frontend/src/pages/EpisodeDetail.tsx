@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,8 @@ const EpisodeDetail = () => {
   const [transcription, setTranscription] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const lastSavedProgress = useRef<number>(0); // Track last saved progress to avoid duplicate saves
+  const progressSaveTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const bunnyPlayerRef = useRef<any>(null);
@@ -77,6 +79,77 @@ const EpisodeDetail = () => {
       }
     };
   }, []);
+
+  // Helper function to save progress
+  const saveProgressToDatabase = useCallback(async (timeWatched: number, videoDuration: number) => {
+    if (!user || !video || timeWatched <= 0 || videoDuration <= 0) {
+      return;
+    }
+
+    const progressPercentage = (timeWatched / videoDuration) * 100;
+    
+    try {
+      await userProgressApi.updateVideoProgress(video.id, {
+        time_watched: Math.floor(timeWatched),
+        video_duration: Math.floor(videoDuration),
+        progress_percentage: Math.floor(progressPercentage),
+        is_completed: progressPercentage >= 90,
+      });
+      lastSavedProgress.current = Math.floor(timeWatched);
+      console.log('✅ Progress saved:', Math.floor(progressPercentage) + '%');
+    } catch (error) {
+      console.error('❌ Error saving progress:', error);
+    }
+  }, [user, video]);
+
+  // Save progress when component unmounts (user navigates away)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Save progress immediately when page is about to unload
+      if (user && video && currentTime > 0) {
+        const dur = video.duration || 0;
+        if (dur > 0) {
+          // Use sendBeacon for reliable save on page unload
+          const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+          const token = localStorage.getItem('token');
+          const data = JSON.stringify({
+            time_watched: Math.floor(currentTime),
+            video_duration: Math.floor(dur),
+            progress_percentage: Math.floor((currentTime / dur) * 100),
+            is_completed: (currentTime / dur) >= 0.9,
+          });
+
+          if (navigator.sendBeacon && token) {
+            const blob = new Blob([data], { type: 'application/json' });
+            navigator.sendBeacon(
+              `${API_BASE_URL}/api/progress/video/${video.id}`,
+              blob
+            );
+          }
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Clear any pending save timeout
+      if (progressSaveTimeout.current) {
+        clearTimeout(progressSaveTimeout.current);
+      }
+      
+      // Save final progress before unmounting
+      if (user && video && currentTime > 0) {
+        const dur = video.duration || 0;
+        if (dur > 0) {
+          // Save synchronously before component unmounts
+          saveProgressToDatabase(currentTime, dur);
+        }
+      }
+    };
+  }, [user, video, currentTime, saveProgressToDatabase]);
 
   // Initialize Bunny.net player when iframe loads (always show iframe if has access)
   useEffect(() => {
@@ -132,6 +205,26 @@ const EpisodeDetail = () => {
         player.on('timeupdate', (data: { seconds?: number }) => {
           if (data.seconds !== undefined) {
             setCurrentTime(data.seconds);
+            
+            // Save progress for Bunny.net videos periodically
+            if (user && video && video.duration) {
+              const timeWatched = data.seconds;
+              const videoDuration = video.duration;
+              const timeSinceLastSave = Math.floor(timeWatched) - lastSavedProgress.current;
+              
+              // Save every 5 seconds
+              if (timeSinceLastSave >= 5) {
+                // Clear any pending save
+                if (progressSaveTimeout.current) {
+                  clearTimeout(progressSaveTimeout.current);
+                }
+                
+                // Debounce: Save after 1 second
+                progressSaveTimeout.current = setTimeout(() => {
+                  saveProgressToDatabase(timeWatched, videoDuration);
+                }, 1000);
+              }
+            }
           }
         });
 
@@ -148,6 +241,11 @@ const EpisodeDetail = () => {
         player.on('pause', () => {
           console.log('⏸️ Video paused - updating button state to PLAY/CONTINUE');
           setIsPlaying(false);
+          
+          // Save progress immediately when Bunny.net video is paused
+          if (user && video && currentTime > 0 && video.duration) {
+            saveProgressToDatabase(currentTime, video.duration);
+          }
         });
 
         player.on('ended', () => {
@@ -186,7 +284,7 @@ const EpisodeDetail = () => {
       clearTimeout(timer);
       bunnyPlayerRef.current = null;
     };
-  }, [video?.id, video?.bunny_embed_url, video?.bunny_player_url, video?.visibility, user]);
+  }, [video?.id, video?.bunny_embed_url, video?.bunny_player_url, video?.visibility, user, saveProgressToDatabase]);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -887,7 +985,12 @@ const EpisodeDetail = () => {
   }
 
   const hasAccess = canAccessVideo(video.visibility);
-  const progressPercentage = userProgress?.progress_percentage || 0;
+  const savedProgressPercentage = userProgress?.progress_percentage || 0;
+  // Calculate real-time progress based on current video time
+  const videoDuration = video.duration || 0;
+  const realTimeProgressPercentage = videoDuration > 0 ? (currentTime / videoDuration) * 100 : savedProgressPercentage;
+  // Use real-time progress if video is playing, otherwise use saved progress
+  const progressPercentage = currentTime > 0 && videoDuration > 0 ? realTimeProgressPercentage : savedProgressPercentage;
   const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || video.bunny_thumbnail_url || '');
   const videoUrl = video.bunny_embed_url || video.bunny_video_url || video.video_url_full || video.video_url;
   
@@ -985,7 +1088,26 @@ const EpisodeDetail = () => {
                     console.log('✅ Video started playing');
                     setIsPlaying(true);
                   }}
-                  onPause={() => setIsPlaying(false)}
+                  onPause={() => {
+                    setIsPlaying(false);
+                    // Save progress immediately when user pauses
+                    if (videoRef.current && user && video) {
+                      const current = videoRef.current.currentTime;
+                      const dur = videoRef.current.duration || video.duration;
+                      if (dur > 0 && current > 0) {
+                        const videoDuration = video.duration || dur;
+                        const progressPercentage = (current / videoDuration) * 100;
+                        userProgressApi.updateVideoProgress(video.id, {
+                          time_watched: Math.floor(current),
+                          video_duration: Math.floor(videoDuration),
+                          progress_percentage: Math.floor(progressPercentage),
+                          is_completed: progressPercentage >= 90,
+                        }).then(() => {
+                          lastSavedProgress.current = Math.floor(current);
+                        }).catch(console.error);
+                      }
+                    }
+                  }}
                   onError={(e) => {
                     console.error('❌ Video failed to load:', e);
                     console.error('Video URL:', videoUrl);
@@ -1002,14 +1124,27 @@ const EpisodeDetail = () => {
                     if (dur > 0 && user && video) {
                       const videoDuration = video.duration || dur; // Use database duration if available
                       const progressPercentage = (current / videoDuration) * 100;
-                      // Save progress periodically (every 10 seconds)
-                      if (Math.floor(current) % 10 === 0) {
-                        userProgressApi.updateVideoProgress(video.id, {
-                          time_watched: Math.floor(current),
-                          video_duration: Math.floor(videoDuration),
-                          progress_percentage: Math.floor(progressPercentage),
-                          is_completed: progressPercentage >= 90,
-                        }).catch(console.error);
+                      const timeWatched = Math.floor(current);
+                      
+                      // Save progress more frequently (every 5 seconds) or if significant change
+                      const timeSinceLastSave = timeWatched - lastSavedProgress.current;
+                      if (timeSinceLastSave >= 5 || Math.abs(progressPercentage - (lastSavedProgress.current / videoDuration * 100)) >= 5) {
+                        // Clear any pending save
+                        if (progressSaveTimeout.current) {
+                          clearTimeout(progressSaveTimeout.current);
+                        }
+                        
+                        // Debounce: Save after 1 second of no updates (to catch when user pauses)
+                        progressSaveTimeout.current = setTimeout(() => {
+                          userProgressApi.updateVideoProgress(video.id, {
+                            time_watched: timeWatched,
+                            video_duration: Math.floor(videoDuration),
+                            progress_percentage: Math.floor(progressPercentage),
+                            is_completed: progressPercentage >= 90,
+                          }).then(() => {
+                            lastSavedProgress.current = timeWatched;
+                          }).catch(console.error);
+                        }, 1000);
                       }
                     }
                   }}
@@ -1079,12 +1214,12 @@ const EpisodeDetail = () => {
             </div>
           )}
           
-          {/* Progress Bar */}
-          {userProgress && progressPercentage > 0 && (
+          {/* Progress Bar - Shows real-time video progress */}
+          {video && videoDuration > 0 && (
             <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-700 z-20">
               <div 
                 className="h-full bg-primary transition-all"
-                style={{ width: `${progressPercentage}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, progressPercentage))}%` }}
               ></div>
             </div>
           )}

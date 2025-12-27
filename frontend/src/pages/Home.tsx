@@ -38,6 +38,7 @@ import { settingsApi } from '@/services/settingsApi';
 import { categoryApi, Category, seriesApi, videoApi } from '@/services/videoApi';
 import { feedbackApi, Feedback } from '@/services/feedbackApi';
 import { subscriptionPlanApi, SubscriptionPlan } from '@/services/subscriptionPlanApi';
+import { userProgressApi, UserProgress } from '@/services/userProgressApi';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -84,6 +85,9 @@ const Home = () => {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const homepageVideosCarouselRef = useRef<HTMLDivElement>(null);
+  // Continue watching videos (for authenticated users)
+  const [continueWatchingVideos, setContinueWatchingVideos] = useState<UserProgress[]>([]);
+  const [continueWatchingLoading, setContinueWatchingLoading] = useState(false);
   
   // Landing page data (for unauthenticated users)
   const [trendingVideos, setTrendingVideos] = useState<any[]>([]);
@@ -1029,6 +1033,116 @@ const Home = () => {
     }
   }, [heroSettings]);
 
+  // Fetch continue watching videos for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const fetchContinueWatching = async () => {
+        
+        setContinueWatchingLoading(true);
+        try {
+          console.log('📡 About to call userProgressApi.continueWatching(10)...');
+          const response = await userProgressApi.continueWatching(10); // Get up to 10 videos
+          console.log('✅ API call completed successfully!');
+          
+          // Dump full response for debugging
+          console.log('🔍 ========== CONTINUE WATCHING API RESPONSE ==========');
+          console.log('Full response object:', JSON.stringify(response, null, 2));
+          console.log('Response type:', typeof response);
+          console.log('Response keys:', Object.keys(response || {}));
+          console.log('Response.success:', response?.success);
+          console.log('Response.data:', response?.data);
+          console.log('Response.data type:', typeof response?.data);
+          console.log('Response.data is array:', Array.isArray(response?.data));
+          if (response?.data) {
+            console.log('Response.data length:', Array.isArray(response?.data) ? response?.data.length : 'Not an array');
+            if (Array.isArray(response?.data) && response.data.length > 0) {
+              console.log('First item:', JSON.stringify(response.data[0], null, 2));
+              console.log('First item keys:', Object.keys(response.data[0] || {}));
+              console.log('First item video:', response.data[0]?.video);
+              console.log('First item video type:', typeof response.data[0]?.video);
+            }
+          }
+          console.log('🔍 ===================================================');
+          
+          if (response && response.success && response.data) {
+            const data = response.data;
+            console.log('📊 Processing response data...');
+            console.log('📊 Data:', data);
+            console.log('📊 Data type:', Array.isArray(data) ? 'Array' : typeof data);
+            console.log('📊 Data length:', Array.isArray(data) ? data.length : 'N/A');
+            
+            // Handle both array and object responses
+            const dataArray = Array.isArray(data) ? data : (data.data || []);
+            console.log('📊 Data array length:', dataArray.length);
+            
+            // Filter out videos that are null or don't have video data
+            const validProgress = dataArray.filter((progress: any) => {
+              console.log('🔍 Checking progress item:', {
+                id: progress?.id,
+                video_id: progress?.video_id,
+                hasVideo: !!progress?.video,
+                videoId: progress?.video?.id,
+                videoTitle: progress?.video?.title,
+                progress_percentage: progress?.progress_percentage,
+                is_completed: progress?.is_completed
+              });
+              
+              const hasVideo = progress && progress.video && progress.video.id;
+              if (!hasVideo) {
+                console.warn('⚠️ Progress item missing video:', {
+                  progress_id: progress?.id,
+                  video_id: progress?.video_id,
+                  video: progress?.video,
+                  full_item: progress
+                });
+              }
+              return hasVideo;
+            });
+            
+            console.log('✅ Valid continue watching videos:', validProgress.length);
+            console.log('✅ Valid progress items:', JSON.stringify(validProgress, null, 2));
+            
+            setContinueWatchingVideos(validProgress);
+          } else {
+            console.warn('⚠️ No continue watching data in response:', {
+              response,
+              hasSuccess: !!response?.success,
+              hasData: !!response?.data,
+              responseKeys: Object.keys(response || {})
+            });
+            setContinueWatchingVideos([]);
+          }
+        } catch (error) {
+          if (error instanceof Error) {
+            console.error('Error name:', error.name);
+            console.error('Error cause:', (error as any).cause);
+          }
+          setContinueWatchingVideos([]);
+        } finally {
+          setContinueWatchingLoading(false);
+        }
+      };
+
+      fetchContinueWatching();
+      
+      // Refresh continue watching when page becomes visible (user returns to tab)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchContinueWatching();
+        }
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    } else {
+      // Clear continue watching if user logs out
+      setContinueWatchingVideos([]);
+    }
+  }, [isAuthenticated, user]);
+
   // Check if homepage videos carousel should be centered and show/hide arrows
   useEffect(() => {
     const checkCenterVideos = () => {
@@ -1413,6 +1527,17 @@ const Home = () => {
     } else {
       return `${secs}s`;
     }
+  };
+
+  // Format remaining time from progress
+  const formatRemainingTime = (progress: UserProgress): string => {
+    if (!progress.video || !progress.video.duration || !progress.progress_percentage) {
+      return '';
+    }
+    const totalSeconds = progress.video.duration;
+    const watchedSeconds = Math.floor((totalSeconds * progress.progress_percentage) / 100);
+    const remainingSeconds = totalSeconds - watchedSeconds;
+    return formatVideoDuration(remainingSeconds);
   };
 
   const getSetting = (key: string, defaultValue: string = ''): string => {
@@ -2569,75 +2694,108 @@ const Home = () => {
           )}
         </section>
 
-        {/* Seguir viendo Section */}
-        <section id="seguir-viendo" className="px-4 sm:px-6 md:px-16 scroll-mt-24">
-          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
-            <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
-              {t('index.continue_watching.title', 'Seguir viendo')}
-            </h2>
-            <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
-          </div>
-          <div className="relative group/slider">
-            <button
-              onClick={() => {
-                const slider = document.getElementById('continue-watching-slider');
-                if (slider) slider.scrollBy({ left: -280, behavior: 'smooth' });
-              }}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-2 sm:-ml-4 shadow-lg hidden sm:block"
-            >
-              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-            <button
-              onClick={() => {
-                const slider = document.getElementById('continue-watching-slider');
-                if (slider) slider.scrollBy({ left: 280, behavior: 'smooth' });
-              }}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-2 sm:-mr-4 shadow-lg hidden sm:block"
-            >
-              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-            <div
-              id="continue-watching-slider"
-              className="flex overflow-x-auto gap-3 sm:gap-4 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar"
-            >
-              {homepageVideos.slice(0, 4).map((video, index) => {
-                // Simulate progress (75%, 30%, 90%, 15%)
-                const progressPercent = [75, 30, 90, 15][index] || 50;
-                const remainingTime = ['15m', '42m', '5m', '55m'][index] || '30m';
-                const episodeInfo = ['E1: El Comienzo', 'E4: Sombras', 'Parte 2', 'Clase 3'][index] || 'Episodio';
-                
-                return (
-                  <div key={video.id} className="min-w-[240px] sm:min-w-[280px] md:min-w-[320px] snap-start">
-                    <div
-                      onClick={() => handleCourseClick(video.id)}
-                      className="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]"
-                    >
-                      <img
-                        src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
-                        alt={video.title || ''}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Play className="text-white text-4xl sm:text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
-                      </div>
-                      <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
-                        <div className="h-full bg-primary" style={{ width: `${progressPercent}%` }} />
-                      </div>
-                    </div>
-                    <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
-                    <p className="text-[10px] sm:text-xs text-text-subtle mt-1">
-                      {episodeInfo} • {remainingTime} {t('index.continue_watching.remaining', 'restantes')}
-                    </p>
-                  </div>
-                );
-              })}
+        {/* Seguir viendo Section - Only show for authenticated users with incomplete videos */}
+        {isAuthenticated && (
+          <section id="seguir-viendo" className="px-4 sm:px-6 md:px-16 scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+              <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
+                {t('index.continue_watching.title', 'Seguir viendo')}
+              </h2>
+              <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
             </div>
-          </div>
-        </section>
+            <div className="relative group/slider">
+              {continueWatchingVideos.length > 0 && (
+                <>
+                  <button
+                    onClick={() => {
+                      const slider = document.getElementById('continue-watching-slider');
+                      if (slider) slider.scrollBy({ left: -280, behavior: 'smooth' });
+                    }}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-2 sm:-ml-4 shadow-lg hidden sm:block"
+                  >
+                    <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const slider = document.getElementById('continue-watching-slider');
+                      if (slider) slider.scrollBy({ left: 280, behavior: 'smooth' });
+                    }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-2 sm:-mr-4 shadow-lg hidden sm:block"
+                  >
+                    <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                </>
+              )}
+              <div
+                id="continue-watching-slider"
+                className="flex overflow-x-auto gap-4 pb-8 snap-x snap-mandatory hide-scrollbar"
+              >
+                {continueWatchingLoading ? (
+                  // Loading state
+                  <div className="max-w-[200px] sm:max-w-[240px] md:max-w-[280px] snap-start flex-shrink-0">
+                    <div className="relative rounded-lg overflow-hidden aspect-video mb-3 bg-[#2a1d21] animate-pulse">
+                      <div className="absolute inset-0 bg-gray-700" />
+                    </div>
+                    <div className="h-4 bg-gray-700 rounded animate-pulse mb-2" />
+                    <div className="h-3 bg-gray-700 rounded animate-pulse w-2/3" />
+                  </div>
+                ) : continueWatchingVideos.length > 0 ? (
+                  // Show continue watching videos with real progress
+                  continueWatchingVideos.map((progress) => {
+                    const video = progress.video;
+                    if (!video) return null;
+                    
+                    const progressPercent = progress.progress_percentage || 0;
+                    const remainingTime = formatRemainingTime(progress);
+                    const episodeInfo = video.episode_number 
+                      ? `E${video.episode_number}: ${video.title}`
+                      : video.series?.title 
+                        ? `${video.series.title}`
+                        : video.title;
+                    
+                    return (
+                      <div key={progress.id} className="max-w-[200px] sm:max-w-[240px] md:max-w-[280px] snap-start flex-shrink-0">
+                        <div
+                          onClick={() => {
+                            navigateWithLocale(`/episode/${video.id}`);
+                          }}
+                          className="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]"
+                        >
+                          <img
+                            src={getImageUrl(video.thumbnail_url || video.intro_image_url || video.intro_image || '')}
+                            alt={video.title || ''}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Play className="text-white text-4xl sm:text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
+                          </div>
+                          {/* Progress bar */}
+                          <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
+                          </div>
+                        </div>
+                        <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
+                        <p className="text-xs text-text-subtle mt-1 line-clamp-1">
+                          {episodeInfo}
+                          {remainingTime && ` • ${remainingTime} ${t('index.continue_watching.remaining', 'restantes')}`}
+                        </p>
+                      </div>
+                    );
+                  })
+                ) : (
+                  // Empty state
+                  <div className="w-full text-center py-8">
+                    <p className="text-gray-400 text-sm">{t('index.continue_watching.empty', 'No videos in progress')}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Formatos Exclusivos Section */}
         <section className="px-4 sm:px-6 md:px-16 py-6 sm:py-8">

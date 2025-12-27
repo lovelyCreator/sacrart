@@ -84,8 +84,17 @@ class UserProgressController extends Controller
         $timeWatched = $validated['time_watched'];
         $videoDuration = $validated['video_duration'];
 
-        // Update progress
+        // Update progress (returns null if video is finished and record is deleted)
         $progress = UserProgress::updateVideoProgress($user, $video, $timeWatched, $videoDuration);
+
+        if ($progress === null) {
+            // Video is finished, progress record was deleted
+            return response()->json([
+                'success' => true,
+                'message' => 'Video finished. Progress record removed.',
+                'data' => null,
+            ]);
+        }
 
         return response()->json([
             'success' => true,
@@ -267,8 +276,24 @@ class UserProgressController extends Controller
     {
         $user = Auth::user();
 
+        \Log::info('Continue watching API called', [
+            'user_id' => $user->id,
+            'limit' => $request->get('limit', 10),
+        ]);
+
+        // First, check raw progress count without video filter
+        $rawProgressCount = UserProgress::where('user_id', $user->id)
+            ->whereNotNull('video_id')
+            ->where('progress_percentage', '>', 0)
+            ->count();
+
+        \Log::info('Raw progress count (before filters)', [
+            'user_id' => $user->id,
+            'count' => $rawProgressCount,
+        ]);
+
         // Get videos with progress, excluding completed (100%) and 0% progress
-        $query = UserProgress::with(['video.category', 'video.instructor', 'category'])
+        $query = UserProgress::with(['video.category', 'video.instructor', 'video.series'])
             ->where('user_id', $user->id)
             ->whereNotNull('video_id')
             ->where(function ($q) {
@@ -281,16 +306,99 @@ class UserProgressController extends Controller
             ->where('progress_percentage', '>', 0)
             ->orderBy('last_watched_at', 'desc');
 
-        $progress = $query->limit($request->get('limit', 10))->get();
+        // Get progress before filtering by published videos
+        $progressBeforeFilter = $query->limit($request->get('limit', 10))->get();
+        
+        \Log::info('Progress before video status filter', [
+            'user_id' => $user->id,
+            'count' => $progressBeforeFilter->count(),
+            'progress_ids' => $progressBeforeFilter->pluck('id')->toArray(),
+            'video_ids' => $progressBeforeFilter->pluck('video_id')->toArray(),
+        ]);
 
-        // Filter out null videos and ensure we have video relationship
-        $filteredProgress = $progress->filter(function ($item) {
-            return $item->video !== null;
+        // Now filter by published videos
+        $progress = $progressBeforeFilter->filter(function ($item) {
+            if ($item->video === null) {
+                \Log::warning('Continue watching: Video is null for progress', [
+                    'progress_id' => $item->id,
+                    'video_id' => $item->video_id,
+                ]);
+                return false;
+            }
+            
+            // Check if video is published
+            $isPublished = $item->video->status === 'published' 
+                && $item->video->published_at !== null 
+                && $item->video->published_at <= now();
+            
+            if (!$isPublished) {
+                \Log::info('Continue watching: Video not published', [
+                    'progress_id' => $item->id,
+                    'video_id' => $item->video_id,
+                    'video_status' => $item->video->status,
+                    'published_at' => $item->video->published_at,
+                ]);
+            }
+            
+            return $isPublished;
+        });
+
+        \Log::info('Continue watching final result', [
+            'user_id' => $user->id,
+            'before_filter' => $progressBeforeFilter->count(),
+            'after_filter' => $progress->count(),
+            'final_progress_ids' => $progress->pluck('id')->toArray(),
+        ]);
+
+        // Convert to array and include all relationships
+        $result = $progress->values()->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'user_id' => $item->user_id,
+                'video_id' => $item->video_id,
+                'series_id' => $item->series_id,
+                'progress_percentage' => $item->progress_percentage,
+                'time_watched' => $item->time_watched,
+                'last_position' => $item->last_position,
+                'is_completed' => $item->is_completed,
+                'video_duration' => $item->video_duration,
+                'last_watched_at' => $item->last_watched_at,
+                'first_watched_at' => $item->first_watched_at,
+                'video' => $item->video ? [
+                    'id' => $item->video->id,
+                    'title' => $item->video->title,
+                    'series_id' => $item->video->series_id,
+                    'status' => $item->video->status,
+                    'published_at' => $item->video->published_at,
+                    'thumbnail_url' => $item->video->thumbnail_url,
+                    'intro_image_url' => $item->video->intro_image_url,
+                    'intro_image' => $item->video->intro_image,
+                    'duration' => $item->video->duration,
+                    'episode_number' => $item->video->episode_number,
+                    'series' => $item->video->series ? [
+                        'id' => $item->video->series->id,
+                        'title' => $item->video->series->title,
+                    ] : null,
+                    'category' => $item->video->category ? [
+                        'id' => $item->video->category->id,
+                        'name' => $item->video->category->name,
+                    ] : null,
+                    'instructor' => $item->video->instructor ? [
+                        'id' => $item->video->instructor->id,
+                        'name' => $item->video->instructor->name,
+                    ] : null,
+                ] : null,
+            ];
         });
 
         return response()->json([
             'success' => true,
-            'data' => $filteredProgress->values(),
+            'data' => $result,
+            'debug' => [
+                'raw_progress_count' => $rawProgressCount,
+                'before_filter' => $progressBeforeFilter->count(),
+                'after_filter' => $progress->count(),
+            ],
         ]);
     }
 

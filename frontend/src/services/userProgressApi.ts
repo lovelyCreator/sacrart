@@ -115,15 +115,42 @@ export const userProgressApi = {
 
   // Get continue watching
   continueWatching: async (limit?: number): Promise<any> => {
-    const queryParams = new URLSearchParams();
-    if (limit) queryParams.append('limit', limit.toString());
-    
-    const url = `${API_BASE_URL}/progress/continue-watching${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
-    return handleResponse<any>(response);
+    try {
+      console.log('📡 [userProgressApi] continueWatching called with limit:', limit);
+      console.log('📡 [userProgressApi] API_BASE_URL:', API_BASE_URL);
+      
+      const queryParams = new URLSearchParams();
+      if (limit) queryParams.append('limit', limit.toString());
+      
+      const url = `${API_BASE_URL}/progress/continue-watching${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      console.log('📡 [userProgressApi] Full URL:', url);
+      
+      const headers = getAuthHeaders();
+      console.log('📡 [userProgressApi] Headers:', {
+        ...headers,
+        'Authorization': headers.Authorization ? 'Bearer ***' : 'No token'
+      });
+      
+      console.log('📡 [userProgressApi] Making fetch request...');
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: headers,
+      });
+      
+      console.log('📡 [userProgressApi] Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      const result = await handleResponse<any>(response);
+      console.log('📡 [userProgressApi] Response parsed:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ [userProgressApi] Error in continueWatching:', error);
+      throw error;
+    }
   },
 
   // Get favorites (paginated)

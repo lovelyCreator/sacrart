@@ -2,7 +2,7 @@
 <html class="dark" lang="es"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Iniciar Sesión / Registrarse - SACRART</title>
+<title>Inicio SACRART - Streaming de Arte Sacro</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -18,142 +18,516 @@
                         "background-dark": "#181113",
                         "surface-dark": "#221016",
                         "text-subtle": "#b99da6",
-                        "deep-charcoal": "#0A0A0A",
                     },
                     fontFamily: {
                         "display": ["Plus Jakarta Sans", "sans-serif"]
                     },
-                    backgroundImage: {
-                        'texture-pattern': "url(\"data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E\")",
-                    }
+                    borderRadius: {
+                        "DEFAULT": "0.25rem", 
+                        "lg": "0.5rem", 
+                        "xl": "0.75rem", 
+                        "full": "9999px"
+                    },
                 },
             },
         }
     </script>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-white overflow-x-hidden min-h-screen flex flex-col">
 <nav class="fixed top-0 z-50 w-full bg-gradient-to-b from-black/95 to-transparent transition-all duration-300 px-4 md:px-10 py-4 flex items-center justify-between border-b border-[#39282e]/30 backdrop-blur-md">
 <div class="flex items-center gap-8">
-<a class="flex items-center cursor-pointer h-10 md:h-12 w-auto shrink-0" href="#">
+<div class="flex items-center cursor-pointer h-10 md:h-12 w-auto shrink-0">
 <img alt="SACRART Logo" class="h-full w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYg5xWLesEIspZ7FjRlqxOE2pq5I_DpVWnaVfHv55iNP-cyZWH321GqxswaeUw9f9RcfJ3yuzX8WzT8UEN3WrwQXkyeEkAsRCS-8HzxDndChh1Qp0SG2IcplZGJVX5YnrgrgvkS6lhYAPK3psuqIMFtqzekNQgBYvj4RbnIOdTlqWBP0RbqJblIaIW002bOeHQ8AT9S_LO4axT9-1l2hpip2WaA8OWLJ2tMK9QP7I8uu3u2B7EyEMPK23UYnO5_nvSwCELj7ARrF0"/>
-</a>
+</div>
 <div class="hidden xl:flex items-center gap-6">
 <a class="text-white text-xs font-bold uppercase tracking-wider hover:text-primary transition-colors" href="#">Inicio</a>
 <div class="relative group">
 <button class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors flex items-center gap-1">
-                    Categorías
-                    <span class="material-symbols-outlined text-[16px]">expand_more</span>
+            Categorías
+            <span class="material-symbols-outlined text-[16px]">expand_more</span>
 </button>
 <div class="absolute top-full left-0 mt-2 w-56 bg-[#181113] border border-white/10 rounded-lg shadow-xl py-2 hidden group-hover:block">
 <a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Dibujo</a>
 <a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Modelado</a>
 <a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Talla en Madera</a>
+<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Policromía</a>
+<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Dorado y Estofado</a>
+<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Restauración</a>
 </div>
 </div>
 <a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors" href="#">Seguir Viendo</a>
 <a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors" href="#">Browse</a>
+<a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors" href="#">Directos</a>
+<a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors flex items-center gap-1" href="#">
+            Sacrart Kids
+            <span class="material-symbols-outlined text-[16px]">child_care</span>
+</a>
 </div>
 </div>
 <div class="flex items-center gap-4">
 <button class="flex items-center gap-2 border border-primary/50 text-white hover:bg-primary/20 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all">
-            Tienda
-        </button>
-<button class="text-white p-1">
+        Tienda
+    </button>
+<div class="hidden md:flex items-center bg-[#39282e]/50 rounded-full border border-white/10 px-3 py-1.5 w-64 focus-within:bg-black/80 focus-within:border-primary transition-all">
+<span class="material-symbols-outlined text-gray-400 text-[20px]">search</span>
+<input class="bg-transparent border-none text-sm text-white focus:ring-0 placeholder:text-gray-500 w-full" placeholder="Buscar..." type="text"/>
+</div>
+<button class="md:hidden text-white p-1">
 <span class="material-symbols-outlined">search</span>
 </button>
+<div class="size-9 rounded-full bg-gradient-to-br from-primary to-[#783e34] p-[2px] cursor-pointer group shrink-0">
+<div class="size-full rounded-full bg-gray-900 flex items-center justify-center overflow-hidden">
+<div class="w-full h-full bg-cover bg-center" data-alt="User profile avatar" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAHbpxRTYbvdOJFqIYhB3o9YdeuCp2BXocSfRQ6gfp0ysP_BImwDxqJTak-zxL30w3Ymq3LJv5BAecvBKDEVQJkoFadmrkUJW_CboqsBzj_qYnHrl9NBdO_Is3zaJxGZ6oolLLLoeST150BAAbrZeeELzjwpI4sNmsb3_e0071UEwW_6nM_HWlwkYCEHXkjphxXsMCtqORwOSPKo9kXmxpjwahNbGuB1-t0jCA3e0Iwv7oJ6ilMX2BaCWlME78aulZU_8xQ0zFyfO0')"></div>
+</div>
+</div>
 </div>
 </nav>
-<main class="flex-1 flex flex-col md:flex-row min-h-screen pt-[72px] md:pt-0">
-<div class="w-full md:w-1/2 relative min-h-[300px] md:min-h-screen hidden md:block">
-<div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk');"></div>
-<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40 mix-blend-multiply"></div>
-<div class="absolute inset-0 bg-[#A05245]/10 mix-blend-overlay"></div>
-<div class="absolute top-8 left-10 z-20">
-<img alt="SACRART Logo White" class="h-16 w-auto object-contain opacity-90 drop-shadow-lg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYg5xWLesEIspZ7FjRlqxOE2pq5I_DpVWnaVfHv55iNP-cyZWH321GqxswaeUw9f9RcfJ3yuzX8WzT8UEN3WrwQXkyeEkAsRCS-8HzxDndChh1Qp0SG2IcplZGJVX5YnrgrgvkS6lhYAPK3psuqIMFtqzekNQgBYvj4RbnIOdTlqWBP0RbqJblIaIW002bOeHQ8AT9S_LO4axT9-1l2hpip2WaA8OWLJ2tMK9QP7I8uu3u2B7EyEMPK23UYnO5_nvSwCELj7ARrF0"/>
+<header class="relative w-full h-[85vh] min-h-[600px] flex items-center">
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full bg-cover bg-center bg-no-repeat" data-alt="Close up of artist carving detailed wood statue" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/40 to-black/30"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-background-dark via-background-dark/60 to-transparent"></div>
 </div>
-<div class="absolute bottom-12 left-10 z-20 max-w-lg">
-<p class="text-white/90 text-xl font-serif italic drop-shadow-md">"El arte es la oración hecha visible."</p>
+<div class="relative z-10 w-full px-4 md:px-16 pt-20 max-w-7xl mx-auto">
+<div class="flex flex-col gap-6 max-w-2xl animate-fade-in-up">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-primary text-[10px] font-bold uppercase tracking-wider text-white">Nuevo</span>
+<span class="text-sm font-medium text-gray-300 uppercase tracking-widest">Serie Original</span>
 </div>
-</div>
-<div class="w-full md:w-1/2 bg-deep-charcoal relative flex items-center justify-center p-6 md:p-12 lg:p-20">
-<div class="absolute inset-0 bg-texture-pattern opacity-20 pointer-events-none"></div>
-<div class="w-full max-w-md relative z-10 animate-fade-in-up">
-<div class="mb-10 text-center md:text-left">
-<h1 class="text-4xl font-bold text-white mb-2 tracking-tight">Bienvenido a Sacrart.</h1>
-<p class="text-text-subtle text-base font-light">Tu taller digital de arte sacro. Inicia sesión para continuar.</p>
-</div>
-<div class="flex border-b border-white/10 mb-8">
-<button class="pb-3 px-4 text-sm font-bold uppercase tracking-wider text-primary border-b-2 border-primary transition-colors focus:outline-none w-1/2 md:w-auto text-center">
-                    Iniciar Sesión
-                </button>
-<button class="pb-3 px-4 text-sm font-bold uppercase tracking-wider text-gray-500 hover:text-white border-b-2 border-transparent transition-colors focus:outline-none w-1/2 md:w-auto text-center">
-                    Registrarse
-                </button>
-</div>
-<form class="space-y-6">
-<div class="space-y-2">
-<label class="block text-xs font-bold uppercase tracking-wider text-gray-400" for="email">Correo Electrónico</label>
-<div class="relative group">
-<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-<span class="material-symbols-outlined text-gray-500 group-focus-within:text-primary transition-colors text-[20px]">mail</span>
-</div>
-<input class="block w-full pl-10 pr-3 py-3 bg-[#161616] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all sm:text-sm" id="email" placeholder="tu@email.com" type="email"/>
-</div>
-</div>
-<div class="space-y-2">
-<label class="block text-xs font-bold uppercase tracking-wider text-gray-400" for="password">Contraseña</label>
-<div class="relative group">
-<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-<span class="material-symbols-outlined text-gray-500 group-focus-within:text-primary transition-colors text-[20px]">lock</span>
-</div>
-<input class="block w-full pl-10 pr-10 py-3 bg-[#161616] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all sm:text-sm" id="password" placeholder="••••••" type="password"/>
-<div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-gray-500 hover:text-white transition-colors">
-<span class="material-symbols-outlined text-[20px]">visibility</span>
+<h1 class="text-5xl md:text-7xl font-black leading-[0.9] tracking-tighter text-white drop-shadow-2xl">
+                    El Arte de <br/> <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">La Gubia</span>
+</h1>
+<p class="text-lg text-gray-200 line-clamp-3 md:line-clamp-none font-medium max-w-xl drop-shadow-md">
+                    Descubre los secretos ancestrales del tallado en madera en esta nueva serie documental. Acompaña al maestro artesano Juan Pérez mientras transforma un bloque de cedro en una obra maestra sacra, revelando técnicas perdidas en el tiempo.
+                </p>
+<div class="flex flex-wrap gap-4 mt-4">
+<button class="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-8 py-3.5 rounded-lg font-bold text-lg transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined fill-current">play_arrow</span>
+<span>Reproducir</span>
+</button>
+<button class="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-3.5 rounded-lg font-bold text-lg transition-colors border border-white/10">
+<span class="material-symbols-outlined">info</span>
+<span>Más información</span>
+</button>
 </div>
 </div>
 </div>
-<div class="flex items-center justify-between">
-<div class="flex items-center">
-<input class="h-4 w-4 text-primary bg-[#161616] border-white/20 rounded focus:ring-primary focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer" id="remember-me" name="remember-me" type="checkbox"/>
-<label class="ml-2 block text-sm text-gray-400 cursor-pointer select-none" for="remember-me">Recordarme</label>
+</header>
+<main class="relative z-20 flex-1 w-full pb-20 -mt-20 space-y-12">
+<section class="px-4 md:px-16">
+<div class="flex items-center gap-2 mb-4 group cursor-pointer">
+<h2 class="text-2xl font-bold text-white group-hover:text-primary transition-colors">Tendencias Ahora</h2>
+<span class="material-symbols-outlined text-primary text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0">arrow_forward_ios</span>
 </div>
-<div class="text-sm">
-<a class="font-medium text-primary hover:text-primary/80 transition-colors" href="#">¿He olvidado mi contraseña?</a>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer">
+<div class="aspect-video w-full overflow-hidden">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Hands painting detailed icon with fine brush" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDip4_NGYMwjRcmshjBPbqo82FxGLVSem9f3FsRjR5KGg4SR-B3BZJJsmJ8_MGsHByPeAsxaw4W3k6qhbFQWfz7WSUcB4r9uObsVAqEj5hhPExx00yqa1cVyVOMjlIuTxoMOyoLKqOd3DX9n9cfJ0Rc222J6QRur39qZOqV1VB7558XebsRZTJaa2HhEEWhcYsqiKSliAovDJFqzYhVXV3GClV5ntv7AVxo5THOSyYNHEHkQiK3NAVu_sSwBifm_lMp-Oqd1XtbhpY');"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs font-bold text-white">45m</div>
 </div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-lg leading-tight group-hover:text-primary transition-colors">Técnicas de Pincel</h3>
+<span class="border border-white/20 rounded px-1 text-[10px] uppercase text-gray-400">HD</span>
 </div>
-<div>
-<button class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-[#A05245] to-[#8a463b] hover:from-[#b35b4c] hover:to-[#9e5043] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-[#0A0A0A] transition-all transform hover:scale-[1.01] uppercase tracking-widest shadow-lg shadow-primary/20" type="submit">
-                        Iniciar Sesión
-                    </button>
-</div>
-</form>
-<div class="mt-8">
-<div class="relative">
-<div class="absolute inset-0 flex items-center">
-<div class="w-full border-t border-white/10"></div>
-</div>
-<div class="relative flex justify-center text-sm">
-<span class="px-2 bg-deep-charcoal text-gray-500">O accede con</span>
-</div>
-</div>
-<div class="mt-6 grid grid-cols-2 gap-3">
-<a class="w-full inline-flex justify-center items-center py-2.5 px-4 border border-white/10 rounded-lg shadow-sm bg-[#161616] text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition-colors" href="#">
-<i class="fa-brands fa-google text-lg mr-2"></i>
-<span class="hidden sm:inline">Google</span>
-</a>
-<a class="w-full inline-flex justify-center items-center py-2.5 px-4 border border-white/10 rounded-lg shadow-sm bg-[#161616] text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition-colors" href="#">
-<i class="fa-brands fa-apple text-xl mr-2"></i>
-<span class="hidden sm:inline">Apple</span>
-</a>
+<p class="text-text-subtle text-sm line-clamp-1">Maestra Elena García</p>
+<div class="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+<button class="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+</button>
+<button class="border border-white/30 rounded-full p-1 hover:border-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
 </div>
 </div>
-<p class="mt-8 text-center text-xs text-gray-500">
-                Al continuar, aceptas nuestros <a class="underline hover:text-white" href="#">Términos de servicio</a> y <a class="underline hover:text-white" href="#">Política de privacidad</a>.
-            </p>
+</div>
+<div class="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer">
+<div class="aspect-video w-full overflow-hidden">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Close up of gold leaf application on frame" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCNnGEVq436RV9hwjD5fOjJt63oDA0v2hvxZepCorxpePxjtZ7uoolr2uxBfH42NscZJ-8kKREewha1rKu43ZSUSAIYeJKRjoa0rTfCkDp9agdMQDbev7saJbXoy_xGrEmgjqqb4cJ8ULkY-Xhl2fE1La-g2VChBWElDf4RBfPhJ6j4KKBK4u3RyVlGpmAYIIfGhmuQ3OnfStYd0_716bZv1kOPSQYVxo7ElX6CFfXZPRsT0sSMsCtBHj9YY6EhaZKav3Pl7Ta-r_0');"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs font-bold text-white">1h 20m</div>
+</div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-lg leading-tight group-hover:text-primary transition-colors">El Dorado Puro</h3>
+<span class="border border-white/20 rounded px-1 text-[10px] uppercase text-gray-400">4K</span>
+</div>
+<p class="text-text-subtle text-sm line-clamp-1">Documental Histórico</p>
+<div class="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+<button class="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+</button>
+<button class="border border-white/30 rounded-full p-1 hover:border-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
 </div>
 </div>
+</div>
+<div class="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer">
+<div class="aspect-video w-full overflow-hidden">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Classic painting restoration in progress" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBLBaGyUyn_TCq-tjLME3bOula0UEEgehD8qxsv_drXWsb9899-voc61igJCkOOIfbS6zRU1lNzSFTyjxrjJQKeXcsDdSdmFGUL7I3RDJ2I1nFXC6YptezdKYMW3iYwHsmZYEzhXhZ-xzFvsbBqi7ZMaGqooEdWxZ930_GctBai6ybIjhIEk1M0xc0723wJXXBouQQuoMpCzGTcLlLWvOqtfx1OkdIwO5cTNxbzgmt1adMFXxUDVrOn4smAqpuJL_UAfwsMdmj37JM');"></div>
+<div class="absolute top-2 left-2 bg-primary px-1.5 py-0.5 rounded text-xs font-bold text-white">TOP 10</div>
+</div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-lg leading-tight group-hover:text-primary transition-colors">Restauración Siglo XVI</h3>
+<span class="border border-white/20 rounded px-1 text-[10px] uppercase text-gray-400">HD</span>
+</div>
+<p class="text-text-subtle text-sm line-clamp-1">Museo Catedralicio</p>
+<div class="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+<button class="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+</button>
+<button class="border border-white/30 rounded-full p-1 hover:border-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<div class="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer">
+<div class="aspect-video w-full overflow-hidden">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Close up of clay sculpture face" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCzGUb_Nme5lN5Gq3t9pk2k2_4zDztVcwzufy15JwyYMOFYh0qec9SqFRPjnMNhzWMY0K1Ench0grIPsV2g1e9qPmKQtRpNYIVLooCu3a5fVZYYZPzrluF30rrBPjnskoOO82Gt5cA4W9vhovpzPrlfm9MT9BFNw2wHCLiZizLVs5Nyh21F7V8V5Xrh2bXp4poTStAJMyp10eYy8JUcDkBzZsBhlEiiTFBBtriQYq8T5J7X7D_jfxQIT-Qu7HMGHaLxadgS7ngiTd4');"></div>
+</div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-lg leading-tight group-hover:text-primary transition-colors">Anatomía Sacra</h3>
+<span class="border border-white/20 rounded px-1 text-[10px] uppercase text-gray-400">HD</span>
+</div>
+<p class="text-text-subtle text-sm line-clamp-1">Prof. Miguel Ángel R.</p>
+<div class="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+<button class="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+</button>
+<button class="border border-white/30 rounded-full p-1 hover:border-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="px-4 md:px-16">
+<div class="flex items-center gap-2 mb-4 group cursor-pointer">
+<h2 class="text-2xl font-bold text-white group-hover:text-primary transition-colors">Seguir viendo</h2>
+<span class="material-symbols-outlined text-primary text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0">arrow_forward_ios</span>
+</div>
+<div class="relative group/slider">
+<button class="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-4 shadow-lg hidden md:block">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-4 shadow-lg hidden md:block">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+<div class="flex overflow-x-auto gap-4 hide-scrollbar pb-8 snap-x snap-mandatory">
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Continuing to watch wood carving series" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+<div class="h-full bg-primary w-[75%]"></div>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">El Arte de La Gubia</h3>
+<p class="text-xs text-text-subtle mt-1">E1: El Comienzo • 15m restantes</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Continuing to watch sketching series" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCmZaFNUT82tHcGSv3-FOhFdRcIC9qcfGkUtdCd2fAPgqhRifgWruSMjW1zRBIxEpukMiNWeNfkRCn8Ngyz9GPPCB52rAQ6oLSw9GzdE8CyeV0rSCkLNPu4zC9Nm0DPa_EZBB6jrxL_-8mS_mfuX4TVpGydIhaGc6ffPUOmz8qMd4P7OcvEk9t8qKBSnHlczKi3HkMfaXbk_KKjVCiQju9R5niClXwAE5sljzQT1MF_iMoDGiarTOs-IzjIl9OtSxpdSMNYaOqecKU');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+<div class="h-full bg-primary w-[30%]"></div>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Bocetos del Barroco</h3>
+<p class="text-xs text-text-subtle mt-1">E4: Sombras • 42m restantes</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Continuing to watch restoration documentary" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBLBaGyUyn_TCq-tjLME3bOula0UEEgehD8qxsv_drXWsb9899-voc61igJCkOOIfbS6zRU1lNzSFTyjxrjJQKeXcsDdSdmFGUL7I3RDJ2I1nFXC6YptezdKYMW3iYwHsmZYEzhXhZ-xzFvsbBqi7ZMaGqooEdWxZ930_GctBai6ybIjhIEk1M0xc0723wJXXBouQQuoMpCzGTcLlLWvOqtfx1OkdIwO5cTNxbzgmt1adMFXxUDVrOn4smAqpuJL_UAfwsMdmj37JM');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+<div class="h-full bg-primary w-[90%]"></div>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Restauración Siglo XVI</h3>
+<p class="text-xs text-text-subtle mt-1">Parte 2 • 5m restantes</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Continuing to watch sculpture class" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCmpIMCTU4J6I93SSVKM2KDgD9k2q5283ezmo3EkiV2BZPalt67yWOBW93L9hwjE4XhaiyZgONx-f3ZZ_br62LkI4mPPZnF5OofVUWATHAwKOIAZMpoN61JtUwwn1t6dfPfJGDjrfqqj8A-E1C0fJP9UmrwNabmr5u3RmgYNdGHV-WabccikowCWrSsUmFrN-dT-BvWYr1VOyfKeQJEIdqCauARnb9w8z0v2W15KdxD1FszZZj60Kyoap8dtWgW6_8FYBMLxkC7BB4');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+<div class="h-full bg-primary w-[15%]"></div>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Volumen y Expresión</h3>
+<p class="text-xs text-text-subtle mt-1">Clase 3 • 55m restantes</p>
+</div>
+</div>
+</div>
+</section>
+<section class="px-4 md:px-16 py-8">
+<div class="flex items-center gap-2 mb-6 group cursor-pointer">
+<div class="h-6 w-1 bg-primary rounded-full"></div>
+<h2 class="text-sm font-bold text-gray-300 uppercase tracking-[0.2em] group-hover:text-white transition-colors">Formatos Exclusivos</h2>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+<div class="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]">
+<div class="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-100 group-hover:scale-110" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB_P-00p7i3UoaFOoYmfEdeOvaZULan8J5yYF9vcW-NgVdR36wK64pOpLKlPuAmn8mMMcfD36L3XVDA_b77gTWt8rIyaJkoAA8jQKGcJVCk7z4VoDnWfGNUavEgds3GUPIGA-dUIs_BwJ-7naHkFBOvuVQknUkbqyuLgZAiqRD_rhYiikK6Nf2Ez_Z47yOJ7IXqgdcMVK-hx2QlrelNdZ4w91WTTwVlTqA8fgyoGofN1WIWde2R5joIzaAhj7lUz_6rUiZ2k_Hq64g');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90"></div>
+<div class="absolute bottom-8 left-0 w-full text-center z-10 p-4">
+<h3 class="text-3xl font-serif font-medium text-white mb-2 tracking-wide group-hover:text-primary transition-colors">Reels</h3>
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 group-hover:text-white transition-colors">Técnica Rápida</p>
+</div>
+</div>
+<div class="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]">
+<div class="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-100 group-hover:scale-110" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA0gtp4tXUBhAMs2S5LZUaCZUBxUpuea1d9UMcXPxObgAd_ZXAC2tlelMOJn13s97QUOYUhupgD1WPz6GajDy5cuDTckWa7jl325ki4BvkdxBtYqdm8jyBrrLtkyfKeu3dA-0OYqyWmRtiWy3Ba5av8cLQWn1_lgeipEQZgCQpScKay-ZGYYtJoUP_LwVL3VuZxFQNSfdc7RbYwiS2fshbOXILiuA_v8BmyI86bDyp2VT6twnj2OjvlOANG4vsaNFxILcGwiixL4Y4');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90"></div>
+<div class="absolute bottom-8 left-0 w-full text-center z-10 p-4">
+<h3 class="text-3xl font-serif font-medium text-white mb-2 tracking-wide group-hover:text-primary transition-colors">Rewind</h3>
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 group-hover:text-white transition-colors">Archivo Histórico</p>
+</div>
+</div>
+<div class="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]">
+<div class="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-100 group-hover:scale-110" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBx5a3ju-sZgK0wMGNOA9FBO5GUph_xv3RucyvoaayLwbYUI2Amv_xJWwR_bl57xAc9cxOT42WIZp66Bq-ZJYq5uN1EtwHm9W9YKMe6aUfWgaNRzuebJBsKPO5Xf0JOXmQjQ8DayYD2FJEraj-0ua0Y26AEGpgpBKAs3fuZ-fL3C7yTpfrVt2smb7quXmT0u6N0ZmaxqnjtZLnmzoZLx7N49bzXAxgvWyGpBd2hjv3i7_uOY6Qt709YddU6hgGxQw_KJ_DKG9ncDiM');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90"></div>
+<div class="absolute bottom-8 left-0 w-full text-center z-10 p-4">
+<h3 class="text-3xl font-serif font-medium text-white mb-2 tracking-wide group-hover:text-primary transition-colors">Retos</h3>
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 group-hover:text-white transition-colors">Desafíos Creativos</p>
+</div>
+</div>
+<div class="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]">
+<div class="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-100 group-hover:scale-110" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAIenHs9JarPCIwLSl5ponDPWOA_49puOG9O4q8TGa9-rSmMrjEjGoAULYVeAj8-eoWRUh8saHloJH1S76JADFuIg97jqZIj63Fkz5VgTnNVXQc24X2MzUQUM0swFafL4GK05aHZjyp3y5lQYqrGmxfmiboj4wS0Ge-ikHrmkf5jmfwn8S7iQgpwFhFfLtSRbnQNJ61STU38NgG2r4kR2zef8SUaxjaGUbVFwZtwglkVGE4tajzUho-NKLcUYKBQUdvnwVYwys8Epc');"></div>
+<div class="absolute top-4 left-4 flex items-center gap-1 bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white">
+<span class="size-1.5 bg-white rounded-full animate-pulse"></span>
+                    Live
+                </div>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90"></div>
+<div class="absolute bottom-8 left-0 w-full text-center z-10 p-4">
+<h3 class="text-3xl font-serif font-medium text-white mb-2 tracking-wide group-hover:text-primary transition-colors">Directos</h3>
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 group-hover:text-white transition-colors">Live Studio</p>
+</div>
+</div>
+</div>
+</section>
+<section class="px-4 md:px-16">
+<div class="flex items-center gap-2 mb-4 group cursor-pointer">
+<h2 class="text-2xl font-bold text-white group-hover:text-primary transition-colors">Novedades esta semana</h2>
+<span class="material-symbols-outlined text-primary text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0">arrow_forward_ios</span>
+</div>
+<div class="relative group/slider">
+<button class="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-4 shadow-lg hidden md:block">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-4 shadow-lg hidden md:block">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+<div class="flex overflow-x-auto gap-4 hide-scrollbar pb-8 snap-x snap-mandatory">
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Charcoal drawing of a saint's face" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCmZaFNUT82tHcGSv3-FOhFdRcIC9qcfGkUtdCd2fAPgqhRifgWruSMjW1zRBIxEpukMiNWeNfkRCn8Ngyz9GPPCB52rAQ6oLSw9GzdE8CyeV0rSCkLNPu4zC9Nm0DPa_EZBB6jrxL_-8mS_mfuX4TVpGydIhaGc6ffPUOmz8qMd4P7OcvEk9t8qKBSnHlczKi3HkMfaXbk_KKjVCiQju9R5niClXwAE5sljzQT1MF_iMoDGiarTOs-IzjIl9OtSxpdSMNYaOqecKU');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Bocetos del Barroco</h3>
+<p class="text-xs text-text-subtle mt-1">Temporada 1 • 8 Episodios</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Pencil sketch of architectural details" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuACEVNWnXL4ffQbxYvFNAewbTtrUWB4j6WN7UwyrkAWvkhiZTqOGCixSomUIJBUMy9GwvmZsngjHUQ1XC0ObAOlcvInLALgsfwd9L4fPPJRu_K6pmFnlb85U_xXj3E8xPgyQy0hVOxqru15Qi7ukvIQYgGRPE8hdsuIuU1kPHcelM71eVxwwsloWLr4RI3HNtxt0VlE6yu6BW02VMqmVp7-m6iYFgm8OduZfVT54OmGSZwN740UxqSQ4vm1PJFND4VeePG6Fefnxo0');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Perspectiva Sacra</h3>
+<p class="text-xs text-text-subtle mt-1">Clase Magistral</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Hand holding charcoal stick over paper" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD7SI_Ntr-K2JfsP4qJ43ULbnCOPsTgbk1Lw87vef90k7-AJN5k1nod4tVi6ty41u8lcbLFrpYT4KWFAOR59KX87aKyrDK9BA7EKWBdJibtrR0zJpauHwQiAkFfpMGxtDc45gDPbeo6QHn3zdzYmTG7TzsIqZxZa6rQxqtOP3MB2izGrk1Jot836e1MVRuXNFyrcnc03i3ZeXMknL-jEJ2DY6FSlzyg3Ui1jyHCWE2ACUUhCenI-lA0Q6jisqvKf9cL11-hvplSsvY');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+<div class="h-full bg-primary w-[65%]"></div>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Dibujo al Natural</h3>
+<p class="text-xs text-primary mt-1 font-medium">Continuar viendo</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Old sketchbooks opened on a table" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDAGRLEwwDuSZkV_bPmZdfwx2qVixECDvuNwnWcjymDmF5KLCndONr7yrzus4avzSAwA7526fxdQ89ZgyRgZlQxNTdtESLT9wLnJ3fWjabftzkIlSl84xGuL1x7NJPlPoMUWBLxpULPeKFAYICCn1yYC_wTDa5bGDuRRYItJYdr_AJZPNFIyZySjTF--GEAZpd1T3dBl3uy9MKdj3P2jHb1mxdFbZkv5wAiCcGtJ9wVCS2VKfBCCy66q09qYFzyqYTfLXhSfAFyvhE');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Historia del Boceto</h3>
+<p class="text-xs text-text-subtle mt-1">Miniserie</p>
+</div>
+<div class="min-w-[280px] md:min-w-[320px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Close up of graphite pencil shading" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCFEKc6juq5B_Uj2B-uLOp40tBaX8FLMLHMCmgBHJdAMNwB8kbeatb0UH575Q9kAY8KtxOFg0aRusQ9tjKQHsb6U-q6CTK7mPCga2VyfK37xBgqTddgxl5c6m3cmYh109SPIZrO1RkzvpM-fC6nfwRITD9pL-juqqsFumhSVSFtr3yhjFSMus6of0A2gVYyy5y5C-oQ24nK291XCoLnA4JIXNrRwAJCf0EDBRzVBnrMKAHhYXBfwEOk-CFL_2nO7S0KmMU7vNMN6AM');"></div>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform">play_circle</span>
+</div>
+</div>
+<h3 class="font-bold text-base text-white truncate">Sombras y Luz</h3>
+<p class="text-xs text-text-subtle mt-1">Tutorial avanzado</p>
+</div>
+</div>
+</div>
+</section>
+<section class="px-4 md:px-16">
+<div class="flex items-center gap-2 mb-4 group cursor-pointer">
+<h2 class="text-2xl font-bold text-white group-hover:text-primary transition-colors">Procesos destacados</h2>
+<span class="material-symbols-outlined text-primary text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0">arrow_forward_ios</span>
+</div>
+<div class="relative group/slider">
+<div class="flex overflow-x-auto gap-4 hide-scrollbar pb-8 snap-x snap-mandatory">
+<div class="min-w-[200px] md:min-w-[240px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Wood carving of a religious figure close up" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBVpBDCzKk6yuQoLqHlBTLbiQeAZWqZHk3Ke5y4wx0vpmhM1o11RZK-L-J4N2SwZxTUlEDbJ1pmgKGrjvGJAPQeLAPKZ_wD97ttQAzGkzXnwc5NailyoRUghXVg58LFOAqL3YQovAQnhDf8tlouWK32skmVDBMmz-S2CpkkAKG-dbKpJs-ZnPFsnYp1WvxP-w6eY8AvTCwIjL_cJ1WLltpHmhRNh_VZ4s_MmQofBKrnvnRNUVoXcUn2CVfXyVZTxdd_IFA_xgdj6WE');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="font-bold text-lg text-white leading-tight">El Cristo del Cedro</h3>
+<p class="text-xs text-primary font-bold mt-1">Nuevo Episodio</p>
+</div>
+</div>
+</div>
+<div class="min-w-[200px] md:min-w-[240px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Chisels and tools on a workbench" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCYCPitl0j250D4pUN6SVIrsivrP5_mqD8UPj0bcTH_el6ktorcPIQNargXQpuBLVzq6rplQo14_9pt31_z1sO_AMkWb5NCyopZwZOhaD0M3doZxOn2xTuu2xvW42LExdAjjJeVX_Hlgm_VVixTDeHlGuBtnPI3SJ3TUGM1pQ58gg0vq0gVMNx_xlJnHvogmiyP3tuee3Dt2PdiJRuANnbyzLt6MYRKbN09jtXu3ei2K-38_1UOwkeuePxAdvmHPmssHuEWD0jgMR0');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="font-bold text-lg text-white leading-tight">Herramientas Esenciales</h3>
+<p class="text-xs text-gray-300 font-medium mt-1">Curso Básico</p>
+</div>
+</div>
+</div>
+<div class="min-w-[200px] md:min-w-[240px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Intricate wood pattern carving" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDyHHeDsLpV4ycUZcsUZtRy2oTd_pby0id0Fq5qjZGEYv9ssZu6jHgqrRuXwjhSD5_6P5uD4aEh7idr_hx8TzDFASqNVxveihwk9JYnAjW6AbjUh1G4PDq_q7mqOmbxQa-aak7n3CbXihYJ2df_S3ik_bQR5kNb2l0mTKuuqlaDlMUZJOW8IdfRc4-K_HL17xU9n5OHhJk1rcxDv25FYtRSDi1ONUkX6tMagatVAa5BTNbatsOqZSkbhYSkVg6op6UXYHAitj3n1gU');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="font-bold text-lg text-white leading-tight">Ornamentos y Filigranas</h3>
+<p class="text-xs text-gray-300 font-medium mt-1">Nivel Avanzado</p>
+</div>
+</div>
+</div>
+<div class="min-w-[200px] md:min-w-[240px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Unfinished wooden sculpture of a head" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCmpIMCTU4J6I93SSVKM2KDgD9k2q5283ezmo3EkiV2BZPalt67yWOBW93L9hwjE4XhaiyZgONx-f3ZZ_br62LkI4mPPZnF5OofVUWATHAwKOIAZMpoN61JtUwwn1t6dfPfJGDjrfqqj8A-E1C0fJP9UmrwNabmr5u3RmgYNdGHV-WabccikowCWrSsUmFrN-dT-BvWYr1VOyfKeQJEIdqCauARnb9w8z0v2W15KdxD1FszZZj60Kyoap8dtWgW6_8FYBMLxkC7BB4');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="font-bold text-lg text-white leading-tight">Volumen y Expresión</h3>
+<p class="text-xs text-gray-300 font-medium mt-1">Clase Maestra</p>
+</div>
+</div>
+</div>
+<div class="min-w-[200px] md:min-w-[240px] snap-start">
+<div class="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" data-alt="Shavings of wood curling off a block" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAX-fVORSq1HDsNJAx2kNf4lvKc1moGUUaBSPu3psSBTmoIid2dhLuUyM9UseskvfMBWPnyhK35B2jLtRqzvSfr2j8MK3NU4AOO17_erF203WxyKL_C0QZJff-ZMNtlHSREJXcudHak3pbSNfJTDveXMjEOy1GUGwZlPGAD4-R-3T2H0pOZvZtP_lLGxZXvp7_hXpDQ6qJxAMR1Z3yUWpqZ-nyXKYOBSTtxXJBZlHBDkN_IDYjcqo_r3IaDi0rLxMU6WFGHPbM8k88');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="font-bold text-lg text-white leading-tight">El Arte del Desbaste</h3>
+<p class="text-xs text-gray-300 font-medium mt-1">Técnica</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="px-4 md:px-16 py-8">
+<div class="relative w-full rounded-2xl overflow-hidden bg-[#2a1d21] border border-white/5">
+<div class="flex flex-col md:flex-row items-center">
+<div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col gap-4 z-10">
+<h2 class="text-3xl font-black text-white">Policromía</h2>
+<p class="text-text-subtle text-lg">Sumérgete en el mundo del color aplicado a la escultura. Aprende las técnicas tradicionales del estofado al temple de huevo y la aplicación de láminas de oro fino.</p>
+<button class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg w-fit mt-2 transition-colors">
+                            Explorar Categoría
+                        </button>
+</div>
+<div class="w-full md:w-1/2 h-64 md:h-[400px] bg-cover bg-center relative" data-alt="Colorful paint palettes and brushes for polychromy" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBOkMaX_a_UqJNdcz7gqZ6i9ZjDYbZ2h9IWXsF3DTKCtKchSV3d4n9IguXSsO9JSg-8vGoxQscjqMyaVK06fZkBGcsUR47B7GcYUMyFUlsgvXEI1eeO62R3dLDG_XZg80HwyzYXzMjWJFska7fQlDgEx0hV9eLdwE0x5velnU6dVchZ1YXvK0dUB9uwKJmsCV7um8H3t-p6Beo9sXUHBo9KJ5DoGG1LdB2QrMXje0vg2SUdKGU9JPfnnOKAVFktvCItBVB-elQhEZo');">
+<div class="absolute inset-0 bg-gradient-to-t from-[#2a1d21] to-transparent md:bg-gradient-to-r md:from-[#2a1d21] md:to-transparent"></div>
+</div>
+</div>
+</div>
+</section>
+<section class="px-4 md:px-16 pb-12">
+<div class="flex items-center gap-2 mb-4 group cursor-pointer">
+<h2 class="text-2xl font-bold text-white group-hover:text-primary transition-colors">Proyectos de talla en madera</h2>
+<span class="material-symbols-outlined text-primary text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0">arrow_forward_ios</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 relative group rounded-lg overflow-hidden aspect-[21/9] cursor-pointer">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Restorer cleaning an old oil painting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuARhlD2diewRJrKhAr66GtImVZD1m4kaVLhpgurc276WMxsteeCrhTiV1xxCbJE3ACKmhDZfIAE8QuK2VbjJGw9LyygDpf3mUuV75nxNqVThPCnpbOtg_wGpDiAX-EssrBWFNPg4g4oyGS0xlYPXOwJa-SMisdSX9Luc_PX5nlq-k5OItaa5iu16TWf18nHDM2uX3Jx5TleK_vPfYNv6FdRU7FfNxaU7rKMP9NfkqJ4Hk_HqIxP7svmT8YDy-6iFlLTbGn9aIgCsik');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+<div class="absolute bottom-6 left-6 max-w-lg">
+<h3 class="text-2xl font-bold text-white mb-2">La Gran Obra del Retablo</h3>
+<p class="text-gray-300 text-sm line-clamp-2">Documental exclusivo sobre la creación del retablo mayor de la Catedral de Sevilla, desde el diseño hasta el montaje final.</p>
+</div>
+<div class="absolute top-4 right-4 bg-primary text-white text-xs font-bold px-3 py-1 rounded">EXCLUSIVO</div>
+</div>
+<div class="flex flex-col gap-6">
+<div class="flex gap-4 items-center group cursor-pointer bg-[#2a1d21]/50 p-2 rounded-lg hover:bg-[#2a1d21] transition-colors">
+<div class="w-32 aspect-video rounded-md overflow-hidden flex-shrink-0">
+<div class="w-full h-full bg-cover bg-center" data-alt="Microscope view of paint layers" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfZ7ks8Sco7slQyV0IY7FCAhjbqyxUxa0iDGegyJOUuv6dOjsdLPdWM7JhScbNuLlyyuxXVzx1_p_Sdrd270FHKtrU1WF3o-8kcO06wCCi0bYsFEaGLicehVtlQq2xuvbvZe7wIw3LIhpDcrju_BmJNIkjHqw19S-_cxfl9rtJ0TIJxjBdTMB42myON3nMIUACiULTw35WsyCzN0ru6VxOwK4k34ZBBYdFnzayX1bWeTRsnaHHTYW8y32z9Ezjqu0GnmDkDwriScA');"></div>
+</div>
+<div class="flex flex-col">
+<h4 class="font-bold text-white text-sm group-hover:text-primary transition-colors">Selección de Madera</h4>
+<p class="text-xs text-text-subtle mt-1">Tipos de cedro</p>
+</div>
+<div class="ml-auto pr-2">
+<span class="material-symbols-outlined text-white/50 group-hover:text-white">play_circle</span>
+</div>
+</div>
+<div class="flex gap-4 items-center group cursor-pointer bg-[#2a1d21]/50 p-2 rounded-lg hover:bg-[#2a1d21] transition-colors">
+<div class="w-32 aspect-video rounded-md overflow-hidden flex-shrink-0">
+<div class="w-full h-full bg-cover bg-center" data-alt="Hands sewing old fabric" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuALLFo2CUoZwpGyeMXwCQ7D2mGmQkvQkOmgpNkt0QzmVrigwkfqBBeBsEKlXsrCVY5dd9RfK9AbkP60RMp0mMnP2OKczAmDH_z6RVsN-fVil9O2urCLFj011LMQX2pBkeEBRPk29zYiWJ1n0Ms0nyp_xptlPwu_x-ADGyEeJfFF31wSKtq-C9ao8PhEsTpVXzi-J05T5JzpxcEpMnEf18H4J9Zv_SgeKiZ_cZHx2x_wxAZ3Q1u7XCldqhs2i1tSdbAjo1g_sphNB5s');"></div>
+</div>
+<div class="flex flex-col">
+<h4 class="font-bold text-white text-sm group-hover:text-primary transition-colors">Técnicas de Desbaste</h4>
+<p class="text-xs text-text-subtle mt-1">Uso de gubias</p>
+</div>
+<div class="ml-auto pr-2">
+<span class="material-symbols-outlined text-white/50 group-hover:text-white">play_circle</span>
+</div>
+</div>
+<div class="flex gap-4 items-center group cursor-pointer bg-[#2a1d21]/50 p-2 rounded-lg hover:bg-[#2a1d21] transition-colors">
+<div class="w-32 aspect-video rounded-md overflow-hidden flex-shrink-0">
+<div class="w-full h-full bg-cover bg-center" data-alt="Cleaning stone statue with laser" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAnAqx3a7NnEbgyQBiWM3MCr45F0OJ3v4AXWyno5LVYqrMwnSgAIsqrXb-8pGKNhI3Rd5e6yHLnGW7rziNjCuP9J65PDWy5W07tdxfjA8oJ8W-LsfOXT6oxKV1SMgYv4EHNqVIl4EdDOsuwz5F02IGEcIsENLMLhMCZSlCpkFf6eKXB12TQegfllYPkSb8mBvaiqYNA_Ikq_QsGknXH_Qb9jSKuc5bsw9FCHazEukPUveM_uPbY4YVQXwKEDAS1BngXtDFdR8l9XMA');"></div>
+</div>
+<div class="flex flex-col">
+<h4 class="font-bold text-white text-sm group-hover:text-primary transition-colors">Acabados Finales</h4>
+<p class="text-xs text-text-subtle mt-1">Lijado y preparación</p>
+</div>
+<div class="ml-auto pr-2">
+<span class="material-symbols-outlined text-white/50 group-hover:text-white">play_circle</span>
+</div>
+</div>
+</div>
+</div>
+</section>
 </main>
-<footer class="bg-[#0f0b0c] border-t border-white/5 pt-16 pb-8 px-4 md:px-16 z-20 relative">
+<footer class="bg-[#0f0b0c] border-t border-white/5 pt-16 pb-8 px-4 md:px-16">
 <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-12">
 <div class="flex flex-col gap-4 max-w-xs">
 <div class="flex items-center gap-2">
@@ -199,8 +573,7 @@
 </div>
 </div>
 <div class="text-center text-xs text-gray-600 mt-16 pt-8 border-t border-white/5">
-        © 2023 SACRART. Todos los derechos reservados.
-    </div>
+            © 2023 SACRART. Todos los derechos reservados.
+        </div>
 </footer>
-
 </body></html>
