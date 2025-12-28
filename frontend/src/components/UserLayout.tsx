@@ -53,7 +53,7 @@ const UserLayout = () => {
   useEffect(() => {
     const fetchFooterSettings = async () => {
       try {
-        const response = await settingsApi.getPublicSettings();
+        const response = await settingsApi.getPublicSettings(locale);
         if (response.success && response.data) {
           setFooterSettings(response.data);
         }
@@ -823,7 +823,7 @@ const UserLayout = () => {
                 </div>
               </div>
               <p className="text-sm text-gray-500">
-                {footerSettings.footer_description || t('footer.description', 'La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.')}
+                {footerSettings.footer_after_login_description || footerSettings.footer_description || t('footer.description', 'La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.')}
               </p>
               <div className="flex gap-4 text-gray-400 mt-2">
                 {footerSettings.footer_social_instagram && footerSettings.footer_social_instagram !== 'https://' && (

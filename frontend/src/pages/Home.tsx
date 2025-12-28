@@ -28,7 +28,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { generateMockSeries, generateMockVideos, MockSeries } from '@/services/mockData';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -2392,7 +2392,7 @@ const Home = () => {
         )}
 
         {/* FAQ Section - Using code.html design */}
-        <section className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16">
+        <section id="faq" className="relative z-10 border-t border-white/5 bg-background-dark/50 backdrop-blur-sm py-12 sm:py-16">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <h2 className="mb-8 sm:mb-10 text-center text-2xl sm:text-3xl md:text-4xl font-bold text-white">
               {t('faq.title', 'Preguntas Frecuentes')}
@@ -2456,18 +2456,18 @@ const Home = () => {
                 />
               </div>
               <div className="flex flex-wrap justify-center gap-4 sm:gap-6 md:gap-8">
-                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                <Link to={getPathWithLocale("/terminos-y-condiciones")} className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
                   {t('footer.terms', 'Términos de uso')}
-                </a>
-                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                </Link>
+                <Link to={getPathWithLocale("/politica-de-privacidad")} className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
                   {t('footer.privacy', 'Política de privacidad')}
-                </a>
-                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                </Link>
+                <Link to={getPathWithLocale("/support")} className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
                   {t('footer.help', 'Centro de ayuda')}
-                </a>
-                <a href="#" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
+                </Link>
+                <Link to="/auth" className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors">
                   {t('footer.careers', 'Trabaja con nosotros')}
-                </a>
+                </Link>
               </div>
               <div className="flex gap-3 sm:gap-4">
                 {getSetting('footer_social_facebook') && (
@@ -2486,10 +2486,26 @@ const Home = () => {
                     </svg>
                   </a>
                 )}
+                {getSetting('footer_social_twitter') && (
+                  <a href={getSetting('footer_social_twitter')} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                    <span className="sr-only">Twitter</span>
+                    <svg aria-hidden="true" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                    </svg>
+                  </a>
+                )}
+                {getSetting('footer_social_youtube') && (
+                  <a href={getSetting('footer_social_youtube')} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                    <span className="sr-only">YouTube</span>
+                    <svg aria-hidden="true" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M19.812 5.418c.861.23 1.538.907 1.768 1.768C21.998 8.746 22 12 22 12s0 3.255-.418 4.814a2.504 2.504 0 0 1-1.768 1.768c-1.56.419-7.814.419-7.814.419s-6.255 0-7.814-.419a2.505 2.505 0 0 1-1.768-1.768C2 15.255 2 12 2 12s0-3.255.417-4.814a2.507 2.507 0 0 1 1.768-1.768C5.744 5 11.998 5 11.998 5s6.255 0 7.814.418ZM15.194 12 10 15V9l5.194 3Z" clipRule="evenodd" />
+                    </svg>
+                  </a>
+                )}
               </div>
             </div>
             <div className="mt-8 text-center text-xs text-gray-600">
-              {getSetting('footer_copyright', `© ${new Date().getFullYear()} SACRART Inc. Todos los derechos reservados.`)}
+              {getSetting('footer_copyright') || `© ${new Date().getFullYear()} SACRART Inc. Todos los derechos reservados.`}
             </div>
           </div>
         </footer>

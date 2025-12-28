@@ -273,7 +273,7 @@ const Support = () => {
         
         {/* Search Bar */}
         <div className="w-full max-w-2xl relative mb-10 group">
-          <Search className="absolute inset-y-0 left-5 flex items-center text-gray-400 group-focus-within:text-primary transition-colors h-6 w-6" />
+          <Search className="absolute top-1/2 -translate-y-1/2 left-5 flex items-center text-gray-400 group-focus-within:text-primary transition-colors h-6 w-6" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

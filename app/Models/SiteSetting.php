@@ -78,6 +78,13 @@ class SiteSetting extends Model
             'footer_copyright',
             'footer_description',
             'footer_address',
+            'footer_after_login_description',
+            'footer_after_login_copyright',
+            'footer_before_login_copyright',
+            'footer_before_login_link_terms',
+            'footer_before_login_link_privacy',
+            'footer_before_login_link_help',
+            'footer_before_login_link_careers',
             'contact_address',
         ];
 
@@ -146,6 +153,13 @@ class SiteSetting extends Model
             'footer_copyright',
             'footer_description',
             'footer_address',
+            'footer_after_login_description',
+            'footer_after_login_copyright',
+            'footer_before_login_copyright',
+            'footer_before_login_link_terms',
+            'footer_before_login_link_privacy',
+            'footer_before_login_link_help',
+            'footer_before_login_link_careers',
             'contact_address',
         ];
         
@@ -237,6 +251,13 @@ class SiteSetting extends Model
             'footer_copyright',
             'footer_description',
             'footer_address',
+            'footer_after_login_description',
+            'footer_after_login_copyright',
+            'footer_before_login_copyright',
+            'footer_before_login_link_terms',
+            'footer_before_login_link_privacy',
+            'footer_before_login_link_help',
+            'footer_before_login_link_careers',
             'contact_address',
         ];
 
@@ -316,6 +337,13 @@ class SiteSetting extends Model
             'footer_copyright',
             'footer_description',
             'footer_address',
+            'footer_after_login_description',
+            'footer_after_login_copyright',
+            'footer_before_login_copyright',
+            'footer_before_login_link_terms',
+            'footer_before_login_link_privacy',
+            'footer_before_login_link_help',
+            'footer_before_login_link_careers',
             'contact_address',
         ];
         
@@ -459,6 +487,13 @@ class SiteSetting extends Model
             'footer_copyright',
             'footer_description',
             'footer_address',
+            'footer_after_login_description',
+            'footer_after_login_copyright',
+            'footer_before_login_copyright',
+            'footer_before_login_link_terms',
+            'footer_before_login_link_privacy',
+            'footer_before_login_link_help',
+            'footer_before_login_link_careers',
             'contact_address',
         ];
         

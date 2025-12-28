@@ -99,6 +99,7 @@ const TRANSLATABLE_KEYS = [
   'footer_copyright',
   'footer_description',
   'footer_address',
+  'footer_after_login_description',
   'contact_address',
 ];
 
@@ -471,9 +472,11 @@ const Settings = () => {
     }
   };
 
-  const handleSaveSettings = async (groupName: string) => {
+  const handleSaveSettings = async (groupName: string, showToast: boolean = true, manageSavingState: boolean = true) => {
     try {
-      setSaving(true);
+      if (manageSavingState) {
+        setSaving(true);
+      }
       const groupSettings = settings[groupName] || [];
       
       // Define translatable keys - use the same list as TRANSLATABLE_KEYS
@@ -518,6 +521,7 @@ const Settings = () => {
       // Also handle settings that might be in multilingual state but not in groupSettings yet
       // This is important for newly created settings
       if (groupName === 'general') {
+        // Handle translatable settings
         ['site_name', 'site_tagline'].forEach(key => {
           if (settingsMultilingual[key]) {
             const multilingualValue = settingsMultilingual[key];
@@ -533,13 +537,118 @@ const Settings = () => {
                 locale: 'en',
                 translations: multilingualValue,
               } as any);
+            } else {
+              // Update existing setting with translations
+              const index = updateData.findIndex(s => s.key === key);
+              if (index !== -1) {
+                (updateData[index] as any).translations = multilingualValue;
+              }
+            }
+          }
+        });
+        
+      }
+      
+      // Handle contact settings
+      if (groupName === 'contact') {
+        // Handle translatable settings (contact_address)
+        if (settingsMultilingual.contact_address) {
+          const multilingualValue = settingsMultilingual.contact_address;
+          const existingSetting = updateData.find(s => s.key === 'contact_address');
+          if (!existingSetting) {
+            updateData.push({
+              key: 'contact_address',
+              value: multilingualValue.en || '',
+              type: 'text',
+              group: 'contact',
+              label: 'Contact Address',
+              description: '',
+              locale: 'en',
+              translations: multilingualValue,
+            } as any);
+          } else {
+            // Update existing setting with translations
+            const index = updateData.findIndex(s => s.key === 'contact_address');
+            if (index !== -1) {
+              (updateData[index] as any).translations = multilingualValue;
+            }
+          }
+        }
+        
+        // Handle non-translatable settings (contact_email, contact_phone)
+        const nonTranslatableKeys = ['contact_email', 'contact_phone'];
+        nonTranslatableKeys.forEach(key => {
+          const existingInUpdate = updateData.find(s => s.key === key);
+          
+          if (!existingInUpdate) {
+            // Try to get from groupSettings first (from database)
+            const existingInSettings = groupSettings.find(s => s && s.key === key);
+            if (existingInSettings) {
+              // Add it to updateData
+              updateData.push({
+                key: key,
+                value: existingInSettings.value || '',
+                type: existingInSettings.type || 'text',
+                group: 'contact',
+                label: existingInSettings.label || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: existingInSettings.description || '',
+              });
+            } else {
+              // Get from current settings state (might be a new setting that was just edited)
+              // Check both contact and general groups for backward compatibility
+              const currentValue = settings.contact?.find(s => s && s.key === key)?.value || 
+                                   settings.general?.find(s => s && s.key === key)?.value || '';
+              if (currentValue) {
+                updateData.push({
+                  key: key,
+                  value: currentValue,
+                  type: 'text',
+                  group: 'contact',
+                  label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                  description: '',
+                });
+              }
             }
           }
         });
       }
       
       // Handle footer settings
+      // Handle footer_after_login settings
+      if (groupName === 'footer_after_login') {
+        // Handle translatable settings
+        ['footer_after_login_description', 'footer_after_login_copyright'].forEach(key => {
+          if (settingsMultilingual[key]) {
+            const multilingualValue = settingsMultilingual[key];
+            const existingSetting = updateData.find(s => s.key === key);
+            if (!existingSetting) {
+              updateData.push({
+                key: key,
+                value: multilingualValue.en || '',
+                type: 'text',
+                group: 'footer_after_login',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+                locale: 'en',
+                translations: multilingualValue,
+              } as any);
+            } else {
+              // Update existing setting with translations
+              const index = updateData.findIndex(s => s.key === key);
+              if (index !== -1) {
+                (updateData[index] as any).translations = multilingualValue;
+              }
+            }
+          }
+        });
+        // Social media settings are now handled in the shared 'footer' group
+      }
+      
+      // Footer_before_login settings removed - copyright and social media are now shared in footer group
+      
+      // Footer group (shared copyright and social media)
       if (groupName === 'footer') {
+        // Handle translatable settings (shared copyright)
         ['footer_copyright', 'footer_description', 'footer_address'].forEach(key => {
           if (settingsMultilingual[key]) {
             const multilingualValue = settingsMultilingual[key];
@@ -555,6 +664,25 @@ const Settings = () => {
                 locale: 'en',
                 translations: multilingualValue,
               } as any);
+            }
+          }
+        });
+        
+        // Handle shared social media settings (used by both footers)
+        ['footer_social_facebook', 'footer_social_instagram', 'footer_social_twitter', 'footer_social_youtube'].forEach(key => {
+          const existingInUpdate = updateData.find(s => s.key === key);
+          if (!existingInUpdate) {
+            const existingInSettings = groupSettings.find(s => s && s.key === key);
+            const currentValue = settings.footer?.find(s => s && s.key === key)?.value || '';
+            if (currentValue || existingInSettings) {
+              updateData.push({
+                key: key,
+                value: currentValue || existingInSettings?.value || '',
+                type: 'text',
+                group: 'footer',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: '',
+              });
             }
           }
         });
@@ -793,36 +921,40 @@ const Settings = () => {
             }
           }
         });
-        
-        // Handle contact_address (multilingual)
-        if (settingsMultilingual.contact_address) {
-          const multilingualValue = settingsMultilingual.contact_address;
-          const existingSetting = updateData.find(s => s.key === 'contact_address');
-          if (!existingSetting) {
-            updateData.push({
-              key: 'contact_address',
-              value: multilingualValue.en || '',
-              type: 'text',
-              group: 'general',
-              label: 'Contact Address',
-              description: '',
-              locale: 'en',
-              translations: multilingualValue,
-            } as any);
-          }
-        }
       }
 
+      if (updateData.length === 0) {
+        if (showToast) {
+          toast.info('No settings to save');
+        }
+        if (manageSavingState) {
+          setSaving(false);
+        }
+        return;
+      }
+
+      console.log(`Saving ${groupName} settings:`, updateData);
       const response = await settingsApi.bulkUpdate(updateData, contentLocale);
       if (response.success) {
-        toast.success(`${groupName} settings updated successfully for all languages`);
+        if (showToast) {
+          toast.success(`${groupName} settings updated successfully`);
+        }
         await fetchSettings(); // Refresh to get updated data
+      } else {
+        if (showToast) {
+          toast.error(`Failed to save ${groupName} settings`);
+        }
       }
     } catch (error: any) {
       console.error('Error saving settings:', error);
-      toast.error(`Failed to save settings: ${error.message}`);
+      if (showToast) {
+        toast.error(`Failed to save settings: ${error.message}`);
+      }
+      throw error; // Re-throw to allow caller to handle
     } finally {
-      setSaving(false);
+      if (manageSavingState) {
+        setSaving(false);
+      }
     }
   };
 
@@ -4111,18 +4243,21 @@ const Settings = () => {
         <TabsContent value="general" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.general.title')}</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure general site information. For contact details, use the Contact tab.
+            </p>
             
-            {/* Language Tabs */}
+            {/* Language Tabs - Only show for translatable fields */}
             <LanguageTabs 
               activeLanguage={contentLocale} 
               onLanguageChange={(lang) => setContentLocale(lang)}
               className="mb-4"
             />
             
-            {/* Always show form fields for common settings */}
+            {/* General site settings */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="site_name">Site Name</Label>
+                <Label htmlFor="site_name">Site Name <span className="text-muted-foreground text-xs">(Translatable)</span></Label>
                 <Input
                   id="site_name"
                   value={settingsMultilingual.site_name?.[contentLocale] || settings.general?.find(s => s && s.key === 'site_name')?.value || ''}
@@ -4140,7 +4275,7 @@ const Settings = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="site_tagline">Site Tagline</Label>
+                <Label htmlFor="site_tagline">Site Tagline <span className="text-muted-foreground text-xs">(Translatable)</span></Label>
                 <Input
                   id="site_tagline"
                   value={settingsMultilingual.site_tagline?.[contentLocale] || settings.general?.find(s => s && s.key === 'site_tagline')?.value || ''}
@@ -4157,25 +4292,6 @@ const Settings = () => {
                   placeholder={`Enter site tagline in ${contentLocale.toUpperCase()}`}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  value={settings.general?.find(s => s && s.key === 'contact_email')?.value || ''}
-                  onChange={(e) => updateSetting('general', 'contact_email', e.target.value)}
-                  placeholder="support@sacrart.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact_phone">Contact Phone</Label>
-                <Input
-                  id="contact_phone"
-                  value={settings.general?.find(s => s && s.key === 'contact_phone')?.value || ''}
-                  onChange={(e) => updateSetting('general', 'contact_phone', e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
             </div>
             
             {/* Save button */}
@@ -4196,164 +4312,190 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
-        {/* Footer Settings */}
+        {/* Footer Settings - Unified */}
         <TabsContent value="footer" className="mt-6">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.footer.title')}</h2>
-            
-            {/* Language Tabs */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
-            
-            {/* Always show form fields for footer settings */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="footer_copyright">Footer Copyright</Label>
-                <Input
-                  id="footer_copyright"
-                  value={settingsMultilingual.footer_copyright?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_copyright')?.value || ''}
-                  onChange={(e) => {
-                    setSettingsMultilingual(prev => ({
-                      ...prev,
-                      footer_copyright: {
-                        ...(prev.footer_copyright || { en: '', es: '', pt: '' }),
-                        [contentLocale]: e.target.value,
-                      },
-                    }));
-                    updateSetting('footer', 'footer_copyright', e.target.value);
-                  }}
-                  placeholder={`Enter footer copyright text in ${contentLocale.toUpperCase()}`}
-                />
+          <div className="space-y-6">
+            {/* Footer Settings */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-2">Footer Settings</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Configure footer settings. Copyright and social media links are shared between both footers. The description field is only shown in the authenticated user footer.
+              </p>
+              
+              {/* Language Tabs */}
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+                className="mb-4"
+              />
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="footer_after_login_description">Footer Description <span className="text-muted-foreground text-xs">(Translatable)</span></Label>
+                  <Textarea
+                    id="footer_after_login_description"
+                    value={settingsMultilingual.footer_after_login_description?.[contentLocale] || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_description')?.value || ''}
+                    onChange={(e) => {
+                      setSettingsMultilingual(prev => ({
+                        ...prev,
+                        footer_after_login_description: {
+                          ...(prev.footer_after_login_description || { en: '', es: '', pt: '' }),
+                          [contentLocale]: e.target.value,
+                        },
+                      }));
+                      updateSetting('footer_after_login', 'footer_after_login_description', e.target.value);
+                    }}
+                    placeholder={`Enter footer description in ${contentLocale.toUpperCase()}`}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="footer_copyright">Footer Copyright <span className="text-muted-foreground text-xs">(Translatable, Shared)</span></Label>
+                  <Input
+                    id="footer_copyright"
+                    value={settingsMultilingual.footer_copyright?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_copyright')?.value || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_copyright')?.value || ''}
+                    onChange={(e) => {
+                      setSettingsMultilingual(prev => ({
+                        ...prev,
+                        footer_copyright: {
+                          ...(prev.footer_copyright || { en: '', es: '', pt: '' }),
+                          [contentLocale]: e.target.value,
+                        },
+                      }));
+                      updateSetting('footer', 'footer_copyright', e.target.value);
+                    }}
+                    placeholder={`Enter footer copyright text in ${contentLocale.toUpperCase()}`}
+                  />
+                  <p className="text-xs text-muted-foreground">This copyright text is shared between both footers.</p>
+                </div>
+                
+                <div className="border-t pt-4 mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Social Media Links (Shared)</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    These social media links are shared between both footers.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="footer_social_facebook">Facebook URL</Label>
+                      <Input
+                        id="footer_social_facebook"
+                        type="url"
+                        value={settings.footer?.find(s => s && s.key === 'footer_social_facebook')?.value || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_social_facebook')?.value || ''}
+                        onChange={(e) => updateSetting('footer', 'footer_social_facebook', e.target.value)}
+                        placeholder="https://www.facebook.com/yourpage"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="footer_social_instagram">Instagram URL</Label>
+                      <Input
+                        id="footer_social_instagram"
+                        type="url"
+                        value={settings.footer?.find(s => s && s.key === 'footer_social_instagram')?.value || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_social_instagram')?.value || ''}
+                        onChange={(e) => updateSetting('footer', 'footer_social_instagram', e.target.value)}
+                        placeholder="https://www.instagram.com/yourpage"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="footer_social_twitter">Twitter URL</Label>
+                      <Input
+                        id="footer_social_twitter"
+                        type="url"
+                        value={settings.footer?.find(s => s && s.key === 'footer_social_twitter')?.value || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_social_twitter')?.value || ''}
+                        onChange={(e) => updateSetting('footer', 'footer_social_twitter', e.target.value)}
+                        placeholder="https://www.twitter.com/yourpage"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="footer_social_youtube">YouTube URL</Label>
+                      <Input
+                        id="footer_social_youtube"
+                        type="url"
+                        value={settings.footer?.find(s => s && s.key === 'footer_social_youtube')?.value || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_social_youtube')?.value || ''}
+                        onChange={(e) => updateSetting('footer', 'footer_social_youtube', e.target.value)}
+                        placeholder="https://www.youtube.com/yourchannel"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="footer_description">Footer Description</Label>
-                <Textarea
-                  id="footer_description"
-                  value={settingsMultilingual.footer_description?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_description')?.value || ''}
-                  onChange={(e) => {
-                    setSettingsMultilingual(prev => ({
-                      ...prev,
-                      footer_description: {
-                        ...(prev.footer_description || { en: '', es: '', pt: '' }),
-                        [contentLocale]: e.target.value,
-                      },
-                    }));
-                    updateSetting('footer', 'footer_description', e.target.value);
-                  }}
-                  placeholder={`Enter footer description in ${contentLocale.toUpperCase()}`}
-                  className="min-h-[100px]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="footer_address">Footer Address</Label>
-                <Textarea
-                  id="footer_address"
-                  value={settingsMultilingual.footer_address?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_address')?.value || ''}
-                  onChange={(e) => {
-                    setSettingsMultilingual(prev => ({
-                      ...prev,
-                      footer_address: {
-                        ...(prev.footer_address || { en: '', es: '', pt: '' }),
-                        [contentLocale]: e.target.value,
-                      },
-                    }));
-                    updateSetting('footer', 'footer_address', e.target.value);
-                  }}
-                  placeholder={`Enter footer address in ${contentLocale.toUpperCase()}`}
-                  className="min-h-[100px]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="footer_social_facebook">Facebook Address (URL)</Label>
-                <Input
-                  id="footer_social_facebook"
-                  type="url"
-                  value={settings.footer?.find(s => s && s.key === 'footer_social_facebook')?.value || ''}
-                  onChange={(e) => updateSetting('footer', 'footer_social_facebook', e.target.value)}
-                  placeholder="https://www.facebook.com/yourpage"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="footer_social_instagram">Instagram Address (URL)</Label>
-                <Input
-                  id="footer_social_instagram"
-                  type="url"
-                  value={settings.footer?.find(s => s && s.key === 'footer_social_instagram')?.value || ''}
-                  onChange={(e) => updateSetting('footer', 'footer_social_instagram', e.target.value)}
-                  placeholder="https://www.instagram.com/yourpage"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="footer_social_twitter">Twitter Address (URL)</Label>
-                <Input
-                  id="footer_social_twitter"
-                  type="url"
-                  value={settings.footer?.find(s => s && s.key === 'footer_social_twitter')?.value || ''}
-                  onChange={(e) => updateSetting('footer', 'footer_social_twitter', e.target.value)}
-                  placeholder="https://www.twitter.com/yourpage"
-                />
-              </div>
-            </div>
-            
-            {/* Save button */}
-            <div className="flex justify-end pt-4 border-t mt-6">
-              <Button 
-                onClick={() => handleSaveSettings('footer')}
-                disabled={saving}
-                className="flex items-center"
-              >
-                {saving ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                {t('admin.common_save')}
-              </Button>
-            </div>
-          </Card>
+            </Card>
+          </div>
+          
+          {/* Save button */}
+          <div className="flex justify-end pt-4 border-t mt-6">
+            <Button 
+              onClick={async () => {
+                try {
+                  setSaving(true);
+                  // Save both groups without showing individual toasts and without managing saving state
+                  await handleSaveSettings('footer', false, false);
+                  await handleSaveSettings('footer_after_login', false, false);
+                  // Show single success toast after both saves complete
+                  toast.success('Footer settings updated successfully');
+                  await fetchSettings(); // Refresh to get updated data
+                } catch (error: any) {
+                  console.error('Error saving footer settings:', error);
+                  toast.error('Failed to save footer settings');
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving}
+              className="flex items-center"
+            >
+              {saving ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {t('admin.common_save')}
+            </Button>
+          </div>
         </TabsContent>
 
         {/* Contact Settings */}
         <TabsContent value="contact" className="mt-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-6">{t('admin.settings_page.contact.title')}</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure contact information displayed on the website.
+            </p>
             
-            {/* Language Tabs */}
+            {/* Language Tabs - Only show for translatable fields */}
             <LanguageTabs 
               activeLanguage={contentLocale} 
               onLanguageChange={(lang) => setContentLocale(lang)}
               className="mb-4"
             />
             
-            {/* Always show form fields for contact settings */}
+            {/* Contact settings */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="contact_email">Contact Email</Label>
                 <Input
                   id="contact_email"
                   type="email"
-                  value={settings.general?.find(s => s && s.key === 'contact_email')?.value || ''}
-                  onChange={(e) => updateSetting('general', 'contact_email', e.target.value)}
+                  value={settings.contact?.find(s => s && s.key === 'contact_email')?.value || settings.general?.find(s => s && s.key === 'contact_email')?.value || ''}
+                  onChange={(e) => updateSetting('contact', 'contact_email', e.target.value)}
                   placeholder="support@sacrart.com"
                 />
+                <p className="text-xs text-muted-foreground">Email address for contact inquiries</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact_phone">Contact Phone</Label>
                 <Input
                   id="contact_phone"
-                  value={settings.general?.find(s => s && s.key === 'contact_phone')?.value || ''}
-                  onChange={(e) => updateSetting('general', 'contact_phone', e.target.value)}
+                  value={settings.contact?.find(s => s && s.key === 'contact_phone')?.value || settings.general?.find(s => s && s.key === 'contact_phone')?.value || ''}
+                  onChange={(e) => updateSetting('contact', 'contact_phone', e.target.value)}
                   placeholder="+1 (555) 123-4567"
                 />
+                <p className="text-xs text-muted-foreground">Phone number for contact inquiries</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact_address">Contact Address</Label>
+                <Label htmlFor="contact_address">Contact Address <span className="text-muted-foreground text-xs">(Translatable)</span></Label>
                 <Textarea
                   id="contact_address"
-                  value={settingsMultilingual.contact_address?.[contentLocale] || settings.general?.find(s => s && s.key === 'contact_address')?.value || ''}
+                  value={settingsMultilingual.contact_address?.[contentLocale] || settings.contact?.find(s => s && s.key === 'contact_address')?.value || settings.general?.find(s => s && s.key === 'contact_address')?.value || ''}
                   onChange={(e) => {
                     setSettingsMultilingual(prev => ({
                       ...prev,
@@ -4362,18 +4504,19 @@ const Settings = () => {
                         [contentLocale]: e.target.value,
                       },
                     }));
-                    updateSetting('general', 'contact_address', e.target.value);
+                    updateSetting('contact', 'contact_address', e.target.value);
                   }}
                   placeholder={`Enter contact address in ${contentLocale.toUpperCase()}`}
                   className="min-h-[100px]"
                 />
+                <p className="text-xs text-muted-foreground">Physical address or mailing address</p>
               </div>
             </div>
             
             {/* Save button */}
             <div className="flex justify-end pt-4 border-t mt-6">
               <Button 
-                onClick={() => handleSaveSettings('general')}
+                onClick={() => handleSaveSettings('contact')}
                 disabled={saving}
                 className="flex items-center"
               >

@@ -261,6 +261,14 @@ class SettingsController extends Controller
                 'homepage_testimonial_ids',
                 // Homepage video carousel settings
                 'homepage_video_ids',
+                // Footer settings
+                'footer_description',
+                'footer_after_login_description',
+                'footer_copyright',
+                'footer_social_facebook',
+                'footer_social_instagram',
+                'footer_social_twitter',
+                'footer_social_youtube',
             ])
             ->get();
         
