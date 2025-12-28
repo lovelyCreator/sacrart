@@ -56,7 +56,9 @@ import {
   TrendingUp,
   PlayCircle,
   RefreshCw,
-  Languages
+  Languages,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -2027,7 +2029,7 @@ const ContentManagement = () => {
       )}
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -2062,6 +2064,24 @@ const ContentManagement = () => {
               <p className="text-2xl font-bold">{videos?.reduce((sum, video) => sum + (video?.views || 0), 0).toLocaleString() || '0'}</p>
             </div>
             <Eye className="h-8 w-8 text-primary" />
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.content_total_likes', 'Total Likes')}</p>
+              <p className="text-2xl font-bold">{videos?.reduce((sum, video) => sum + (video?.likes_count || 0), 0).toLocaleString() || '0'}</p>
+            </div>
+            <ThumbsUp className="h-8 w-8 text-green-500" />
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.content_total_dislikes', 'Total Dislikes')}</p>
+              <p className="text-2xl font-bold">{videos?.reduce((sum, video) => sum + (video?.dislikes_count || 0), 0).toLocaleString() || '0'}</p>
+            </div>
+            <ThumbsDown className="h-8 w-8 text-red-500" />
           </div>
         </Card>
         <Card className="p-4">

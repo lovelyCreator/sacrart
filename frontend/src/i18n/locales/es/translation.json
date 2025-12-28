@@ -941,6 +941,8 @@
     "content_total_series": "Total de Series",
     "content_total_episodes": "Total de Episodios",
     "content_total_views": "Total de Visualizaciones",
+    "content_total_likes": "Total de Me Gusta",
+    "content_total_dislikes": "Total de No Me Gusta",
     "content_published_count": "Publicado",
     "content_add_episode": "Agregar Episodio",
     "content_episode": "Episodio",

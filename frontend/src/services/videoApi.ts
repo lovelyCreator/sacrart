@@ -159,6 +159,8 @@ export interface Video {
   rating: string;
   rating_count: number;
   completion_rate: number;
+  likes_count?: number;
+  dislikes_count?: number;
   published_at: string | null;
   scheduled_at: string | null;
   downloadable_resources: any | null;

@@ -101,7 +101,7 @@ class Video extends Model
         'price' => 'decimal:2',
     ];
 
-    protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'bunny_player_url'];
+    protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'bunny_player_url', 'likes_count', 'dislikes_count'];
 
     /**
      * Get the route key for the model.
@@ -333,6 +333,22 @@ class Video extends Model
     public function getAverageRatingAttribute()
     {
         return $this->rating_count > 0 ? round($this->rating / $this->rating_count, 1) : 0;
+    }
+
+    /**
+     * Get the total number of likes for this video.
+     */
+    public function getLikesCountAttribute(): int
+    {
+        return $this->userProgress()->where('is_liked', true)->count();
+    }
+
+    /**
+     * Get the total number of dislikes for this video.
+     */
+    public function getDislikesCountAttribute(): int
+    {
+        return $this->userProgress()->where('is_disliked', true)->count();
     }
 
     /**

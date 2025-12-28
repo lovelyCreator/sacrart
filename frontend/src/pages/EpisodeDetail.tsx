@@ -35,6 +35,12 @@ const EpisodeDetail = () => {
   const [userProgress, setUserProgress] = useState<any>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
+
+  // Reset like/dislike state when video ID changes
+  useEffect(() => {
+    setIsLiked(false);
+    setIsDisliked(false);
+  }, [id]);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [downloadableResources, setDownloadableResources] = useState<any[]>([]);
@@ -647,23 +653,64 @@ const EpisodeDetail = () => {
           }
         }
         
-        // Set user progress
-        if (existingProgress) {
-          setUserProgress(existingProgress);
-          setIsLiked(existingProgress.is_liked === true || existingProgress.is_liked === 1);
-          setIsDisliked(existingProgress.is_disliked === true || existingProgress.is_disliked === 1);
-        } else if (user && videoData.id) {
+        // Set user progress - always fetch latest to ensure like/dislike status is current
+        if (user && videoData.id) {
           try {
+            // Use existingProgress if available, but always fetch latest to ensure accuracy
+            if (existingProgress) {
+              const likedStatus = existingProgress.is_liked === true || existingProgress.is_liked === 1;
+              const dislikedStatus = existingProgress.is_disliked === true || existingProgress.is_disliked === 1;
+              
+              console.log('📊 Using existingProgress like/dislike status:', {
+                is_liked: existingProgress.is_liked,
+                is_disliked: existingProgress.is_disliked,
+                likedStatus,
+                dislikedStatus
+              });
+              
+              setUserProgress(existingProgress);
+              setIsLiked(likedStatus);
+              setIsDisliked(dislikedStatus);
+            }
+            
+            // Always fetch latest progress to ensure like/dislike status is up to date
             const progressResponse = await userProgressApi.getVideoProgress(videoData.id);
-            if (progressResponse.success && progressResponse.data) {
+            if (progressResponse.success) {
               const progress = progressResponse.data;
-              setUserProgress(progress);
-              setIsLiked(progress.is_liked === true || progress.is_liked === 1);
-              setIsDisliked(progress.is_disliked === true || progress.is_disliked === 1);
+              if (progress) {
+                const likedStatus = progress.is_liked === true || progress.is_liked === 1;
+                const dislikedStatus = progress.is_disliked === true || progress.is_disliked === 1;
+                
+                console.log('📊 Loading like/dislike status:', {
+                  is_liked: progress.is_liked,
+                  is_disliked: progress.is_disliked,
+                  likedStatus,
+                  dislikedStatus
+                });
+                
+                setUserProgress(progress);
+                setIsLiked(likedStatus);
+                setIsDisliked(dislikedStatus);
+              } else {
+                // No progress record exists yet, reset to default
+                console.log('📊 No progress record, resetting like/dislike to false');
+                setIsLiked(false);
+                setIsDisliked(false);
+              }
             }
           } catch (error) {
             console.error('Failed to fetch progress:', error);
+            // On error, still try to use existingProgress if available
+            if (existingProgress) {
+              setUserProgress(existingProgress);
+              setIsLiked(existingProgress.is_liked === true || existingProgress.is_liked === 1);
+              setIsDisliked(existingProgress.is_disliked === true || existingProgress.is_disliked === 1);
+            }
           }
+        } else {
+          // Not authenticated, reset to default
+          setIsLiked(false);
+          setIsDisliked(false);
         }
 
         // Fetch comments
@@ -1250,18 +1297,60 @@ const EpisodeDetail = () => {
       return;
     }
 
+    // Store previous state for error rollback
+    const previousLikedState = isLiked;
+    const previousDislikedState = isDisliked;
+    
+    // Optimistically update UI immediately for instant feedback
+    const newLikedState = !isLiked;
+    setIsLiked(newLikedState);
+    if (newLikedState && isDisliked) {
+      setIsDisliked(false);
+    }
+
     try {
       const response = await userProgressApi.toggleLike(video.id);
-      if (response.success) {
-        const newLikedState = response.data?.is_liked || !isLiked;
-        setIsLiked(newLikedState);
-        if (newLikedState && isDisliked) {
-          setIsDisliked(false);
+      if (response.success && response.data) {
+        // Update state from response data (server truth)
+        const isLikedValue = response.data.is_liked === true || response.data.is_liked === 1;
+        const isDislikedValue = response.data.is_disliked === true || response.data.is_disliked === 1;
+        
+        setIsLiked(isLikedValue);
+        setIsDisliked(isDislikedValue);
+        
+        // Update userProgress state as well
+        setUserProgress((prev: any) => ({
+          ...prev,
+          is_liked: isLikedValue,
+          is_disliked: isDislikedValue,
+        }));
+        
+        // Show success message
+        if (isLikedValue) {
+          toast.success(t('video.video_liked', 'Video liked'));
+        } else {
+          toast.success(t('video.like_removed', 'Like removed'));
+        }
+      } else {
+        // If response doesn't have data, fetch latest progress
+        try {
+          const progressResponse = await userProgressApi.getVideoProgress(video.id);
+          if (progressResponse.success && progressResponse.data) {
+            const progress = progressResponse.data;
+            setIsLiked(progress.is_liked === true || progress.is_liked === 1);
+            setIsDisliked(progress.is_disliked === true || progress.is_disliked === 1);
+            setUserProgress(progress);
+          }
+        } catch (fetchError) {
+          console.error('Failed to fetch updated progress:', fetchError);
         }
       }
     } catch (error) {
       console.error('Failed to toggle like:', error);
-      toast.error(t('video.failed_like'));
+      // Revert optimistic update on error
+      setIsLiked(previousLikedState);
+      setIsDisliked(previousDislikedState);
+      toast.error(t('video.failed_like', 'Failed to like video'));
     }
   };
 
@@ -1271,18 +1360,60 @@ const EpisodeDetail = () => {
       return;
     }
 
+    // Store previous state for error rollback
+    const previousLikedState = isLiked;
+    const previousDislikedState = isDisliked;
+    
+    // Optimistically update UI immediately for instant feedback
+    const newDislikedState = !isDisliked;
+    setIsDisliked(newDislikedState);
+    if (newDislikedState && isLiked) {
+      setIsLiked(false);
+    }
+
     try {
       const response = await userProgressApi.toggleDislike(video.id);
-      if (response.success) {
-        const newDislikedState = response.data?.is_disliked || !isDisliked;
-        setIsDisliked(newDislikedState);
-        if (newDislikedState && isLiked) {
-          setIsLiked(false);
+      if (response.success && response.data) {
+        // Update state from response data (server truth)
+        const isLikedValue = response.data.is_liked === true || response.data.is_liked === 1;
+        const isDislikedValue = response.data.is_disliked === true || response.data.is_disliked === 1;
+        
+        setIsLiked(isLikedValue);
+        setIsDisliked(isDislikedValue);
+        
+        // Update userProgress state as well
+        setUserProgress((prev: any) => ({
+          ...prev,
+          is_liked: isLikedValue,
+          is_disliked: isDislikedValue,
+        }));
+        
+        // Show success message
+        if (isDislikedValue) {
+          toast.success(t('video.video_disliked', 'Video disliked'));
+        } else {
+          toast.success(t('video.dislike_removed', 'Dislike removed'));
+        }
+      } else {
+        // If response doesn't have data, fetch latest progress
+        try {
+          const progressResponse = await userProgressApi.getVideoProgress(video.id);
+          if (progressResponse.success && progressResponse.data) {
+            const progress = progressResponse.data;
+            setIsLiked(progress.is_liked === true || progress.is_liked === 1);
+            setIsDisliked(progress.is_disliked === true || progress.is_disliked === 1);
+            setUserProgress(progress);
+          }
+        } catch (fetchError) {
+          console.error('Failed to fetch updated progress:', fetchError);
         }
       }
     } catch (error) {
       console.error('Failed to toggle dislike:', error);
-      toast.error(t('video.failed_dislike'));
+      // Revert optimistic update on error
+      setIsLiked(previousLikedState);
+      setIsDisliked(previousDislikedState);
+      toast.error(t('video.failed_dislike', 'Failed to dislike video'));
     }
   };
 
@@ -1704,19 +1835,21 @@ const EpisodeDetail = () => {
           <div className="flex items-center gap-4 ml-auto self-end lg:self-center">
             <button
               onClick={handleLike}
-              className={`text-white hover:text-primary active:text-primary transition-colors focus:text-primary ${
-                isLiked ? 'text-primary' : ''
-              }`}
+              className="transition-colors focus:outline-none"
+              title={isLiked ? t('video.like_removed', 'Remove like') : t('video.video_liked', 'Like video')}
             >
-              <i className="fa-solid fa-thumbs-up text-3xl"></i>
+              <i className={`fa-solid fa-thumbs-up text-3xl transition-colors ${
+                isLiked ? 'text-primary' : 'text-white hover:text-primary'
+              }`}></i>
             </button>
             <button
               onClick={handleDislike}
-              className={`text-white hover:text-primary active:text-primary transition-colors focus:text-primary ${
-                isDisliked ? 'text-primary' : ''
-              }`}
+              className="transition-colors focus:outline-none"
+              title={isDisliked ? t('video.dislike_removed', 'Remove dislike') : t('video.video_disliked', 'Dislike video')}
             >
-              <i className="fa-solid fa-thumbs-down text-3xl"></i>
+              <i className={`fa-solid fa-thumbs-down text-3xl transition-colors ${
+                isDisliked ? 'text-primary' : 'text-white hover:text-primary'
+              }`}></i>
             </button>
           </div>
         </div>

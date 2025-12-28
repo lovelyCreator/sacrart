@@ -126,9 +126,10 @@ export const userProgressApi = {
       console.log('📡 [userProgressApi] Full URL:', url);
       
       const headers = getAuthHeaders();
+      const headersObj = headers as Record<string, string>;
       console.log('📡 [userProgressApi] Headers:', {
-        ...headers,
-        'Authorization': headers.Authorization ? 'Bearer ***' : 'No token'
+        ...headersObj,
+        'Authorization': headersObj.Authorization ? 'Bearer ***' : 'No token'
       });
       
       console.log('📡 [userProgressApi] Making fetch request...');

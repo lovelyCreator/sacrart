@@ -920,6 +920,8 @@
     "content_total_series": "Total Series",
     "content_total_episodes": "Total Episodes",
     "content_total_views": "Total Views",
+    "content_total_likes": "Total Likes",
+    "content_total_dislikes": "Total Dislikes",
     "content_published_count": "Published",
     "content_add_episode": "Add Episode",
     "content_episode": "Episode",
