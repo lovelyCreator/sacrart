@@ -82,6 +82,8 @@ const Home = () => {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [homepageVideos, setHomepageVideos] = useState<any[]>([]);
   const [homepageVideosLoading, setHomepageVideosLoading] = useState(false);
+  const [newReleases, setNewReleases] = useState<any[]>([]);
+  const [newReleasesLoading, setNewReleasesLoading] = useState(false);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const homepageVideosCarouselRef = useRef<HTMLDivElement>(null);
@@ -140,32 +142,32 @@ const Home = () => {
     
     // Max Devices
     if (plan.max_devices) {
-      planFeatures.push(`${plan.max_devices} ${plan.max_devices === 1 ? 'Device' : 'Devices'}`);
+      planFeatures.push(`${plan.max_devices} ${plan.max_devices === 1 ? t('general.device', 'Device') : t('general.devices', 'Devices')}`);
     }
     
     // Video Quality
     if (plan.video_quality) {
-      planFeatures.push(`${plan.video_quality} Quality`);
+      planFeatures.push(`${plan.video_quality} ${t('general.quality', 'Quality')}`);
     }
     
     // Downloadable Content
     if (plan.downloadable_content) {
-      planFeatures.push('Downloadable Content');
+      planFeatures.push(t('general.downloadable_content', 'Downloadable Content'));
     }
     
     // Certificates
     if (plan.certificates) {
-      planFeatures.push('Certificates of Completion');
+      planFeatures.push(t('general.certificates_of_completion', 'Certificates of Completion'));
     }
     
     // Priority Support
     if (plan.priority_support) {
-      planFeatures.push('Priority Support');
+      planFeatures.push(t('general.priority_support', 'Priority Support'));
     }
     
     // Ad Free
     if (plan.ad_free) {
-      planFeatures.push('Ad-Free Experience');
+      planFeatures.push(t('general.ad_free_experience', 'Ad-Free Experience'));
     }
     
     // Combine custom features with plan features
@@ -2081,7 +2083,7 @@ const Home = () => {
                           {plan.name.toLowerCase() === 'freemium' ? t('index.plans.free', 'Gratis') : `€${formatPrice(plan.price)}`}
                         </span>
                         {plan.name.toLowerCase() !== 'freemium' && (
-                          <span className="text-sm sm:text-base text-gray-400">/mes</span>
+                          <span className="text-sm sm:text-base text-gray-400">{t('index.plans.per_month', '/month')}</span>
                         )}
                       </div>
                       <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-400">{plan.description || ''}</p>
@@ -2180,7 +2182,7 @@ const Home = () => {
                           {typeof video.title === 'string' ? video.title : ''}
                         </h4>
                         <p className="text-[10px] sm:text-xs text-gray-400 mt-1 line-clamp-1">
-                          {(typeof video.instructor === 'string' ? video.instructor : (video.instructor && typeof video.instructor === 'object' ? video.instructor.name : '')) || (typeof video.series_title === 'string' ? video.series_title : '') || ''} {video.episode_number ? `• Ep. ${video.episode_number}` : ''}
+                          {(typeof video.instructor === 'string' ? video.instructor : (video.instructor && typeof video.instructor === 'object' ? video.instructor.name : '')) || (typeof video.series_title === 'string' ? video.series_title : '') || ''} {video.episode_number ? `• ${t('general.episode_prefix', 'Ep.')} ${video.episode_number}` : ''}
                         </p>
                       </div>
                     </div>
@@ -2556,9 +2558,6 @@ const Home = () => {
   // Get trending videos for "Tendencias Ahora" section (first 4)
   const trendingForSection = homepageVideos.slice(0, 4);
 
-  // Get new releases for "Novedades esta semana" section
-  const newReleases = homepageVideos.slice(4, 10);
-
   // Get featured processes (using seriesByCategory or categories)
   const featuredProcesses = Object.values(seriesByCategory).flat().slice(0, 5);
 
@@ -2897,53 +2896,73 @@ const Home = () => {
             <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
           </div>
           <div className="relative group/slider">
-            <button
-              onClick={() => {
-                const slider = document.getElementById('new-releases-slider');
-                if (slider) slider.scrollBy({ left: -280, behavior: 'smooth' });
-              }}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-2 sm:-ml-4 shadow-lg hidden sm:block"
-            >
-              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-            <button
-              onClick={() => {
-                const slider = document.getElementById('new-releases-slider');
-                if (slider) slider.scrollBy({ left: 280, behavior: 'smooth' });
-              }}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-2 sm:-mr-4 shadow-lg hidden sm:block"
-            >
-              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
+            {newReleases.length > 0 && (
+              <>
+                <button
+                  onClick={() => {
+                    const slider = document.getElementById('new-releases-slider');
+                    if (slider) slider.scrollBy({ left: -280, behavior: 'smooth' });
+                  }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -ml-2 sm:-ml-4 shadow-lg hidden sm:block"
+                >
+                  <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    const slider = document.getElementById('new-releases-slider');
+                    if (slider) slider.scrollBy({ left: 280, behavior: 'smooth' });
+                  }}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-primary/90 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm opacity-0 group-hover/slider:opacity-100 transition-all -mr-2 sm:-mr-4 shadow-lg hidden sm:block"
+                >
+                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              </>
+            )}
             <div
               id="new-releases-slider"
               className="flex overflow-x-auto gap-3 sm:gap-4 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar"
             >
-              {newReleases.map((video) => (
-                <div key={video.id} className="min-w-[240px] sm:min-w-[280px] md:min-w-[320px] snap-start">
-                  <div
-                    onClick={() => handleCourseClick(video.id)}
-                    className="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer"
-                  >
-                    <img
-                      src={getImageUrl(video.thumbnail_url || video.intro_image_url || '')}
-                      alt={video.title || ''}
-                      className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
-                    </div>
+              {newReleasesLoading ? (
+                // Loading state
+                <div className="min-w-[240px] sm:min-w-[280px] md:min-w-[320px] snap-start flex-shrink-0">
+                  <div className="relative rounded-lg overflow-hidden aspect-[16/9] mb-3 bg-[#2a1d21] animate-pulse">
+                    <div className="absolute inset-0 bg-gray-700" />
                   </div>
-                  <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
-                  <p className="text-[10px] sm:text-xs text-text-subtle mt-1">
-                    {video.category?.name || video.series_title || t('index.new_releases.episode', 'Episodio')}
-                  </p>
+                  <div className="h-4 bg-gray-700 rounded animate-pulse mb-2" />
+                  <div className="h-3 bg-gray-700 rounded animate-pulse w-2/3" />
                 </div>
-              ))}
+              ) : newReleases.length > 0 ? (
+                newReleases.map((video) => (
+                  <div key={video.id} className="min-w-[240px] sm:min-w-[280px] md:min-w-[320px] snap-start">
+                    <div
+                      onClick={() => handleCourseClick(video.id)}
+                      className="group relative rounded-lg overflow-hidden aspect-[16/9] mb-3 cursor-pointer"
+                    >
+                      <img
+                        src={getImageUrl(video.thumbnail_url || video.intro_image_url || video.intro_image || video.thumbnail || '')}
+                        alt={video.title || ''}
+                        className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Play className="text-white text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
+                      </div>
+                    </div>
+                    <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
+                    <p className="text-[10px] sm:text-xs text-text-subtle mt-1">
+                      {video.category?.name || video.series_title || t('index.new_releases.episode', 'Episodio')}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                // Empty state
+                <div className="w-full text-center py-8">
+                  <p className="text-gray-400 text-sm">{t('index.new_releases.empty', 'No new episodes this week')}</p>
+                </div>
+              )}
             </div>
           </div>
         </section>

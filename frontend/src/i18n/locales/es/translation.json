@@ -1346,7 +1346,15 @@
     "featured_courses": "Cursos Destacados",
     "handpicked_courses_subtitle": "Cursos seleccionados por nuestros instructores expertos",
     "courses": "cursos",
-    "hero_background": "Fondo del Héroe"
+    "hero_background": "Fondo del Héroe",
+    "device": "Dispositivo",
+    "devices": "Dispositivos",
+    "quality": "Calidad",
+    "downloadable_content": "Contenido Descargable",
+    "certificates_of_completion": "Certificados de Finalización",
+    "priority_support": "Soporte Prioritario",
+    "ad_free_experience": "Experiencia Sin Anuncios",
+    "episode_prefix": "Ep."
   },
   "seriesDetail": {
     "failed_load_category": "Error al cargar los detalles de la categoría",
@@ -1718,6 +1726,96 @@
       "bloque": "Bloque",
       "talla_cuerpos": "Talla de Cuerpos",
       "manos_pies": "Manos y Pies"
+    }
+  },
+  "index": {
+    "hero": {
+      "badge": "Nuevo",
+      "series_original": "Serie Original",
+      "title": "El Arte de",
+      "subtitle": "Lo Divino",
+      "description": "Descubre los secretos ancestrales del arte sacro en esta nueva serie documental.",
+      "play": "Reproducir",
+      "more_info": "Más información",
+      "cta_subscribe": "Suscribirse ahora",
+      "cta_catalog": "Ver catálogo",
+      "stat_1": "Horas de contenido",
+      "stat_2": "Ultra Alta Definición",
+      "stat_3": "Artista Principal",
+      "stat_4": "Seguidores en redes",
+      "featured_badge": "NUEVO",
+      "featured_series": "Temporada 1",
+      "featured_title": "Técnicas de Dorado",
+      "featured_description": "Descubre los secretos del pan de oro y las técnicas de estofado utilizadas en el siglo XVII."
+    },
+    "continue_watching": {
+      "title": "Seguir viendo",
+      "remaining": "restantes",
+      "empty": "No hay videos en progreso"
+    },
+    "trending": {
+      "title": "Tendencias Ahora",
+      "no_videos": "No hay videos disponibles"
+    },
+    "new_releases": {
+      "title": "Novedades esta semana",
+      "episode": "Episodio",
+      "empty": "No hay episodios nuevos esta semana"
+    },
+    "featured_processes": {
+      "title": "Procesos destacados",
+      "new_episode": "Nuevo Episodio"
+    },
+    "category": {
+      "description": "Explora esta categoría única",
+      "explore": "Explorar Categoría"
+    },
+    "wood_projects": {
+      "title": "Proyectos de talla en madera",
+      "description": "Documental exclusivo sobre técnicas de talla en madera.",
+      "exclusive": "EXCLUSIVO"
+    },
+    "formats": {
+      "title": "Formatos Exclusivos",
+      "reels": "Técnica Rápida",
+      "rewind": "Archivo Histórico",
+      "challenges": "Desafíos Creativos",
+      "live": "Live Studio"
+    },
+    "plans": {
+      "title": "Elige tu Plan",
+      "description": "Únete a la comunidad de arte sacro más grande del mundo",
+      "popular": "Más Popular",
+      "free": "Gratis",
+      "per_month": "/mes",
+      "cta_free": "Registrarse Gratis",
+      "cta_choose": "Elegir Plan",
+      "no_plans": "No hay planes disponibles"
+    },
+    "why_sacrart": {
+      "title": "¿Por qué SACRART?",
+      "description": "Sumérgete en el conocimiento ancestral del arte sacro desde cualquier dispositivo.",
+      "artist_title": "Para el Artista o Aprendiz",
+      "artist_description": "Que busca perfeccionar su técnica, aprender métodos tradicionales y modernos y encontrar inspiración en una artista que abre las puertas de su taller.",
+      "art_lover_title": "Para el Apasionado del Arte",
+      "art_lover_description": "Que disfruta viendo nacer y crecer una imagen, sin necesidad de practicar: solo curiosidad y emoción por el proceso.",
+      "quality_title": "Calidad 4K HDR",
+      "quality_description": "No pierdas detalle de cada pincelada.",
+      "multilang_title": "Multilenguaje",
+      "multilang_description": "Doblados y subtitulados al inglés y portugués.",
+      "platform_title": "Multiplataforma",
+      "platform_description": "Web, tablet y móvil."
+    },
+    "about": {
+      "badge": "Artista Principal",
+      "title": "Sobre Ana Rey",
+      "text_1": "Ana Rey es una reconocida escultora española especializada en imaginería religiosa realista. Con 15 años de experiencia, ha perfeccionado las técnicas de talla en madera y policromía.",
+      "text_2": "Su trabajo se caracteriza por el detalle extraordinario y la expresión emotiva que imprime en cada pieza. Combina métodos tradicionales con herramientas modernas para crear obras que trascienden lo meramente artístico.",
+      "text_3": "Galardonada con el Premio La Hornacina —tanto en la categoría del público como en la del experto—, comparte ahora su conocimiento y pasión por el arte sacro a través de SACRART, ofreciendo una perspectiva única del proceso creativo desde dentro.",
+      "ana_rey_image_alt": "Ana Rey trabajando en una escultura"
+    },
+    "testimonials": {
+      "title": "Lo que dicen nuestros usuarios"
     }
   }
 }

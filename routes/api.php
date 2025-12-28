@@ -245,6 +245,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Videos (additional authenticated routes)
     Route::get('/videos/{video}/accessible', [VideoController::class, 'isAccessibleTo']);
     Route::get('/videos/{video}/download-url', [VideoController::class, 'getDownloadUrl']);
+    Route::get('/videos/{video}/proxy-download', [VideoController::class, 'proxyDownload']);
     Route::get('/videos/{video}/audio-tracks', [VideoController::class, 'getAudioTracks']);
     Route::get('/videos/{video}/subtitles', [VideoController::class, 'getSubtitles']);
 

@@ -44,6 +44,10 @@ return [
         'library_id' => env('BUNNY_LIBRARY_ID'),
         'cdn_url' => env('BUNNY_CDN_URL'),
         'stream_url' => env('BUNNY_STREAM_URL'),
+        'token_auth_enabled' => env('BUNNY_TOKEN_AUTH_ENABLED', false),
+        'token_auth_key' => env('BUNNY_TOKEN_AUTH_KEY'),
+        'storage_zone_name' => env('BUNNY_STORAGE_ZONE_NAME'),
+        'storage_access_key' => env('BUNNY_STORAGE_ACCESS_KEY'),
     ],
 
     'google_cloud' => [

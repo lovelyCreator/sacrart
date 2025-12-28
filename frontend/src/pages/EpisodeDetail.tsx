@@ -915,11 +915,167 @@ const EpisodeDetail = () => {
     }
   };
 
+  // Proxy download helper function
+  const useProxyDownload = async (videoId: number, quality: string, token: string, apiBaseUrl: string) => {
+    try {
+      console.log('📥 Using proxy download method...');
+      toast.loading(t('video.preparing_download', 'Preparing download...'), { id: 'download' });
+      
+      const proxyUrl = `${apiBaseUrl}/api/videos/${videoId}/proxy-download?quality=${quality}`;
+      
+      // Fetch video as blob through proxy
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = `${(video?.title || 'video').replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp4`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        window.URL.revokeObjectURL(url);
+        
+        toast.success(t('video.download_started', 'Download started'), { id: 'download' });
+        console.log('✅ Video download via proxy successful');
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Proxy download failed' }));
+        console.error('❌ Proxy download failed:', errorData);
+        toast.error(errorData.message || t('video.download_failed', 'Failed to download video'), { id: 'download' });
+      }
+    } catch (error) {
+      console.error('❌ Proxy download error:', error);
+      toast.error(t('video.download_error', 'Failed to download video'), { id: 'download' });
+    }
+  };
+
+  // Direct video download handler
+  const handleVideoDownload = async () => {
+    if (!video) {
+      toast.error('Video not available');
+      return;
+    }
+
+    if (!video.allow_download) {
+      toast.error('Download is not allowed for this video');
+      return;
+    }
+
+    if (!video.bunny_video_id && !video.bunny_embed_url && !video.bunny_video_url) {
+      toast.error('Video download is not available');
+      return;
+    }
+
+    try {
+      toast.loading('Preparing download...', { id: 'download' });
+      
+      const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000';
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('❌ No authentication token found');
+        toast.error(t('video.auth_required', 'Authentication required for download'), { id: 'download' });
+        return;
+      }
+      
+      // Use video ID for the API call
+      const videoId = video.id;
+      const quality = '720'; // Default quality
+      
+      const response = await fetch(`${apiBaseUrl}/api/videos/${videoId}/download-url?quality=${quality}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.download_url) {
+          const downloadUrl = data.download_url;
+          console.log('🔗 Bunny.net download URL:', downloadUrl);
+          
+          // Test if direct download URL is accessible (check for 403)
+          try {
+            const testResponse = await fetch(downloadUrl, { method: 'HEAD', mode: 'no-cors' });
+            // If we can't test (CORS), try direct download first
+            console.log('🔄 Attempting direct download...');
+            
+            const videoTitle = video.title || 'video';
+            const videoExtension = video.video_format || 'mp4';
+            const filename = `${videoTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${videoExtension}`;
+            
+            // Try direct download first
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.download = filename;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // If direct download fails (403), fall back to proxy after a short delay
+            setTimeout(() => {
+              console.log('🔄 If direct download failed, use proxy download method');
+              // User can try again, or we can automatically use proxy
+            }, 2000);
+            
+            toast.success(t('video.download_started', 'Download started'), { id: 'download' });
+            console.log('✅ Video download triggered (direct method)');
+          } catch (testError) {
+            console.warn('⚠️ Could not test direct download, using proxy method:', testError);
+            // Use proxy download method
+            await useProxyDownload(videoId, quality, token, apiBaseUrl);
+          }
+        } else {
+          console.error('❌ Failed to get download URL:', data.message);
+          toast.error(data.message || t('video.download_failed', 'Failed to get download URL'), { id: 'download' });
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to get download URL' }));
+        console.error('❌ Download URL request failed:', errorData);
+        toast.error(errorData.message || 'Failed to get download URL', { id: 'download' });
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching download URL:', error);
+      toast.error('Failed to download video. Please try again.', { id: 'download' });
+    }
+  };
+
   const handleDownloadMaterials = async () => {
     console.log('📥 Download materials clicked');
     console.log('📦 Downloadable resources:', downloadableResources);
     console.log('📦 Resources count:', downloadableResources.length);
+    console.log('Video allow_download:', video?.allow_download);
+    console.log('Video bunny_video_id:', video?.bunny_video_id);
+    console.log('Video bunny_embed_url:', video?.bunny_embed_url);
+    console.log('Video bunny_video_url:', video?.bunny_video_url);
     
+    // Priority 1: If video allows download and has bunny_video_id, download video directly
+    if (video && video.allow_download && video.bunny_video_id) {
+      console.log('✅ Video allows download and has bunny_video_id, downloading video directly...');
+      await handleVideoDownload();
+      return;
+    }
+    
+    // Priority 2: If video allows download and has bunny URLs, try to download
+    if (video && video.allow_download && (video.bunny_embed_url || video.bunny_video_url)) {
+      console.log('✅ Video allows download and has bunny URLs, downloading video directly...');
+      await handleVideoDownload();
+      return;
+    }
+    
+    // Priority 3: Process downloadable resources if available
     if (downloadableResources.length > 0) {
       let downloadedCount = 0;
       let failedCount = 0;
@@ -932,12 +1088,14 @@ const EpisodeDetail = () => {
         if (resource.url && resource.url.startsWith('api://download-video/') && resource.video_id) {
           try {
             // Fetch download URL from API
-            const apiBaseUrl = import.meta.env.VITE_SERVER_BASE_URL;
-            const response = await fetch(`${apiBaseUrl}/videos/${resource.video_id}/download-url?quality=720`, {
+            const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000';
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+            const response = await fetch(`${apiBaseUrl}/api/videos/${resource.video_id}/download-url?quality=720`, {
               method: 'GET',
               headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
               },
             });
             
@@ -966,7 +1124,7 @@ const EpisodeDetail = () => {
                 toast.error(data.message || 'Failed to get download URL');
               }
             } else {
-              const errorData = await response.json();
+              const errorData = await response.json().catch(() => ({ message: 'Failed to get download URL' }));
               console.error('❌ Download URL request failed:', errorData);
               failedCount++;
               toast.error(errorData.message || 'Failed to get download URL');
@@ -1052,8 +1210,12 @@ const EpisodeDetail = () => {
       console.log('Video data:', video);
       console.log('allow_download:', video?.allow_download);
       console.log('downloadable_resources:', video?.downloadable_resources);
+      console.log('bunny_video_id:', video?.bunny_video_id);
       
-      if (video?.allow_download === false && !video?.downloadable_resources) {
+      // If video allows download but we couldn't download it, show specific error
+      if (video?.allow_download && !video?.bunny_video_id && !video?.bunny_embed_url && !video?.bunny_video_url) {
+        toast.error(t('video.download_not_configured', 'Download is enabled but video source is not configured. Please contact support.'));
+      } else if (video?.allow_download === false && !video?.downloadable_resources) {
         toast.info(t('video.no_downloadable_resources', 'No hay materiales descargables disponibles. Los recursos descargables deben agregarse en el panel de administración.'));
       } else {
         toast.info(t('video.no_downloadable_resources', 'No hay materiales descargables disponibles'));

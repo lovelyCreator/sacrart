@@ -1312,7 +1312,15 @@
     "featured_courses": "Cursos em Destaque",
     "handpicked_courses_subtitle": "Cursos selecionados por nossos instrutores especialistas",
     "courses": "cursos",
-    "hero_background": "Fundo do Herói"
+    "hero_background": "Fundo do Herói",
+    "device": "Dispositivo",
+    "devices": "Dispositivos",
+    "quality": "Qualidade",
+    "downloadable_content": "Conteúdo para Download",
+    "certificates_of_completion": "Certificados de Conclusão",
+    "priority_support": "Suporte Prioritário",
+    "ad_free_experience": "Experiência Sem Anúncios",
+    "episode_prefix": "Ep."
   },
   "seriesDetail": {
     "failed_load_category": "Falha ao carregar detalhes da categoria",
@@ -1691,6 +1699,96 @@
       "bloque": "Bloco",
       "talla_cuerpos": "Talla de Corpos",
       "manos_pies": "Mãos e Pés"
+    }
+  },
+  "index": {
+    "hero": {
+      "badge": "Novo",
+      "series_original": "Série Original",
+      "title": "A Arte de",
+      "subtitle": "O Divino",
+      "description": "Descubra os segredos ancestrais da arte sacra nesta nova série documental.",
+      "play": "Reproduzir",
+      "more_info": "Mais Informações",
+      "cta_subscribe": "Assinar Agora",
+      "cta_catalog": "Ver Catálogo",
+      "stat_1": "Horas de Conteúdo",
+      "stat_2": "Ultra Alta Definição",
+      "stat_3": "Artista Principal",
+      "stat_4": "Seguidores nas Redes",
+      "featured_badge": "NOVO",
+      "featured_series": "Temporada 1",
+      "featured_title": "Técnicas de Douramento",
+      "featured_description": "Descubra os segredos da folha de ouro e das técnicas de estofado usadas no século XVII."
+    },
+    "continue_watching": {
+      "title": "Continuar Assistindo",
+      "remaining": "restantes",
+      "empty": "Nenhum vídeo em progresso"
+    },
+    "trending": {
+      "title": "Em Alta Agora",
+      "no_videos": "Nenhum vídeo disponível"
+    },
+    "new_releases": {
+      "title": "Novidades desta Semana",
+      "episode": "Episódio",
+      "empty": "Nenhum episódio novo esta semana"
+    },
+    "featured_processes": {
+      "title": "Processos em Destaque",
+      "new_episode": "Novo Episódio"
+    },
+    "category": {
+      "description": "Explore esta categoria única",
+      "explore": "Explorar Categoria"
+    },
+    "wood_projects": {
+      "title": "Projetos de Escultura em Madeira",
+      "description": "Documentário exclusivo sobre técnicas de escultura em madeira.",
+      "exclusive": "EXCLUSIVO"
+    },
+    "formats": {
+      "title": "Formatos Exclusivos",
+      "reels": "Técnica Rápida",
+      "rewind": "Arquivo Histórico",
+      "challenges": "Desafios Criativos",
+      "live": "Estúdio ao Vivo"
+    },
+    "plans": {
+      "title": "Escolha Seu Plano",
+      "description": "Junte-se à maior comunidade de arte sacra do mundo",
+      "popular": "Mais Popular",
+      "free": "Grátis",
+      "per_month": "/mês",
+      "cta_free": "Cadastrar Grátis",
+      "cta_choose": "Escolher Plano",
+      "no_plans": "Nenhum plano disponível"
+    },
+    "why_sacrart": {
+      "title": "Por que SACRART?",
+      "description": "Mergulhe no conhecimento ancestral da arte sacra de qualquer dispositivo.",
+      "artist_title": "Para o Artista ou Aprendiz",
+      "artist_description": "Que busca aperfeiçoar sua técnica, aprender métodos tradicionais e modernos e encontrar inspiração em uma artista que abre as portas de seu ateliê.",
+      "art_lover_title": "Para o Apaixonado por Arte",
+      "art_lover_description": "Que gosta de ver uma imagem nascer e crescer, sem precisar praticar: apenas curiosidade e emoção pelo processo.",
+      "quality_title": "Qualidade 4K HDR",
+      "quality_description": "Não perca nenhum detalhe de cada pincelada.",
+      "multilang_title": "Multilíngue",
+      "multilang_description": "Dublado e legendado em inglês e português.",
+      "platform_title": "Multiplataforma",
+      "platform_description": "Web, tablet e móvel."
+    },
+    "about": {
+      "badge": "Artista Principal",
+      "title": "Sobre Ana Rey",
+      "text_1": "Ana Rey é uma renomada escultora espanhola especializada em imagens religiosas realistas. Com 15 anos de experiência, aperfeiçoou técnicas de escultura em madeira e policromia.",
+      "text_2": "Seu trabalho é caracterizado por detalhes extraordinários e expressão emocional que ela imprime em cada peça. Combina métodos tradicionais com ferramentas modernas para criar obras que transcendem o meramente artístico.",
+      "text_3": "Premiada com o Prêmio La Hornacina —tanto na categoria do público quanto na de especialistas—, ela agora compartilha seu conhecimento e paixão pela arte sacra através do SACRART, oferecendo uma perspectiva única do processo criativo por dentro.",
+      "ana_rey_image_alt": "Ana Rey trabalhando em uma escultura"
+    },
+    "testimonials": {
+      "title": "O que nossos usuários dizem"
     }
   }
 }

@@ -1337,7 +1337,15 @@
     "featured_courses": "Featured Courses",
     "handpicked_courses_subtitle": "Handpicked courses from our expert instructors",
     "courses": "courses",
-    "hero_background": "Hero Background"
+    "hero_background": "Hero Background",
+    "device": "Device",
+    "devices": "Devices",
+    "quality": "Quality",
+    "downloadable_content": "Downloadable Content",
+    "certificates_of_completion": "Certificates of Completion",
+    "priority_support": "Priority Support",
+    "ad_free_experience": "Ad-Free Experience",
+    "episode_prefix": "Ep."
   },
   "seriesDetail": {
     "failed_load_category": "Failed to load category details",
@@ -1709,6 +1717,96 @@
       "bloque": "Block",
       "talla_cuerpos": "Body Carving",
       "manos_pies": "Hands and Feet"
+    }
+  },
+  "index": {
+    "hero": {
+      "badge": "New",
+      "series_original": "Original Series",
+      "title": "The Art of",
+      "subtitle": "The Divine",
+      "description": "Discover the ancestral secrets of sacred art in this new documentary series.",
+      "play": "Play",
+      "more_info": "More Info",
+      "cta_subscribe": "Subscribe Now",
+      "cta_catalog": "View Catalog",
+      "stat_1": "Hours of Content",
+      "stat_2": "Ultra High Definition",
+      "stat_3": "Main Artist",
+      "stat_4": "Social Media Followers",
+      "featured_badge": "NEW",
+      "featured_series": "Season 1",
+      "featured_title": "Gilding Techniques",
+      "featured_description": "Discover the secrets of gold leaf and estofado techniques used in the 17th century."
+    },
+    "continue_watching": {
+      "title": "Continue Watching",
+      "remaining": "remaining",
+      "empty": "No videos in progress"
+    },
+    "trending": {
+      "title": "Trending Now",
+      "no_videos": "No videos available"
+    },
+    "new_releases": {
+      "title": "New This Week",
+      "episode": "Episode",
+      "empty": "No new episodes this week"
+    },
+    "featured_processes": {
+      "title": "Featured Processes",
+      "new_episode": "New Episode"
+    },
+    "category": {
+      "description": "Explore this unique category",
+      "explore": "Explore Category"
+    },
+    "wood_projects": {
+      "title": "Wood Carving Projects",
+      "description": "Exclusive documentary on wood carving techniques.",
+      "exclusive": "EXCLUSIVE"
+    },
+    "formats": {
+      "title": "Exclusive Formats",
+      "reels": "Quick Technique",
+      "rewind": "Historical Archive",
+      "challenges": "Creative Challenges",
+      "live": "Live Studio"
+    },
+    "plans": {
+      "title": "Choose Your Plan",
+      "description": "Join the world's largest sacred art community",
+      "popular": "Most Popular",
+      "free": "Free",
+      "per_month": "/month",
+      "cta_free": "Sign Up Free",
+      "cta_choose": "Choose Plan",
+      "no_plans": "No plans available"
+    },
+    "why_sacrart": {
+      "title": "Why SACRART?",
+      "description": "Immerse yourself in the ancestral knowledge of sacred art from any device.",
+      "artist_title": "For the Artist or Apprentice",
+      "artist_description": "Who seeks to perfect their technique, learn traditional and modern methods and find inspiration in an artist who opens the doors of her workshop.",
+      "art_lover_title": "For the Art Enthusiast",
+      "art_lover_description": "Who enjoys watching an image being born and grow, without needing to practice: just curiosity and emotion for the process.",
+      "quality_title": "4K HDR Quality",
+      "quality_description": "Don't miss a single brushstroke detail.",
+      "multilang_title": "Multilingual",
+      "multilang_description": "Dubbed and subtitled in English and Portuguese.",
+      "platform_title": "Multiplatform",
+      "platform_description": "Web, tablet and mobile."
+    },
+    "about": {
+      "badge": "Main Artist",
+      "title": "About Ana Rey",
+      "text_1": "Ana Rey is a renowned Spanish sculptor specialized in realistic religious imagery. With 15 years of experience, she has perfected wood carving and polychrome techniques.",
+      "text_2": "Her work is characterized by extraordinary detail and emotional expression that she imparts to each piece. She combines traditional methods with modern tools to create works that transcend the merely artistic.",
+      "text_3": "Awarded the La Hornacina Prize—both in the public and expert categories—she now shares her knowledge and passion for sacred art through SACRART, offering a unique perspective of the creative process from within.",
+      "ana_rey_image_alt": "Ana Rey working on a sculpture"
+    },
+    "testimonials": {
+      "title": "What Our Users Say"
     }
   }
 }

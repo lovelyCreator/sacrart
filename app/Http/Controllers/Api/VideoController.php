@@ -1126,11 +1126,27 @@ class VideoController extends Controller
         $downloadUrl = $this->bunnyNetService->getDownloadUrl($video->bunny_video_id, $quality);
 
         if (!$downloadUrl) {
+            \Log::error('Failed to generate download URL', [
+                'video_id' => $video->id,
+                'bunny_video_id' => $video->bunny_video_id,
+                'quality' => $quality,
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Could not generate download URL. Please ensure MP4 Fallback is enabled in Bunny.net settings.',
+                'message' => 'Could not generate download URL. Please ensure BUNNY_LIBRARY_ID and BUNNY_CDN_URL are configured in .env file (2024 format: pull zone URL without library_id in path), and MP4 Fallback is enabled in Bunny.net settings. Check Laravel logs for detailed API response.',
             ], 400);
         }
+
+        \Log::info('Download URL generated successfully', [
+            'video_id' => $video->id,
+            'bunny_video_id' => $video->bunny_video_id,
+            'quality' => $quality,
+            'download_url' => $downloadUrl,
+            'storage_zone_configured' => !empty(config('services.bunny.storage_zone_name')),
+            'storage_access_key_configured' => !empty(config('services.bunny.storage_access_key')),
+            'cdn_url_configured' => !empty(config('services.bunny.cdn_url')),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -1139,6 +1155,127 @@ class VideoController extends Controller
             'video_id' => $video->id,
             'title' => $video->title,
         ]);
+    }
+
+    /**
+     * Proxy download - stream video through backend to bypass 403 errors
+     * This method downloads the video from Bunny.net and streams it to the user
+     */
+    public function proxyDownload(Request $request, Video $video)
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$video->isAccessibleTo($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have access to this video.',
+            ], 403);
+        }
+
+        // Check if download is allowed
+        if (!$video->allow_download) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Download is not allowed for this video.',
+            ], 403);
+        }
+
+        // Get Bunny.net video ID
+        if (!$video->bunny_video_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Video does not have a Bunny.net video ID.',
+            ], 400);
+        }
+
+        // Get quality from request (default: 720)
+        $quality = $request->input('quality', '720');
+
+        // Get download URL from Bunny.net service
+        $downloadUrl = $this->bunnyNetService->getDownloadUrl($video->bunny_video_id, $quality);
+
+        if (!$downloadUrl) {
+            \Log::error('Failed to generate download URL for proxy download', [
+                'video_id' => $video->id,
+                'bunny_video_id' => $video->bunny_video_id,
+                'quality' => $quality,
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not generate download URL.',
+            ], 400);
+        }
+
+        try {
+            \Log::info('Starting proxy download', [
+                'video_id' => $video->id,
+                'bunny_video_id' => $video->bunny_video_id,
+                'download_url' => $downloadUrl,
+            ]);
+
+            // Get video filename
+            $videoTitle = $video->title ?: 'video';
+            $filename = preg_replace('/[^a-z0-9]/i', '_', $videoTitle) . '.mp4';
+
+            // Use Guzzle HTTP client for streaming
+            $client = new \GuzzleHttp\Client([
+                'timeout' => 3600, // 1 hour timeout
+                'stream' => true, // Enable streaming
+            ]);
+
+            try {
+                $response = $client->get($downloadUrl, [
+                    'headers' => [
+                        'User-Agent' => 'Mozilla/5.0 (compatible; Laravel/10.0)',
+                    ],
+                ]);
+
+                // Get content length from response
+                $contentLength = $response->getHeader('Content-Length')[0] ?? null;
+                $contentType = $response->getHeader('Content-Type')[0] ?? 'video/mp4';
+
+                // Stream the video to the user
+                return response()->streamDownload(function () use ($response) {
+                    $body = $response->getBody();
+                    while (!$body->eof()) {
+                        echo $body->read(8192); // Read 8KB chunks
+                        flush();
+                        if (ob_get_level() > 0) {
+                            ob_flush();
+                        }
+                    }
+                }, $filename, [
+                    'Content-Type' => $contentType,
+                    'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                ] + ($contentLength ? ['Content-Length' => $contentLength] : []));
+
+            } catch (\GuzzleHttp\Exception\RequestException $e) {
+                \Log::error('Failed to fetch video from Bunny.net', [
+                    'status' => $e->getResponse() ? $e->getResponse()->getStatusCode() : 'N/A',
+                    'error' => $e->getMessage(),
+                    'url' => $downloadUrl,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to download video from Bunny.net. Please check Bunny.net security settings.',
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Proxy download error', [
+                'video_id' => $video->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error downloading video: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

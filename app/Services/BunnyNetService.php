@@ -12,6 +12,8 @@ class BunnyNetService
     protected $libraryId;
     protected $cdnUrl;
     protected $streamUrl;
+    protected $storageZoneName;
+    protected $storageAccessKey;
 
     public function __construct()
     {
@@ -19,6 +21,8 @@ class BunnyNetService
         $this->libraryId = config('services.bunny.library_id');
         $this->cdnUrl = config('services.bunny.cdn_url');
         $this->streamUrl = config('services.bunny.stream_url');
+        $this->storageZoneName = config('services.bunny.storage_zone_name');
+        $this->storageAccessKey = config('services.bunny.storage_access_key');
     }
 
     /**
@@ -220,9 +224,19 @@ class BunnyNetService
 
             $data = $response->json();
             
+            // Log all available fields for debugging (especially for 2024 API format)
             Log::info('Bunny.net video fetched successfully', [
                 'video_id' => $videoId,
                 'duration' => $data['length'] ?? $data['duration'] ?? null,
+                'available_fields' => array_keys($data),
+                'pull_zone_fields' => [
+                    'pullZoneUrl' => $data['pullZoneUrl'] ?? 'NOT_FOUND',
+                    'pull_zone_url' => $data['pull_zone_url'] ?? 'NOT_FOUND',
+                    'cdnHostname' => $data['cdnHostname'] ?? 'NOT_FOUND',
+                    'cdn_hostname' => $data['cdn_hostname'] ?? 'NOT_FOUND',
+                    'videoLibraryId' => $data['videoLibraryId'] ?? 'NOT_FOUND',
+                    'guid' => $data['guid'] ?? 'NOT_FOUND',
+                ],
             ]);
             
             // Extract captions/transcriptions if available
@@ -433,21 +447,342 @@ class BunnyNetService
     }
 
     /**
-     * Get the direct MP4 download URL for a video
-     * Requires MP4 Fallback to be enabled in Bunny.net settings
+     * Get available resolutions for a video from Bunny.net Storage
      * 
-     * @param string $videoId Bunny.net video ID
-     * @param string $quality Quality (720, 1080, etc.) - defaults to 720
+     * @param string $videoId Bunny.net video ID (GUID)
+     * @return array List of available resolutions (e.g., ['240', '360', '480', '720', '1080']) or ['original'] if only original exists
+     */
+    public function getAvailableResolutions(string $videoId): array
+    {
+        // Check if required configuration is available
+        if (empty($this->storageZoneName) && empty($this->cdnUrl)) {
+            Log::warning('Cannot check available resolutions: storage zone name not configured');
+            return ['original']; // Fallback to original
+        }
+
+        // Get storage zone name
+        $storageZoneName = $this->storageZoneName;
+        
+        // Extract from CDN URL if not set
+        if (empty($storageZoneName) && !empty($this->cdnUrl)) {
+            $cdnHost = str_replace(['https://', 'http://'], '', $this->cdnUrl);
+            $cdnHost = rtrim($cdnHost, '/');
+            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                $storageZoneName = str_replace('.b-cdn.net', '', $cdnHost);
+            }
+        }
+
+        if (empty($storageZoneName) || empty($this->storageAccessKey)) {
+            Log::warning('Cannot check available resolutions: storage zone or access key not configured');
+            return ['original']; // Fallback to original
+        }
+
+        try {
+            // List files in the video directory using Storage API
+            $listUrl = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/";
+            $listUrl .= "?accessKey=" . urlencode($this->storageAccessKey);
+
+            $response = Http::timeout(10)->get($listUrl);
+
+            if (!$response->successful()) {
+                Log::warning('Failed to list storage files, falling back to original', [
+                    'status' => $response->status(),
+                    'video_id' => $videoId
+                ]);
+                return ['original'];
+            }
+
+            $files = $response->json();
+            
+            if (!is_array($files)) {
+                Log::warning('Invalid response from storage API, falling back to original');
+                return ['original'];
+            }
+
+            $availableResolutions = [];
+            $hasOriginal = false;
+
+            // Check for encoded versions and original file
+            foreach ($files as $file) {
+                $objectName = $file['ObjectName'] ?? $file['objectName'] ?? '';
+                
+                // Check for encoded versions (play_240p.mp4, play_360p.mp4, etc.)
+                if (preg_match('/play_(\d+)p\.mp4/i', $objectName, $matches)) {
+                    $resolution = $matches[1];
+                    $availableResolutions[] = $resolution;
+                }
+                
+                // Check for original file
+                if ($objectName === 'original' || $objectName === 'original.mp4') {
+                    $hasOriginal = true;
+                }
+            }
+
+            // Sort resolutions from highest to lowest
+            rsort($availableResolutions, SORT_NUMERIC);
+
+            // Always include original if it exists, or if no encoded versions found
+            if ($hasOriginal || empty($availableResolutions)) {
+                $availableResolutions[] = 'original';
+            }
+
+            Log::info('Detected available resolutions', [
+                'video_id' => $videoId,
+                'resolutions' => $availableResolutions
+            ]);
+
+            return $availableResolutions;
+
+        } catch (\Exception $e) {
+            Log::warning('Error checking available resolutions, falling back to original', [
+                'video_id' => $videoId,
+                'error' => $e->getMessage()
+            ]);
+            return ['original'];
+        }
+    }
+
+    /**
+     * Get the best available resolution for download
+     * 
+     * @param string $videoId Bunny.net video ID (GUID)
+     * @param string $preferredQuality Preferred quality (720, 1080, etc.) - defaults to 720
+     * @return string Best available resolution or 'original' as fallback
+     */
+    public function getBestAvailableResolution(string $videoId, string $preferredQuality = '720'): string
+    {
+        $availableResolutions = $this->getAvailableResolutions($videoId);
+
+        if (empty($availableResolutions)) {
+            return 'original';
+        }
+
+        // If preferred quality is available, use it
+        if (in_array($preferredQuality, $availableResolutions)) {
+            return $preferredQuality;
+        }
+
+        // If preferred is 'original' and it's available, use it
+        if ($preferredQuality === 'original' && in_array('original', $availableResolutions)) {
+            return 'original';
+        }
+
+        // Find the closest available resolution to preferred
+        $preferredNum = is_numeric($preferredQuality) ? (int)$preferredQuality : 0;
+        $bestResolution = 'original';
+        $bestDiff = PHP_INT_MAX;
+
+        foreach ($availableResolutions as $resolution) {
+            if ($resolution === 'original') {
+                continue; // Skip original for now, we'll use it as last resort
+            }
+
+            $resolutionNum = (int)$resolution;
+            $diff = abs($resolutionNum - $preferredNum);
+
+            // Prefer resolutions equal to or higher than preferred
+            if ($resolutionNum >= $preferredNum && $diff < $bestDiff) {
+                $bestResolution = $resolution;
+                $bestDiff = $diff;
+            }
+        }
+
+        // If no resolution found that's >= preferred, use the highest available
+        if ($bestResolution === 'original' && count($availableResolutions) > 0) {
+            // Get highest numeric resolution
+            $numericResolutions = array_filter($availableResolutions, function($r) {
+                return $r !== 'original' && is_numeric($r);
+            });
+            
+            if (!empty($numericResolutions)) {
+                $bestResolution = max($numericResolutions);
+            } else {
+                $bestResolution = 'original';
+            }
+        }
+
+        Log::info('Selected best available resolution', [
+            'video_id' => $videoId,
+            'preferred' => $preferredQuality,
+            'available' => $availableResolutions,
+            'selected' => $bestResolution
+        ]);
+
+        return $bestResolution;
+    }
+
+    /**
+     * Get the direct MP4 download URL for a video using Bunny.net Storage API
+     * 
+     * Automatically detects available resolutions and selects the best one based on preferred quality
+     * Format: https://storage.bunnycdn.com/{storage_zone_name}/{video_id}/{file_path}?accessKey={access_key}&download
+     * 
+     * @param string $videoId Bunny.net video ID (GUID)
+     * @param string $quality Preferred quality (720, 1080, etc.) - defaults to 720. Will use best available if preferred not found.
+     * @param int $expirationMinutes Token expiration time in minutes (default: 60) - not used for Storage API
      * @return string|null
      */
-    public function getDownloadUrl(string $videoId, string $quality = '720'): ?string
+    public function getDownloadUrl(string $videoId, string $quality = '720', int $expirationMinutes = 60): ?string
     {
-        if (empty($this->cdnUrl)) {
+        // Check if required configuration is available
+        if (empty($this->libraryId)) {
+            Log::error('Bunny.net Library ID is not configured for download URL');
+            return null;
+        }
+
+        // Get storage zone name
+        $storageZoneName = $this->storageZoneName;
+        
+        // If storage zone name is not explicitly set, try to extract it from CDN URL
+        if (empty($storageZoneName) && !empty($this->cdnUrl)) {
+            // CDN URL format: vz-0cc8af54-835.b-cdn.net
+            // Storage zone name: vz-0cc8af54-835
+            $cdnHost = str_replace(['https://', 'http://'], '', $this->cdnUrl);
+            $cdnHost = rtrim($cdnHost, '/');
+            
+            // Extract storage zone name (everything before .b-cdn.net)
+            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                $storageZoneName = str_replace('.b-cdn.net', '', $cdnHost);
+                Log::info('Extracted storage zone name from CDN URL', [
+                    'cdn_url' => $this->cdnUrl,
+                    'extracted_storage_zone' => $storageZoneName
+                ]);
+            }
+        }
+        
+        // If still no storage zone name, try to get it from API
+        if (empty($storageZoneName)) {
+            try {
+                $videoData = $this->getVideo($videoId);
+                if ($videoData['success'] && isset($videoData['data'])) {
+                    $videoInfo = $videoData['data'];
+                    
+                    // Check for storage zone name in API response
+                    $storageZoneName = $videoInfo['storageZoneName'] 
+                        ?? $videoInfo['storage_zone_name']
+                        ?? $videoInfo['cdnHostname'] 
+                        ?? $videoInfo['cdn_hostname']
+                        ?? null;
+                    
+                    if ($storageZoneName) {
+                        // Remove .b-cdn.net if present
+                        $storageZoneName = str_replace('.b-cdn.net', '', $storageZoneName);
+                        // Remove protocol if present
+                        $storageZoneName = str_replace(['https://', 'http://'], '', $storageZoneName);
+                        Log::info('Got storage zone name from API', ['storage_zone' => $storageZoneName]);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch video data from API', [
+                    'error' => $e->getMessage(),
+                    'video_id' => $videoId
+                ]);
+            }
+        }
+        
+        // Check if we have storage zone name
+        if (empty($storageZoneName)) {
+            Log::error('Bunny.net Storage Zone Name is not configured', [
+                'video_id' => $videoId,
+                'cdn_url' => $this->cdnUrl,
+                'storage_zone_name' => $this->storageZoneName,
+                'note' => 'Please set BUNNY_STORAGE_ZONE_NAME in .env or ensure BUNNY_CDN_URL is set correctly (e.g., vz-0cc8af54-835.b-cdn.net)'
+            ]);
             return null;
         }
         
-        // Format: https://{cdn_url}/{video_id}/play_{quality}p.mp4
-        return "https://{$this->cdnUrl}/{$videoId}/play_{$quality}p.mp4";
+        // Check if we have storage access key
+        if (empty($this->storageAccessKey)) {
+            Log::error('Bunny.net Storage Access Key is not configured', [
+                'video_id' => $videoId,
+                'note' => 'Please set BUNNY_STORAGE_ACCESS_KEY in .env. You can find this in Bunny.net Dashboard → Storage → Your Storage Zone → FTP & HTTP API → Access Key'
+            ]);
+            return null;
+        }
+        
+        // Detect best available resolution
+        $bestResolution = $this->getBestAvailableResolution($videoId, $quality);
+        
+        // Build file path based on selected resolution
+        if ($bestResolution === 'original') {
+            $filePath = 'original.mp4';
+        } else {
+            $filePath = "play_{$bestResolution}p.mp4";
+        }
+        
+        // Build Storage API download URL
+        // Format: https://storage.bunnycdn.com/{storage_zone_name}/{video_id}/{file_path}?accessKey={access_key}&download
+        $downloadUrl = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/{$filePath}";
+        $downloadUrl .= "?accessKey=" . urlencode($this->storageAccessKey);
+        $downloadUrl .= "&download";
+        
+        Log::info('Generated Storage API download URL', [
+            'storage_zone_name' => $storageZoneName,
+            'video_id' => $videoId,
+            'preferred_quality' => $quality,
+            'selected_resolution' => $bestResolution,
+            'file_path' => $filePath,
+            'download_url' => $downloadUrl,
+            'has_access_key' => !empty($this->storageAccessKey),
+            'access_key_length' => strlen($this->storageAccessKey),
+            'access_key_preview' => substr($this->storageAccessKey, 0, 8) . '...' . substr($this->storageAccessKey, -8),
+            'note' => 'Automatically selected best available resolution. If download fails, verify: 1) Key is HTTP API Access Key (not FTP Password), 2) Storage zone name is correct, 3) File exists in storage'
+        ]);
+        
+        return $downloadUrl;
+    }
+
+    /**
+     * Generate a token for Bunny.net CDN token authentication
+     * 
+     * @param string $url The URL to protect
+     * @param int $expiration Unix timestamp when token expires
+     * @param string $tokenKey The token authentication key from Bunny.net
+     * @return string
+     */
+    protected function generateToken(string $url, int $expiration, string $tokenKey): string
+    {
+        // Extract path from URL (Bunny.net token auth uses path only, no query string)
+        $parsedUrl = parse_url($url);
+        $path = $parsedUrl['path'] ?? '';
+        
+        // Bunny.net Stream token format: expiration_timestamp + path
+        // Then HMAC SHA256 with token key
+        $tokenString = $expiration . $path;
+        
+        Log::info('Generating Bunny.net token', [
+            'url' => $url,
+            'path' => $path,
+            'expiration' => $expiration,
+            'expiration_date' => date('Y-m-d H:i:s', $expiration),
+            'token_string' => $tokenString,
+            'token_key_length' => strlen($tokenKey),
+            'token_key_preview' => substr($tokenKey, 0, 10) . '...' . substr($tokenKey, -10)
+        ]);
+        
+        // Generate HMAC SHA256 hash
+        $hash = hash_hmac('sha256', $tokenString, $tokenKey, true);
+        
+        if ($hash === false) {
+            Log::error('HMAC hash generation failed');
+            throw new \Exception('Failed to generate HMAC hash for token');
+        }
+        
+        // Base64 encode and make URL-safe
+        $token = base64_encode($hash);
+        $token = str_replace(['+', '/', '='], ['-', '_', ''], $token);
+        
+        // Bunny.net format: expiration_timestamp_token
+        $finalToken = $expiration . '_' . $token;
+        
+        Log::info('Token generated successfully', [
+            'token_length' => strlen($finalToken),
+            'token_preview' => substr($finalToken, 0, 30) . '...',
+            'expiration' => $expiration,
+            'expiration_date' => date('Y-m-d H:i:s', $expiration)
+        ]);
+        
+        return $finalToken;
     }
 
     /**
@@ -685,4 +1020,5 @@ class BunnyNetService
         }
     }
 }
+
 
