@@ -43,6 +43,7 @@ const EpisodeDetail = () => {
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const lastSavedProgress = useRef<number>(0); // Track last saved progress to avoid duplicate saves
   const progressSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const hasSeekedToSavedPosition = useRef<boolean>(false); // Track if we've already seeked to saved position
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const bunnyPlayerRef = useRef<any>(null);
@@ -64,7 +65,7 @@ const EpisodeDetail = () => {
     script.src = 'https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js';
     script.async = true;
     script.onload = () => {
-      console.log('✅ Player.js library loaded');
+      // console.log('✅ Player.js library loaded');
     };
     script.onerror = () => {
       console.error('❌ Failed to load Player.js library');
@@ -96,7 +97,7 @@ const EpisodeDetail = () => {
         is_completed: progressPercentage >= 90,
       });
       lastSavedProgress.current = Math.floor(timeWatched);
-      console.log('✅ Progress saved:', Math.floor(progressPercentage) + '%');
+      // console.log('✅ Progress saved:', Math.floor(progressPercentage) + '%');
     } catch (error) {
       console.error('❌ Error saving progress:', error);
     }
@@ -151,6 +152,75 @@ const EpisodeDetail = () => {
     };
   }, [user, video, currentTime, saveProgressToDatabase]);
 
+  // Function to attempt seek and play
+  const attemptSeekAndPlay = useCallback((player: any) => {
+    if (!player || hasSeekedToSavedPosition.current) return;
+    
+    const savedTime = userProgress?.time_watched || userProgress?.last_position || 0;
+    const videoDuration = video?.duration || 0;
+    const progressPercent = userProgress?.progress_percentage || 0;
+    
+    console.log('🔍 Attempting seek and play:', {
+      savedTime,
+      videoDuration,
+      progressPercent,
+      hasSeeked: hasSeekedToSavedPosition.current,
+      userProgress: !!userProgress
+    });
+    
+    // If there's saved progress and video isn't completed, seek first then play
+    if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+      console.log(`⏩ Seeking to saved position before autoplay: ${savedTime} seconds`);
+      hasSeekedToSavedPosition.current = true;
+      
+            // Seek to saved position first using setCurrentTime
+            try {
+              player.setCurrentTime(savedTime);
+              setCurrentTime(savedTime);
+              console.log(`✅ Successfully seeked to ${savedTime} seconds, starting playback`);
+              
+              // Small delay to ensure seek completes before playing
+              setTimeout(() => {
+                try {
+                  player.play();
+                  setIsPlaying(true);
+                  setVideoStarted(true);
+                  setShowVideoPlayer(true);
+                  console.log('▶️ Video autoplay started from saved position');
+                } catch (error) {
+                  console.error('Error autoplaying video:', error);
+                  setIsPlaying(false);
+                }
+              }, 100);
+            } catch (error) {
+              console.error('Error seeking to saved position:', error);
+              // Fallback: just play from start
+              try {
+                player.play();
+                setIsPlaying(true);
+                setVideoStarted(true);
+                setShowVideoPlayer(true);
+              } catch (playError) {
+                console.error('Error autoplaying video:', playError);
+                setIsPlaying(false);
+              }
+            }
+    } else {
+      // No saved progress or already completed, just play from start
+      hasSeekedToSavedPosition.current = true;
+      try {
+        player.play();
+        setIsPlaying(true);
+        setVideoStarted(true);
+        setShowVideoPlayer(true);
+        console.log('▶️ Video autoplay started from beginning');
+      } catch (error) {
+        console.error('Error autoplaying video:', error);
+        setIsPlaying(false);
+      }
+    }
+  }, [userProgress, video]);
+
   // Initialize Bunny.net player when iframe loads (always show iframe if has access)
   useEffect(() => {
     if (!video) return;
@@ -178,24 +248,38 @@ const EpisodeDetail = () => {
         bunnyPlayerRef.current = player;
 
         player.on('ready', () => {
-          console.log('✅ Bunny.net player ready');
+          // console.log('✅ Bunny.net player ready');
+          console.log('📊 UserProgress available:', !!userProgress, userProgress);
           
-          // Auto-play video when page loads
-          try {
-            player.play();
-            setIsPlaying(true);
-            setVideoStarted(true);
-            setShowVideoPlayer(true);
-            console.log('▶️ Video autoplay started');
-          } catch (error) {
-            console.error('Error autoplaying video:', error);
-            setIsPlaying(false);
-          }
+          // Store player reference - the useEffect will handle seeking and playing when userProgress loads
+          bunnyPlayerRef.current = player;
+          // console.log('✅ Player stored in ref, waiting for userProgress to load...');
+          
+          // Set up a timeout as fallback - if userProgress doesn't load within 3 seconds, play from start
+          const timeoutId = setTimeout(() => {
+            if (!hasSeekedToSavedPosition.current) {
+              console.log('⏰ Timeout waiting for userProgress, playing from start');
+              hasSeekedToSavedPosition.current = true;
+              try {
+                player.play();
+                setIsPlaying(true);
+                setVideoStarted(true);
+                setShowVideoPlayer(true);
+                console.log('▶️ Video autoplay started from beginning (timeout)');
+              } catch (error) {
+                console.error('Error autoplaying video:', error);
+                setIsPlaying(false);
+              }
+            }
+          }, 3000);
+          
+          // Store timeout ID for cleanup
+          (player as any)._seekTimeout = timeoutId;
           
           // Duration is already saved in database from backend, no need to fetch here
           // Just get current time for progress tracking
           player.getCurrentTime((time: number) => {
-            console.log('⏱️ Current playback time:', time, 'seconds');
+            // console.log('⏱️ Current playback time:', time, 'seconds');
             setCurrentTime(time);
           });
         });
@@ -229,7 +313,7 @@ const EpisodeDetail = () => {
         });
 
         player.on('play', () => {
-          console.log('▶️ Video playing - updating button state to PAUSE');
+          // console.log('▶️ Video playing - updating button state to PAUSE');
           setIsPlaying(true);
           // Also update videoStarted if not already set
           if (!videoStarted) {
@@ -239,7 +323,7 @@ const EpisodeDetail = () => {
         });
 
         player.on('pause', () => {
-          console.log('⏸️ Video paused - updating button state to PLAY/CONTINUE');
+          // console.log('⏸️ Video paused - updating button state to PLAY/CONTINUE');
           setIsPlaying(false);
           
           // Save progress immediately when Bunny.net video is paused
@@ -249,7 +333,7 @@ const EpisodeDetail = () => {
         });
 
         player.on('ended', () => {
-          console.log('⏹️ Video ended - showing first frame image');
+          // console.log('⏹️ Video ended - showing first frame image');
           setIsPlaying(false);
           setVideoEnded(true);
           setShowVideoPlayer(false); // Hide video player, show thumbnail
@@ -257,7 +341,7 @@ const EpisodeDetail = () => {
 
         // Handle playback errors (HLS errors, network issues, etc.)
         player.on('error', (error: any) => {
-          console.warn('⚠️ Bunny.net player error (non-fatal):', error);
+          // console.warn('⚠️ Bunny.net player error (non-fatal):', error);
           // Most HLS errors are non-fatal and the player will retry automatically
           // Only show error message for fatal errors
           if (error && error.fatal === true) {
@@ -268,7 +352,7 @@ const EpisodeDetail = () => {
 
         // Listen for iframe errors (network, CORS, etc.)
         iframe.addEventListener('error', (e) => {
-          console.warn('⚠️ Bunny.net iframe error:', e);
+          // console.warn('⚠️ Bunny.net iframe error:', e);
           setPlaybackError(t('video.load_error', 'Error al cargar el video. Por favor, verifique su conexión.'));
         });
       } catch (error) {
@@ -284,7 +368,138 @@ const EpisodeDetail = () => {
       clearTimeout(timer);
       bunnyPlayerRef.current = null;
     };
-  }, [video?.id, video?.bunny_embed_url, video?.bunny_player_url, video?.visibility, user, saveProgressToDatabase]);
+  }, [video?.id, video?.bunny_embed_url, video?.bunny_player_url, video?.visibility, video?.duration, user, saveProgressToDatabase]);
+
+  // When userProgress loads and player is ready, seek and play
+  useEffect(() => {
+    if (!bunnyPlayerRef.current || hasSeekedToSavedPosition.current || !userProgress || !video) return;
+    
+    const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+    const videoDuration = video.duration || 0;
+    const progressPercent = userProgress.progress_percentage || 0;
+    
+    console.log('📊 UserProgress loaded, attempting seek and play:', {
+      savedTime,
+      videoDuration,
+      progressPercent,
+      hasSeeked: hasSeekedToSavedPosition.current
+    });
+    
+    // If there's saved progress and video isn't completed, seek first then play
+    if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+      console.log(`⏩ Seeking to saved position before autoplay: ${savedTime} seconds`);
+      hasSeekedToSavedPosition.current = true;
+      
+      // Clear any timeout that might be waiting
+      if ((bunnyPlayerRef.current as any)._seekTimeout) {
+        clearTimeout((bunnyPlayerRef.current as any)._seekTimeout);
+      }
+      
+      // Seek to saved position first using setCurrentTime
+      try {
+        bunnyPlayerRef.current.setCurrentTime(savedTime);
+        setCurrentTime(savedTime);
+        console.log(`✅ Successfully seeked to ${savedTime} seconds, starting playback`);
+        
+        // Small delay to ensure seek completes before playing
+        setTimeout(() => {
+          try {
+            bunnyPlayerRef.current.play();
+            setIsPlaying(true);
+            setVideoStarted(true);
+            setShowVideoPlayer(true);
+            console.log('▶️ Video autoplay started from saved position');
+          } catch (error) {
+            console.error('Error autoplaying video:', error);
+            setIsPlaying(false);
+          }
+        }, 100);
+      } catch (error) {
+        console.error('Error seeking to saved position:', error);
+        // Fallback: just play from start
+        try {
+          bunnyPlayerRef.current.play();
+          setIsPlaying(true);
+          setVideoStarted(true);
+          setShowVideoPlayer(true);
+        } catch (playError) {
+          console.error('Error autoplaying video:', playError);
+          setIsPlaying(false);
+        }
+      }
+    } else {
+      // No saved progress or already completed, just play from start
+      if (!hasSeekedToSavedPosition.current) {
+        hasSeekedToSavedPosition.current = true;
+        
+        // Clear any timeout
+        if ((bunnyPlayerRef.current as any)._seekTimeout) {
+          clearTimeout((bunnyPlayerRef.current as any)._seekTimeout);
+        }
+        
+        try {
+          bunnyPlayerRef.current.play();
+          setIsPlaying(true);
+          setVideoStarted(true);
+          setShowVideoPlayer(true);
+          console.log('▶️ Video autoplay started from beginning (no saved progress)');
+        } catch (error) {
+          console.error('Error autoplaying video:', error);
+          setIsPlaying(false);
+        }
+      }
+    }
+  }, [userProgress, video]);
+
+  // Seek to saved position when userProgress is loaded and player is ready
+  useEffect(() => {
+    if (!userProgress || !bunnyPlayerRef.current || !video || hasSeekedToSavedPosition.current) return;
+    
+    const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+    const videoDuration = video.duration || 0;
+    const progressPercent = userProgress.progress_percentage || 0;
+    
+    // Only seek if there's a saved position, video isn't completed, and we haven't already seeked
+    // Check if currentTime is very close to 0 (within 2 seconds) to avoid seeking after video has progressed
+    if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90 && currentTime < 2) {
+      console.log(`⏩ Seeking Bunny.net player to saved position: ${savedTime} seconds`);
+      hasSeekedToSavedPosition.current = true;
+      
+      try {
+        // Pause first, seek, then resume playing
+        bunnyPlayerRef.current.getPaused((paused: boolean) => {
+          const wasPlaying = !paused;
+          
+          if (!paused) {
+            bunnyPlayerRef.current.pause();
+          }
+          
+          try {
+            bunnyPlayerRef.current.setCurrentTime(savedTime);
+            setCurrentTime(savedTime);
+            console.log(`✅ Successfully seeked to ${savedTime} seconds`);
+            
+            // Small delay to ensure seek completes
+            setTimeout(() => {
+              // Resume playing if it was playing before
+              if (wasPlaying) {
+                bunnyPlayerRef.current.play();
+              }
+            }, 100);
+          } catch (error) {
+            console.error('Error seeking to saved position:', error);
+            // If seek fails, just resume playing
+            if (wasPlaying) {
+              bunnyPlayerRef.current.play();
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error seeking to saved position:', error);
+        hasSeekedToSavedPosition.current = false; // Reset on error so we can retry
+      }
+    }
+  }, [userProgress, video, currentTime]);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -474,6 +689,8 @@ const EpisodeDetail = () => {
 
     if (id) {
       fetchVideoData();
+      // Reset seek flag when video changes
+      hasSeekedToSavedPosition.current = false;
     }
   }, [id, user]);
 
@@ -995,13 +1212,13 @@ const EpisodeDetail = () => {
   const videoUrl = video.bunny_embed_url || video.bunny_video_url || video.video_url_full || video.video_url;
   
   // Debug logging for video player
-  console.log('=== EpisodeDetail: Video Player State ===');
-  console.log('Has Access:', hasAccess);
-  console.log('Show Video Player:', showVideoPlayer);
-  console.log('Video URL (final):', videoUrl);
-  console.log('Bunny Embed URL:', video.bunny_embed_url);
-  console.log('Bunny Player URL:', video.bunny_player_url);
-  console.log('Thumbnail URL:', thumbnailUrl);
+  // console.log('=== EpisodeDetail: Video Player State ===');
+  // console.log('Has Access:', hasAccess);
+  // console.log('Show Video Player:', showVideoPlayer);
+  // console.log('Video URL (final):', videoUrl);
+  // console.log('Bunny Embed URL:', video.bunny_embed_url);
+  // console.log('Bunny Player URL:', video.bunny_player_url);
+  // console.log('Thumbnail URL:', thumbnailUrl);
 
   return (
     <main className="w-full min-h-screen pb-20 bg-background-dark font-display text-text-light">
@@ -1037,7 +1254,7 @@ const EpisodeDetail = () => {
                     id={`bunny-iframe-${video.id}`}
                     src={(() => {
                       const embedUrl = video.bunny_embed_url || video.bunny_player_url || '';
-                      console.log('Original embed URL:', embedUrl);
+                      // console.log('Original embed URL:', embedUrl);
                       
                       // Convert /play/ URLs to /embed/ URLs
                       let finalUrl = embedUrl;
@@ -1049,7 +1266,7 @@ const EpisodeDetail = () => {
                           const videoId = playMatch[2];
                           // Convert to /embed/ URL
                           finalUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
-                          console.log('Converted /play/ to /embed/ URL:', finalUrl);
+                          // console.log('Converted /play/ to /embed/ URL:', finalUrl);
                         }
                       }
                       
@@ -1057,7 +1274,7 @@ const EpisodeDetail = () => {
                       const separator = finalUrl.includes('?') ? '&' : '?';
                       finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true`;
                       
-                      console.log('Final iframe URL (with autoplay):', finalUrl);
+                      // console.log('Final iframe URL (with autoplay):', finalUrl);
                       return finalUrl;
                     })()}
                     className="border-0 absolute top-0 left-0"
@@ -1069,7 +1286,7 @@ const EpisodeDetail = () => {
                     allowFullScreen
                     title={video.title}
                     onLoad={() => {
-                      console.log('✅ Bunny.net iframe loaded successfully');
+                      // console.log('✅ Bunny.net iframe loaded successfully');
                     }}
                     onError={(e) => {
                       console.error('❌ Bunny.net iframe failed to load:', e);
@@ -1113,8 +1330,55 @@ const EpisodeDetail = () => {
                     console.error('Video URL:', videoUrl);
                   }}
                   onLoadedData={() => {
-                    console.log('✅ Video data loaded');
-                    // Duration is already saved in database from backend, no need to set it here
+                    // console.log('✅ Video data loaded');
+                    // Seek to saved position if user has progress (only once), then autoplay
+                    if (videoRef.current && !hasSeekedToSavedPosition.current) {
+                      hasSeekedToSavedPosition.current = true;
+                      
+                      if (userProgress) {
+                        const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+                        const videoDuration = videoRef.current.duration || video.duration || 0;
+                        const progressPercent = userProgress.progress_percentage || 0;
+                        
+                        // Only seek if there's a saved position and video isn't completed
+                        if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+                          console.log(`⏩ Seeking native video to saved position: ${savedTime} seconds, then autoplay`);
+                          videoRef.current.currentTime = savedTime;
+                          setCurrentTime(savedTime);
+                          
+                          // Autoplay after seeking
+                          setTimeout(() => {
+                            if (videoRef.current) {
+                              videoRef.current.play().then(() => {
+                                setIsPlaying(true);
+                                setVideoStarted(true);
+                                console.log('▶️ Native video autoplay started from saved position');
+                              }).catch((error) => {
+                                console.error('Error autoplaying native video:', error);
+                              });
+                            }
+                          }, 100); // Small delay to ensure seek completes
+                        } else {
+                          // No saved progress or completed, just autoplay from start
+                          videoRef.current.play().then(() => {
+                            setIsPlaying(true);
+                            setVideoStarted(true);
+                            console.log('▶️ Native video autoplay started from beginning');
+                          }).catch((error) => {
+                            console.error('Error autoplaying native video:', error);
+                          });
+                        }
+                      } else {
+                        // No user progress, just autoplay from start
+                        videoRef.current.play().then(() => {
+                          setIsPlaying(true);
+                          setVideoStarted(true);
+                          console.log('▶️ Native video autoplay started from beginning');
+                        }).catch((error) => {
+                          console.error('Error autoplaying native video:', error);
+                        });
+                      }
+                    }
                   }}
                   onTimeUpdate={(e) => {
                     const current = e.currentTarget.currentTime;
