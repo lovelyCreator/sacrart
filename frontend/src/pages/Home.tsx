@@ -88,6 +88,13 @@ const Home = () => {
   const [newReleasesLoading, setNewReleasesLoading] = useState(false);
   const [trendingVideosLast7Days, setTrendingVideosLast7Days] = useState<any[]>([]);
   const [trendingVideosLoading, setTrendingVideosLoading] = useState(false);
+  const [featuredProcessVideos, setFeaturedProcessVideos] = useState<any[]>([]);
+  const [featuredProcessVideosLoading, setFeaturedProcessVideosLoading] = useState(false);
+  const [homepageFeaturedCategory, setHomepageFeaturedCategory] = useState<Category | null>(null);
+  const [homepageFeaturedCategoryLoading, setHomepageFeaturedCategoryLoading] = useState(false);
+  const [woodCarvingVideos, setWoodCarvingVideos] = useState<any[]>([]);
+  const [woodCarvingVideosLoading, setWoodCarvingVideosLoading] = useState(false);
+  const [woodCarvingCategory, setWoodCarvingCategory] = useState<Category | null>(null);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const homepageVideosCarouselRef = useRef<HTMLDivElement>(null);
@@ -817,7 +824,15 @@ const Home = () => {
           console.log('Found featured series:', series);
           
           // Get the first episode from the series
-          const firstEpisode = series.videos && series.videos.length > 0 ? series.videos[0] : null;
+          const firstEpisode = (series as any).videos && (series as any).videos.length > 0 ? (series as any).videos[0] : null;
+          
+          console.log('First episode from API:', firstEpisode);
+          console.log('First episode image fields:', {
+            intro_image_url: firstEpisode?.intro_image_url,
+            intro_image: firstEpisode?.intro_image,
+            thumbnail_url: firstEpisode?.thumbnail_url,
+            thumbnail: firstEpisode?.thumbnail,
+          });
           
           const featuredSeriesData = {
             id: series.id,
@@ -834,12 +849,18 @@ const Home = () => {
               description: firstEpisode.description || firstEpisode.short_description || firstEpisode.intro_description || '',
               short_description: firstEpisode.short_description || firstEpisode.description || '',
               intro_description: firstEpisode.intro_description || firstEpisode.description || '',
+              // Include all image fields for hero background - preserve all possible image field names
+              intro_image_url: firstEpisode.intro_image_url || firstEpisode.intro_image || null,
+              intro_image: firstEpisode.intro_image || firstEpisode.intro_image_url || null,
+              thumbnail_url: firstEpisode.thumbnail_url || firstEpisode.thumbnail || null,
+              thumbnail: firstEpisode.thumbnail || firstEpisode.thumbnail_url || null,
             } : null,
             video_count: series.video_count || 0,
             total_duration: series.total_duration || 0,
           };
           
           console.log('Setting homepage featured series:', featuredSeriesData);
+          console.log('First episode in featuredSeriesData:', featuredSeriesData.firstEpisode);
           setHomepageFeaturedSeries(featuredSeriesData);
         } else {
           console.log('No homepage featured series found');
@@ -853,13 +874,8 @@ const Home = () => {
       }
     };
 
-    if (user) {
-      // Only fetch for authenticated users
-      fetchHomepageFeaturedSeries();
-    } else {
-      // Clear featured series if user logs out
-      setHomepageFeaturedSeries(null);
-    }
+    // Fetch for all users (homepage featured series should be visible to everyone)
+    fetchHomepageFeaturedSeries();
   }, [user, locale]);
 
   // Fetch Featured Videos (videos with most reviews/comments)
@@ -1098,18 +1114,22 @@ const Home = () => {
     }
   }, [heroSettings]);
 
-  // Fetch Trending Videos (most views in last 7 days)
+  // Fetch Trending Videos (most total reproductions in last 7 days)
   useEffect(() => {
     const fetchTrendingVideosLast7Days = async () => {
       setTrendingVideosLoading(true);
       try {
-        // Fetch trending videos from backend (most views in last 7 days)
+        // Fetch trending videos from backend (most total reproductions in last 7 days)
         const response = await videoApi.getTrendingLast7Days(10);
+
+        console.log('Trending videos response:', response);
 
         if (response.success && response.data) {
           const videos = Array.isArray(response.data) ? response.data : [];
+          console.log('Trending videos fetched:', videos.length, videos);
           setTrendingVideosLast7Days(videos);
         } else {
+          console.log('No trending videos in response:', response);
           setTrendingVideosLast7Days([]);
         }
       } catch (error) {
@@ -1120,9 +1140,135 @@ const Home = () => {
       }
     };
 
+    // Fetch for all users (not just authenticated)
+    fetchTrendingVideosLast7Days();
+  }, [user, locale]);
+
+  // Fetch Featured Process Videos (episodes only)
+  useEffect(() => {
+    const fetchFeaturedProcessVideos = async () => {
+      setFeaturedProcessVideosLoading(true);
+      try {
+        // Fetch featured process videos from backend (only episodes with is_featured_process = true)
+        const response = await videoApi.getFeaturedProcess(5);
+
+        if (response.success && response.data) {
+          const videos = Array.isArray(response.data) ? response.data : [];
+          console.log('Featured process videos fetched:', videos);
+          setFeaturedProcessVideos(videos);
+        } else {
+          console.log('No featured process videos found');
+          setFeaturedProcessVideos([]);
+        }
+      } catch (error) {
+        console.error('Error fetching featured process videos:', error);
+        setFeaturedProcessVideos([]);
+      } finally {
+        setFeaturedProcessVideosLoading(false);
+      }
+    };
+
     if (user) {
       // Only fetch for authenticated users
-      fetchTrendingVideosLast7Days();
+      fetchFeaturedProcessVideos();
+    } else {
+      // Clear featured process videos if user logs out
+      setFeaturedProcessVideos([]);
+    }
+  }, [user, locale]);
+
+  // Fetch Homepage Featured Category
+  useEffect(() => {
+    const fetchHomepageFeaturedCategory = async () => {
+      setHomepageFeaturedCategoryLoading(true);
+      try {
+        const response = await categoryApi.getHomepageFeatured();
+
+        if (response.success && response.data) {
+          console.log('Homepage featured category fetched:', response.data);
+          setHomepageFeaturedCategory(response.data);
+        } else {
+          console.log('No homepage featured category found');
+          setHomepageFeaturedCategory(null);
+        }
+      } catch (error) {
+        console.error('Error fetching homepage featured category:', error);
+        setHomepageFeaturedCategory(null);
+      } finally {
+        setHomepageFeaturedCategoryLoading(false);
+      }
+    };
+
+    if (user) {
+      // Only fetch for authenticated users
+      fetchHomepageFeaturedCategory();
+    } else {
+      // Clear featured category if user logs out
+      setHomepageFeaturedCategory(null);
+    }
+  }, [user, locale]);
+
+  // Fetch Wood Carving Category and its Videos
+  useEffect(() => {
+    const fetchWoodCarvingVideos = async () => {
+      setWoodCarvingVideosLoading(true);
+      try {
+        // First, get all categories to find "Wood Carving"
+        const categoriesResponse = await categoryApi.getPublic();
+        if (categoriesResponse.success && categoriesResponse.data) {
+          const categories = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : [];
+          // Find "Wood Carving" category (case-insensitive search with multiple variations)
+          const woodCarvingCat = categories.find((cat: Category) => {
+            const name = cat.name?.toLowerCase() || '';
+            return (name.includes('wood') && name.includes('carving')) ||
+                   (name.includes('talla') && name.includes('madera')) ||
+                   name.includes('wood carving') ||
+                   name.includes('talla en madera') ||
+                   name === 'wood carving' ||
+                   name === 'talla en madera';
+          });
+
+          if (woodCarvingCat) {
+            setWoodCarvingCategory(woodCarvingCat);
+            console.log('Found Wood Carving category:', woodCarvingCat);
+
+            // Fetch videos from this category
+            const videosResponse = await videoApi.getAll({
+              category_id: woodCarvingCat.id,
+              status: 'published',
+              per_page: 10,
+            });
+
+            if (videosResponse.success && videosResponse.data) {
+              const videosData = videosResponse.data?.data || videosResponse.data;
+              const videos = Array.isArray(videosData) ? videosData : [];
+              console.log('Wood Carving videos fetched:', videos);
+              setWoodCarvingVideos(videos);
+            } else {
+              setWoodCarvingVideos([]);
+            }
+          } else {
+            console.log('Wood Carving category not found');
+            setWoodCarvingCategory(null);
+            setWoodCarvingVideos([]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching Wood Carving videos:', error);
+        setWoodCarvingCategory(null);
+        setWoodCarvingVideos([]);
+      } finally {
+        setWoodCarvingVideosLoading(false);
+      }
+    };
+
+    if (user) {
+      // Only fetch for authenticated users
+      fetchWoodCarvingVideos();
+    } else {
+      // Clear wood carving videos if user logs out
+      setWoodCarvingCategory(null);
+      setWoodCarvingVideos([]);
     }
   }, [user, locale]);
 
@@ -2659,26 +2805,84 @@ const Home = () => {
     console.log('Using homepage featured series for hero:', heroSeries);
   }
   
-  const heroBgImage = heroSeries?.cover_image ? getImageUrl(heroSeries.cover_image) : 
-                      heroSeries?.thumbnail ? getImageUrl(heroSeries.thumbnail) :
-                      heroVideo?.intro_image_url || heroVideo?.intro_image || heroVideo?.thumbnail_url || heroVideo?.thumbnail || heroBgUrls[0] || (heroSettings.hero_background_images ? (() => {
-    try {
-      const customImages = JSON.parse(heroSettings.hero_background_images);
-      if (Array.isArray(customImages) && customImages.length > 0) {
-        return getImageUrl(customImages[0].url || '');
+  // Calculate hero background image with proper fallback chain
+  const heroBgImage = (() => {
+    // Priority 1: Series cover image or thumbnail
+    if (heroSeries?.cover_image) {
+      const url = getImageUrl(heroSeries.cover_image);
+      console.log('Using hero series cover_image:', url);
+      return url;
+    }
+    if (heroSeries?.thumbnail) {
+      const url = getImageUrl(heroSeries.thumbnail);
+      console.log('Using hero series thumbnail:', url);
+      return url;
+    }
+    
+    // Priority 2: First episode image
+    if (heroVideo) {
+      if (heroVideo.intro_image_url) {
+        const url = getImageUrl(heroVideo.intro_image_url);
+        console.log('Using hero video intro_image_url:', url);
+        return url;
       }
-    } catch (e) {}
-    return null;
-  })() : null);
+      if (heroVideo.intro_image) {
+        const url = getImageUrl(heroVideo.intro_image);
+        console.log('Using hero video intro_image:', url);
+        return url;
+      }
+      if (heroVideo.thumbnail_url) {
+        const url = getImageUrl(heroVideo.thumbnail_url);
+        console.log('Using hero video thumbnail_url:', url);
+        return url;
+      }
+      if (heroVideo.thumbnail) {
+        const url = getImageUrl(heroVideo.thumbnail);
+        console.log('Using hero video thumbnail:', url);
+        return url;
+      }
+    }
+    
+    // Priority 3: Hero background URLs from API
+    if (heroBgUrls && heroBgUrls.length > 0 && heroBgUrls[0]) {
+      console.log('Using hero background URL from API:', heroBgUrls[0]);
+      return heroBgUrls[0];
+    }
+    
+    // Priority 4: Hero settings background images
+    if (heroSettings.hero_background_images) {
+      try {
+        const customImages = JSON.parse(heroSettings.hero_background_images);
+        if (Array.isArray(customImages) && customImages.length > 0 && customImages[0].url) {
+          const url = getImageUrl(customImages[0].url);
+          console.log('Using hero settings background image:', url);
+          return url;
+        }
+      } catch (e) {
+        console.error('Error parsing hero background images:', e);
+      }
+    }
+    
+    // Priority 5: Default fallback
+    console.log('Using default hero background image');
+    return 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
+  })();
+  
+  console.log('Final heroBgImage:', heroBgImage);
 
-  // Get trending videos for "Tendencias Ahora" section (up to 10 videos from last 7 days)
-  const trendingForSection = trendingVideosLast7Days.slice(0, 10);
+  // Get trending videos for "Tendencias Ahora" section (up to 10 videos with most total reproductions in last 7 days)
+  const trendingForSection = trendingVideosLast7Days && trendingVideosLast7Days.length > 0 
+    ? trendingVideosLast7Days.slice(0, 10) 
+    : [];
 
-  // Get featured processes (using seriesByCategory or categories)
-  const featuredProcesses = Object.values(seriesByCategory).flat().slice(0, 5);
+  // Get featured processes - use videos if available, otherwise fall back to series
+  // Only show featured process videos (episodes with is_featured_process = true)
+  const featuredProcesses = featuredProcessVideos.length > 0 
+    ? featuredProcessVideos 
+    : []; // Don't fall back to series - only show featured process videos
 
-  // Get featured category for highlight section
-  const featuredCategory = categories[0] || null;
+  // Get featured category for highlight section - use homepage featured category if available
+  const featuredCategory = homepageFeaturedCategory || categories[0] || null;
 
   return (
     <div className="min-h-screen bg-background-dark font-display text-white overflow-x-hidden flex flex-col">
@@ -2688,7 +2892,7 @@ const Home = () => {
           <div 
             className="w-full h-full bg-cover bg-center bg-no-repeat" 
             style={{
-              backgroundImage: `url('${heroBgImage || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk'}')`
+              backgroundImage: `url('${heroBgImage || 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop'}')`
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/40 to-black/30" />
@@ -2793,7 +2997,7 @@ const Home = () => {
               {trendingForSection.map((video) => (
                 <div
                   key={video.id}
-                  onClick={() => handleCourseClick(video.id)}
+                  onClick={() => navigateWithLocale(`/episode/${video.id}`)}
                   className="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer"
                 >
                   <div className="relative aspect-video w-full overflow-hidden">
@@ -2826,7 +3030,7 @@ const Home = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCourseClick(video.id);
+                          navigateWithLocale(`/episode/${video.id}`);
                         }}
                         className="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors"
                       >
@@ -3133,49 +3337,82 @@ const Home = () => {
             </h2>
             <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
           </div>
-          <div className="relative group/slider">
-            <div className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar">
-              {featuredProcesses.slice(0, 5).map((item) => (
-                <div key={item.id} className="w-[160px] sm:w-[200px] md:w-[240px] flex-shrink-0 snap-start">
-                  <div
-                    onClick={() => handleCategoryClick(item.category_id || item.id)}
-                    className="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20"
-                  >
-                    <img
-                      src={getImageUrl(item.cover_image || item.thumbnail_url || '')}
-                      alt={item.name || item.title || ''}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = cover1;
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h3 className="font-bold text-base md:text-lg text-white leading-tight line-clamp-2">{item.name || item.title || ''}</h3>
-                      <p className="text-xs md:text-sm text-primary font-bold mt-1.5">
-                        {t('index.featured_processes.new_episode', 'Nuevo Episodio')}
-                      </p>
+          {featuredProcessVideosLoading ? (
+            <div className="text-center text-gray-400 py-8 text-sm sm:text-base">{t('common.loading')}</div>
+          ) : (
+            <div className="relative group/slider">
+              <div className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar">
+                {featuredProcesses.slice(0, 5).map((item) => {
+                  // Check if item is a video (has video-specific properties) or a series
+                  const isVideo = 'duration' in item || 'bunny_embed_url' in item;
+                  const itemId = isVideo ? item.id : (item.category_id || item.id);
+                  const handleClick = () => {
+                    if (isVideo) {
+                      handleCourseClick(item.id);
+                    } else {
+                      handleCategoryClick(itemId);
+                    }
+                  };
+                  
+                  return (
+                    <div key={item.id} className="w-[160px] sm:w-[200px] md:w-[240px] flex-shrink-0 snap-start">
+                      <div
+                        onClick={handleClick}
+                        className="group relative rounded-lg overflow-hidden aspect-[2/3] mb-3 cursor-pointer shadow-lg shadow-black/20"
+                      >
+                        <img
+                          src={getImageUrl(
+                            isVideo 
+                              ? (item.intro_image_url || item.intro_image || item.thumbnail_url || item.thumbnail || '')
+                              : (item.cover_image || item.thumbnail_url || '')
+                          )}
+                          alt={item.name || item.title || ''}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = cover1;
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                        <div className="absolute bottom-4 left-4 right-4">
+                          <h3 className="font-bold text-base md:text-lg text-white leading-tight line-clamp-2">{item.name || item.title || ''}</h3>
+                          <p className="text-xs md:text-sm text-primary font-bold mt-1.5">
+                            {isVideo 
+                              ? t('index.featured_processes.new_episode', 'Nuevo Episodio')
+                              : t('index.featured_processes.new_episode', 'Nuevo Episodio')
+                            }
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
-        {/* Featured Category Section */}
-        {featuredCategory && (
+        {/* Featured Category Section - Show homepage featured category */}
+        {homepageFeaturedCategoryLoading ? (
           <section className="px-4 sm:px-6 md:px-16 py-6 sm:py-8">
-            <div className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#2a1d21] border border-white/5">
+            <div className="text-center text-gray-400 py-8 text-sm sm:text-base">{t('common.loading')}</div>
+          </section>
+        ) : homepageFeaturedCategory ? (
+          <section className="px-4 sm:px-6 md:px-16 py-6 sm:py-8">
+            <div 
+              className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden border border-white/5"
+              style={{
+                backgroundColor: homepageFeaturedCategory.color || '#2a1d21',
+              }}
+            >
               <div className="flex flex-col md:flex-row items-center">
                 <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-12 flex flex-col gap-3 sm:gap-4 z-10">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white">{featuredCategory.name}</h2>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white">{homepageFeaturedCategory.name}</h2>
                   <p className="text-text-subtle text-sm sm:text-base md:text-lg">
-                    {featuredCategory.description || t('index.category.description', 'Explora esta categoría única')}
+                    {homepageFeaturedCategory.description || t('index.category.description', 'Explora esta categoría única')}
                   </p>
                   <Button
-                    onClick={() => handleCategoryClick(featuredCategory.id)}
+                    onClick={() => handleCategoryClick(homepageFeaturedCategory.id)}
                     className="bg-primary hover:bg-primary/90 text-white font-bold py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg w-fit mt-2 text-sm sm:text-base transition-colors"
                   >
                     {t('index.category.explore', 'Explorar Categoría')}
@@ -3184,85 +3421,124 @@ const Home = () => {
                 <div
                   className="w-full md:w-1/2 h-48 sm:h-64 md:h-[400px] bg-cover bg-center relative"
                   style={{
-                    backgroundImage: `url('${getImageUrl(featuredCategory.cover_image || '')}')`
+                    backgroundImage: `url('${getImageUrl(homepageFeaturedCategory.homepage_image || homepageFeaturedCategory.image || homepageFeaturedCategory.image_url || homepageFeaturedCategory.cover_image || '')}')`
                   }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#2a1d21] to-transparent md:bg-gradient-to-r md:from-[#2a1d21] md:to-transparent" />
+                  <div 
+                    className="absolute inset-0"
+                    style={{
+                      background: `linear-gradient(to top, ${homepageFeaturedCategory.color || '#2a1d21'} 0%, transparent 100%)`,
+                    }}
+                  />
+                  <div 
+                    className="absolute inset-0 hidden md:block"
+                    style={{
+                      background: `linear-gradient(to right, ${homepageFeaturedCategory.color || '#2a1d21'} 0%, transparent 100%)`,
+                    }}
+                  />
                 </div>
               </div>
             </div>
           </section>
-        )}
-        {/* Proyectos de talla en madera Section */}
+        ) : null}
+        {/* Proyectos de talla en madera Section - Wood Carving Category Videos */}
         <section className="px-4 sm:px-6 md:px-16 pb-8 sm:pb-12">
-          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer">
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer" onClick={() => woodCarvingCategory && handleCategoryClick(woodCarvingCategory.id)}>
             <h2 className="text-xl sm:text-2xl font-bold text-white group-hover:text-primary transition-colors">
-              {t('index.wood_projects.title', 'Proyectos de talla en madera')}
+              {woodCarvingCategory?.name || t('index.wood_projects.title', 'Proyectos de talla en madera')}
             </h2>
             <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            {/* Featured large video */}
-            {featuredProcesses.length > 0 && (
-              <div
-                onClick={() => handleCategoryClick(featuredProcesses[0].category_id || featuredProcesses[0].id)}
-                className="md:col-span-2 relative group rounded-lg overflow-hidden aspect-[21/9] cursor-pointer"
-              >
-                <img
-                  src={getImageUrl(featuredProcesses[0].cover_image || featuredProcesses[0].thumbnail_url || '')}
-                  alt={featuredProcesses[0].name || featuredProcesses[0].title || ''}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = cover1;
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-                <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 max-w-lg">
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2">{featuredProcesses[0].name || featuredProcesses[0].title || ''}</h3>
-                  <p className="text-gray-300 text-xs sm:text-sm line-clamp-2">
-                    {featuredProcesses[0].description || t('index.wood_projects.description', 'Documental exclusivo sobre técnicas de talla en madera.')}
-                  </p>
-                </div>
-                <div className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-primary text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded">
-                  {t('index.wood_projects.exclusive', 'EXCLUSIVO')}
-                </div>
-              </div>
-            )}
-            {/* Side videos list */}
-            <div className="flex flex-col gap-4 sm:gap-6">
-              {featuredProcesses.slice(1, 4).map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleCategoryClick(item.category_id || item.id)}
-                  className="flex gap-3 sm:gap-4 items-center group cursor-pointer bg-[#2a1d21]/50 p-2 sm:p-3 rounded-lg hover:bg-[#2a1d21] transition-colors"
-                >
-                  <div className="w-24 sm:w-32 aspect-video rounded-md overflow-hidden flex-shrink-0">
+          {woodCarvingVideosLoading ? (
+            <div className="text-center text-gray-400 py-8 text-sm sm:text-base">{t('common.loading')}</div>
+          ) : woodCarvingVideos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+              {/* Featured large video */}
+              {woodCarvingVideos[0] && (() => {
+                const firstVideo = woodCarvingVideos[0];
+                const handleClick = () => {
+                  handleCourseClick(firstVideo.id);
+                };
+                
+                return (
+                  <div
+                    onClick={handleClick}
+                    className="md:col-span-2 relative group rounded-lg overflow-hidden aspect-[21/9] cursor-pointer"
+                  >
                     <img
-                      src={getImageUrl(item.cover_image || item.thumbnail_url || '')}
-                      alt={item.name || item.title || ''}
-                      className="w-full h-full object-cover"
+                      src={getImageUrl(
+                        firstVideo.intro_image_url || firstVideo.intro_image || firstVideo.thumbnail_url || firstVideo.thumbnail || ''
+                      )}
+                      alt={firstVideo.title || firstVideo.name || ''}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = cover1;
                       }}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                    <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 max-w-lg">
+                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2">{firstVideo.title || firstVideo.name || ''}</h3>
+                      <p className="text-gray-300 text-xs sm:text-sm line-clamp-2">
+                        {firstVideo.description || firstVideo.short_description || firstVideo.intro_description || ''}
+                      </p>
+                    </div>
+                    <div className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-primary text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded">
+                      {t('index.wood_projects.exclusive', 'EXCLUSIVO')}
+                    </div>
                   </div>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <h4 className="font-bold text-white text-xs sm:text-sm group-hover:text-primary transition-colors line-clamp-2">
-                      {item.name || item.title || ''}
-                    </h4>
-                    <p className="text-[10px] sm:text-xs text-text-subtle mt-1 line-clamp-1">
-                      {item.category?.name || item.description?.substring(0, 30) || ''}
-                    </p>
-                  </div>
-                  <div className="ml-auto pr-1 sm:pr-2 flex-shrink-0">
-                    <Play className="h-4 w-4 sm:h-5 sm:w-5 text-white/50 group-hover:text-white transition-colors" fill="currentColor" />
-                  </div>
-                </div>
-              ))}
+                );
+              })()}
+              {/* Side videos list */}
+              <div className="flex flex-col gap-4 sm:gap-6">
+                {woodCarvingVideos.slice(1, 4).map((video) => {
+                  const handleClick = () => {
+                    handleCourseClick(video.id);
+                  };
+                  
+                  return (
+                    <div
+                      key={video.id}
+                      onClick={handleClick}
+                      className="flex gap-3 sm:gap-4 items-center group cursor-pointer bg-[#2a1d21]/50 p-2 sm:p-3 rounded-lg hover:bg-[#2a1d21] transition-colors"
+                    >
+                      <div className="w-24 sm:w-32 aspect-video rounded-md overflow-hidden flex-shrink-0">
+                        <img
+                          src={getImageUrl(
+                            video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || ''
+                          )}
+                          alt={video.title || video.name || ''}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = cover1;
+                          }}
+                        />
+                      </div>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <h4 className="font-bold text-white text-xs sm:text-sm group-hover:text-primary transition-colors line-clamp-2">
+                          {video.title || video.name || ''}
+                        </h4>
+                        <p className="text-[10px] sm:text-xs text-text-subtle mt-1 line-clamp-1">
+                          {video.category?.name || video.series?.name || video.description?.substring(0, 30) || ''}
+                        </p>
+                      </div>
+                      <div className="ml-auto pr-1 sm:pr-2 flex-shrink-0">
+                        <Play className="h-4 w-4 sm:h-5 sm:w-5 text-white/50 group-hover:text-white transition-colors" fill="currentColor" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center text-gray-400 py-8 text-sm sm:text-base">
+              {woodCarvingCategory 
+                ? t('index.wood_projects.no_videos', 'No videos found in this category')
+                : t('index.wood_projects.no_category', 'Wood Carving category not found')
+              }
+            </div>
+          )}
         </section>
 
 

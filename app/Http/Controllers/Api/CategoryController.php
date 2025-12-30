@@ -116,7 +116,10 @@ class CategoryController extends Controller
             'icon' => 'nullable|string|max:255',
             'image_file' => 'nullable|file|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
             'image' => 'nullable|string|max:255',
+            'homepage_image_file' => 'nullable|file|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
+            'homepage_image' => 'nullable|string|max:255',
             'sort_order' => 'nullable|integer|min:0',
+            'is_homepage_featured' => 'nullable|boolean',
             'translations' => 'nullable|string|json',
         ]);
 
@@ -242,9 +245,14 @@ class CategoryController extends Controller
         // Find category by ID instead of slug
         $category = Category::findOrFail($id);
         
+        // Check if this is a partial update (only updating specific fields like is_homepage_featured)
+        $requestKeys = array_keys($request->all());
+        $nonPartialKeys = array_diff($requestKeys, ['is_homepage_featured', 'homepage_image', 'homepage_image_file', '_method', '_token']);
+        $isPartialUpdate = $request->has('is_homepage_featured') && empty($nonPartialKeys);
+        
         $validated = $request->validate([
             'name' => [
-                'required',
+                $isPartialUpdate ? 'nullable' : 'required',
                 'string',
                 'max:255',
                 Rule::unique('categories', 'name')->ignore($category->id),
@@ -254,10 +262,13 @@ class CategoryController extends Controller
             'icon' => 'nullable|string|max:255',
             'image_file' => 'nullable|file|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
             'image' => 'nullable|string|max:255',
+            'homepage_image_file' => 'nullable|file|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
+            'homepage_image' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
             'status' => 'nullable|in:draft,published,archived',
             'visibility' => 'nullable|in:freemium,basic,premium',
             'sort_order' => 'nullable|integer|min:0',
+            'is_homepage_featured' => 'nullable|boolean',
         ]);
 
         // Handle image file upload
@@ -281,6 +292,32 @@ class CategoryController extends Controller
             }
         }
 
+        // Handle homepage image file upload
+        if ($request->hasFile('homepage_image_file')) {
+            try {
+                // Delete old homepage image if exists
+                if ($category->homepage_image) {
+                    $this->webpService->deleteFile($category->homepage_image);
+                }
+
+                $imageUploadResult = $this->webpService->convertToWebP(
+                    $request->file('homepage_image_file'),
+                    'data_section/image'
+                );
+                $validated['homepage_image'] = $imageUploadResult['path'];
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload homepage image: ' . $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        // If setting as homepage featured, unset any other featured category
+        if (isset($validated['is_homepage_featured']) && $validated['is_homepage_featured']) {
+            Category::where('id', '!=', $category->id)->update(['is_homepage_featured' => false]);
+        }
+
         // Refresh model to ensure we have latest schema
         $category->refresh();
         
@@ -300,55 +337,60 @@ class CategoryController extends Controller
             $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
         }
 
-        // Extract multilingual fields from translations object
-        if ($translations && is_array($translations)) {
-            // Name fields - always set all three languages
-            if (isset($translations['name'])) {
-                $validated['name_en'] = $translations['name']['en'] ?? $validated['name'] ?? $currentNameEn ?? '';
-                $validated['name_es'] = $translations['name']['es'] ?? '';
-                $validated['name_pt'] = $translations['name']['pt'] ?? '';
+        // Only process translations if this is not a partial update
+        if (!$isPartialUpdate) {
+            // Extract multilingual fields from translations object
+            if ($translations && is_array($translations)) {
+                // Name fields - always set all three languages
+                if (isset($translations['name'])) {
+                    $validated['name_en'] = $translations['name']['en'] ?? $validated['name'] ?? $currentNameEn ?? '';
+                    $validated['name_es'] = $translations['name']['es'] ?? '';
+                    $validated['name_pt'] = $translations['name']['pt'] ?? '';
+                } else {
+                    // If name is in validated but not in translations, use it for English
+                    if (isset($validated['name'])) {
+                        $validated['name_en'] = $validated['name'];
+                        $validated['name_es'] = $validated['name_es'] ?? $currentNameEn ?? '';
+                        $validated['name_pt'] = $validated['name_pt'] ?? '';
+                    }
+                }
+                // Description fields - always set all three languages
+                if (isset($translations['description'])) {
+                    $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? $currentDescriptionEn ?? '';
+                    $validated['description_es'] = $translations['description']['es'] ?? '';
+                    $validated['description_pt'] = $translations['description']['pt'] ?? '';
+                } else {
+                    // If description is in validated but not in translations, use it for English
+                    if (isset($validated['description'])) {
+                        $validated['description_en'] = $validated['description'];
+                        $validated['description_es'] = $validated['description_es'] ?? $currentDescriptionEn ?? '';
+                        $validated['description_pt'] = $validated['description_pt'] ?? '';
+                    }
+                }
             } else {
-                // If name is in validated but not in translations, use it for English
+                // If no translations object, use main fields for English if provided
                 if (isset($validated['name'])) {
                     $validated['name_en'] = $validated['name'];
+                    // Preserve existing translations if not provided
                     $validated['name_es'] = $validated['name_es'] ?? $currentNameEn ?? '';
                     $validated['name_pt'] = $validated['name_pt'] ?? '';
                 }
-            }
-            // Description fields - always set all three languages
-            if (isset($translations['description'])) {
-                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? $currentDescriptionEn ?? '';
-                $validated['description_es'] = $translations['description']['es'] ?? '';
-                $validated['description_pt'] = $translations['description']['pt'] ?? '';
-            } else {
-                // If description is in validated but not in translations, use it for English
                 if (isset($validated['description'])) {
                     $validated['description_en'] = $validated['description'];
+                    // Preserve existing translations if not provided
                     $validated['description_es'] = $validated['description_es'] ?? $currentDescriptionEn ?? '';
                     $validated['description_pt'] = $validated['description_pt'] ?? '';
                 }
             }
-        } else {
-            // If no translations object, use main fields for English if provided
-            if (isset($validated['name'])) {
-                $validated['name_en'] = $validated['name'];
-                // Preserve existing translations if not provided
-                $validated['name_es'] = $validated['name_es'] ?? $currentNameEn ?? '';
-                $validated['name_pt'] = $validated['name_pt'] ?? '';
-            }
-            if (isset($validated['description'])) {
-                $validated['description_en'] = $validated['description'];
-                // Preserve existing translations if not provided
-                $validated['description_es'] = $validated['description_es'] ?? $currentDescriptionEn ?? '';
-                $validated['description_pt'] = $validated['description_pt'] ?? '';
-            }
         }
         
-        // Update slug if name changed (use English name)
-        if (isset($validated['name_en']) && $currentNameEn !== $validated['name_en']) {
-            $validated['slug'] = Str::slug($validated['name_en']);
-        } elseif (isset($validated['name']) && $currentNameEn !== $validated['name']) {
-            $validated['slug'] = Str::slug($validated['name']);
+        // Update slug if name changed (use English name) - only if not a partial update
+        if (!$isPartialUpdate) {
+            if (isset($validated['name_en']) && $currentNameEn !== $validated['name_en']) {
+                $validated['slug'] = Str::slug($validated['name_en']);
+            } elseif (isset($validated['name']) && $currentNameEn !== $validated['name']) {
+                $validated['slug'] = Str::slug($validated['name']);
+            }
         }
         
         // Remove translations from validated as it's not a model field
@@ -455,6 +497,45 @@ class CategoryController extends Controller
                 'success' => true,
                 'data' => $categories,
             ]);
+        }
+    }
+
+    /**
+     * Get homepage featured category
+     */
+    public function homepageFeatured(): JsonResponse
+    {
+        try {
+            $category = Category::where('is_homepage_featured', true)
+                ->where('is_active', true)
+                ->with(['series' => function ($q) {
+                    $q->where('status', 'published')
+                      ->orderBy('sort_order')
+                      ->orderBy('created_at', 'desc')
+                      ->limit(10);
+                }])
+                ->first();
+
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No homepage featured category found',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $category,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching homepage featured category:', [
+                'error' => $e->getMessage(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch homepage featured category',
+            ], 500);
         }
     }
 }

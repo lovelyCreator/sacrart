@@ -308,6 +308,7 @@ class VideoController extends Controller
             'meta_description' => 'nullable|string|max:500',
             'meta_keywords' => 'nullable|string|max:255',
             'translations' => 'nullable|array',
+            'is_featured_process' => 'nullable|boolean',
         ]);
         
         // Validate that both category_id and series_id exist
@@ -433,6 +434,14 @@ class VideoController extends Controller
         // Videos get category_id through series relationship
         if (!\Schema::hasColumn('videos', 'category_id')) {
             unset($validated['category_id']);
+        }
+        
+        // Ensure is_featured_process is always included (even if false)
+        if (!isset($validated['is_featured_process'])) {
+            $validated['is_featured_process'] = false;
+        } else {
+            // Convert to boolean explicitly
+            $validated['is_featured_process'] = (bool) $validated['is_featured_process'];
         }
 
         // Always extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided
@@ -603,7 +612,14 @@ class VideoController extends Controller
         // Merge the processed data back into the request
         $request->merge($requestData);
         
-        $validated = $request->validate([
+        // Check if this is a partial update (only updating specific fields like is_featured_process)
+        // If only is_featured_process is being updated, don't require bunny_embed_url
+        $requestKeys = array_keys($request->all());
+        $nonPartialKeys = array_diff($requestKeys, ['is_featured_process', '_method', '_token']);
+        $isPartialUpdate = $request->has('is_featured_process') && empty($nonPartialKeys);
+        
+        // Build validation rules
+        $rules = [
             'title' => [
                 'sometimes',
                 'required',
@@ -621,7 +637,6 @@ class VideoController extends Controller
             // Bunny.net fields (primary source for new content)
             'bunny_video_id' => 'nullable|string|max:255',
             'bunny_video_url' => 'nullable|url|max:500',
-            'bunny_embed_url' => 'required_without_all:video_url,video_file_path|url|max:500',
             'bunny_thumbnail_url' => 'nullable|url|max:500',
             'thumbnail' => 'nullable|string|max:255',
             'intro_image_file' => 'nullable|file|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
@@ -651,7 +666,17 @@ class VideoController extends Controller
             'processing_status' => 'nullable|in:pending,processing,completed,failed',
             'processing_error' => 'nullable|string',
             'translations' => 'nullable|array',
-        ]);
+            'is_featured_process' => 'nullable|boolean',
+        ];
+        
+        // Only require bunny_embed_url if we're updating video content (not for partial updates like is_featured_process)
+        if ($isPartialUpdate) {
+            $rules['bunny_embed_url'] = 'nullable|url|max:500';
+        } else {
+            $rules['bunny_embed_url'] = 'required_without_all:video_url,video_file_path|url|max:500';
+        }
+        
+        $validated = $request->validate($rules);
         
         // Support category_id and series_id
         if (!isset($validated['category_id']) && $request->has('category_id')) {
@@ -829,11 +854,17 @@ class VideoController extends Controller
         if (!\Schema::hasColumn('videos', 'category_id')) {
             unset($validated['category_id']);
         }
+        
+        // Ensure is_featured_process is handled correctly (only if provided in request)
+        if ($request->has('is_featured_process')) {
+            $validated['is_featured_process'] = (bool) $request->get('is_featured_process');
+        }
 
         // Always extract duration from Bunny.net if bunny_embed_url or bunny_video_id is provided
         // This ensures duration is always up-to-date from the source
+        // Only do this if bunny fields are being updated, not for partial updates like is_featured_process
         if (isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id']) || 
-            $video->bunny_embed_url || $video->bunny_video_id) {
+            ($request->has('bunny_embed_url') || $request->has('bunny_video_id'))) {
             $bunnyVideoId = $this->extractBunnyVideoId(
                 $validated['bunny_embed_url'] ?? $video->bunny_embed_url ?? null,
                 $validated['bunny_video_id'] ?? $video->bunny_video_id ?? null
@@ -874,6 +905,9 @@ class VideoController extends Controller
         }
 
         $video->update($validated);
+        
+        // Refresh the model to ensure all updated fields are included
+        $video->refresh();
 
         // Load all translations for the response
         $video->translations = $video->getAllTranslations();
@@ -1751,64 +1785,134 @@ class VideoController extends Controller
         // Calculate date 7 days ago
         $sevenDaysAgo = now()->subDays(7);
         
-        // Get videos with most views in last 7 days
-        // Count views from user_progress where last_watched_at is within last 7 days
-        $trendingVideos = Video::query()
-            ->select('videos.*')
-            ->selectRaw('COUNT(user_progress.id) as views_last_7_days')
-            ->leftJoin('user_progress', function($join) use ($sevenDaysAgo) {
-                $join->on('videos.id', '=', 'user_progress.video_id')
-                     ->where('user_progress.last_watched_at', '>=', $sevenDaysAgo);
-            })
-            ->where('videos.status', 'published')
-            ->groupBy('videos.id')
-            ->having('views_last_7_days', '>', 0)
-            ->orderBy('views_last_7_days', 'desc')
-            ->orderBy('videos.views', 'desc')
-            ->limit($limit)
-            ->with(['series', 'instructor'])
-            ->withCount('comments')
-            ->get();
-        
-        // If we don't have enough videos with views in last 7 days, 
-        // fall back to videos published in last 7 days sorted by total views
-        if ($trendingVideos->count() < $limit) {
-            $fallbackVideos = Video::query()
-                ->where('status', 'published')
-                ->where(function($query) use ($sevenDaysAgo) {
-                    $query->where('published_at', '>=', $sevenDaysAgo)
-                          ->orWhere('created_at', '>=', $sevenDaysAgo);
-                })
-                ->orderBy('views', 'desc')
-                ->limit($limit - $trendingVideos->count())
-                ->with(['series', 'instructor'])
-                ->withCount('comments')
-                ->get();
-            
-            // Merge and remove duplicates
-            $existingIds = $trendingVideos->pluck('id')->toArray();
-            $fallbackVideos = $fallbackVideos->reject(function($video) use ($existingIds) {
-                return in_array($video->id, $existingIds);
-            });
-            
-            $trendingVideos = $trendingVideos->merge($fallbackVideos)->take($limit);
-        }
+        // Build base query with visibility filters
+        $baseQuery = Video::query()
+            ->where('videos.status', 'published');
         
         // Apply visibility filters
         if ($user) {
             $subscriptionType = $user->subscription_type ?: 'freemium';
-            $trendingVideos = $trendingVideos->filter(function($video) use ($subscriptionType) {
-                return $video->isAccessibleTo($user);
-            })->values();
+            if ($subscriptionType === 'freemium') {
+                $baseQuery->where('videos.visibility', 'freemium');
+            } elseif ($subscriptionType === 'basic') {
+                $baseQuery->whereIn('videos.visibility', ['freemium', 'basic']);
+            }
+            // Premium users can see all videos - no additional filter
         } else {
-            $trendingVideos = $trendingVideos->filter(function($video) {
-                return $video->visibility === 'freemium';
-            })->values();
+            $baseQuery->where('videos.visibility', 'freemium');
         }
+        
+        // Get ALL videos and calculate views in last 7 days from daily_views JSON column
+        // This uses the new daily_views tracking system
+        $trendingVideos = (clone $baseQuery)
+            ->with(['series', 'instructor'])
+            ->withCount('comments')
+            ->get()
+            ->map(function($video) {
+                // Calculate views in last 7 days from daily_views JSON
+                $viewsLast7Days = $video->getViewsLast7Days();
+                $video->views_last_7_days = $viewsLast7Days;
+                return $video;
+            })
+            ->sort(function($a, $b) {
+                // First: Sort by views in last 7 days (descending)
+                $views7dA = $a->views_last_7_days ?? 0;
+                $views7dB = $b->views_last_7_days ?? 0;
+                if ($views7dA !== $views7dB) {
+                    return $views7dB <=> $views7dA; // Descending
+                }
+                // Second: Sort by total views (descending)
+                $viewsA = $a->views ?? 0;
+                $viewsB = $b->views ?? 0;
+                if ($viewsA !== $viewsB) {
+                    return $viewsB <=> $viewsA; // Descending
+                }
+                // Third: Sort by creation date (descending)
+                return $b->created_at <=> $a->created_at;
+            })
+            ->values();
+        
+        // Apply limit after getting all videos
+        if ($limit > 0) {
+            $trendingVideos = $trendingVideos->take($limit);
+        }
+        
+        \Log::info('Trending videos query result', [
+            'total_videos_found' => $trendingVideos->count(),
+            'limit_applied' => $limit,
+            'video_ids' => $trendingVideos->pluck('id')->toArray(),
+            'video_titles' => $trendingVideos->pluck('title')->toArray(),
+            'views_last_7_days' => $trendingVideos->map(function($v) {
+                return [
+                    'id' => $v->id, 
+                    'title' => $v->title, 
+                    'views_7d' => $v->views_last_7_days ?? 0, 
+                    'total_views' => $v->views ?? 0
+                ];
+            })->toArray(),
+            'user' => $user ? ['id' => $user->id, 'subscription_type' => $user->subscription_type] : 'guest',
+        ]);
         
         return response()->json([
             'success' => true,
             'data' => $trendingVideos,
+        ]);
+    }
+
+    /**
+     * Get featured process videos (episodes only - videos that belong to a series)
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function featuredProcess(Request $request): JsonResponse
+    {
+        $limit = $request->get('limit', 5);
+        $user = Auth::user();
+
+        // Start with base query - filter by is_featured_process FIRST (must be exactly 1 or true)
+        $query = Video::where(function($q) {
+                $q->where('is_featured_process', '=', 1)
+                  ->orWhere('is_featured_process', '=', true);
+            })
+            ->where('status', 'published')
+            ->whereNotNull('series_id'); // Only show episodes (videos that belong to a series)
+
+        // Apply visibility filters
+        if ($user) {
+            $subscriptionType = $user->subscription_type ?: 'freemium';
+            // Apply visibility filter directly to avoid scope issues
+            if ($subscriptionType === 'freemium') {
+                $query->where('visibility', 'freemium');
+            } elseif ($subscriptionType === 'basic') {
+                $query->whereIn('visibility', ['freemium', 'basic']);
+            } elseif ($subscriptionType === 'premium') {
+                // Premium users can see all videos - no additional filter needed
+            }
+        } else {
+            $query->where('visibility', 'freemium');
+        }
+
+        // Eager load relationships
+        $query->with(['series.category', 'instructor']);
+
+        $videos = $query->orderBy('sort_order')
+            ->orderBy('episode_number')
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        \Log::info('Featured Process Videos Query', [
+            'count' => $videos->count(),
+            'video_ids' => $videos->pluck('id')->toArray(),
+            'is_featured_process_values' => $videos->pluck('is_featured_process')->toArray(),
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $videos,
         ]);
     }
 

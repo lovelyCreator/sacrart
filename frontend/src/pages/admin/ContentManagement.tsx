@@ -318,6 +318,14 @@ const ContentManagement = () => {
               },
             };
           }
+          // Ensure is_featured_process is explicitly set (handle null, undefined, 0, false)
+          // Convert to boolean: true if 1 or true, false otherwise
+          if (video.is_featured_process === undefined || video.is_featured_process === null) {
+            video.is_featured_process = false;
+          } else {
+            // Convert to boolean: handle both 1/0 and true/false
+            video.is_featured_process = video.is_featured_process === true || video.is_featured_process === 1;
+          }
           return video;
         });
         setVideos(videosWithTranslations);
@@ -501,6 +509,23 @@ const ContentManagement = () => {
         <span className="ml-1 capitalize">{visibility}</span>
       </span>
     );
+  };
+
+  const getVideoCategoryName = (video: Video): string => {
+    // First try to get category from video's category_id (if available)
+    if (video.category_id) {
+      const category = categories.find(c => c.id === video.category_id);
+      if (category) return getCategoryName(category);
+    }
+    // Otherwise, get category from the series
+    if (video.series_id) {
+      const videoSeries = series.find(s => s.id === video.series_id);
+      if (videoSeries && videoSeries.category_id) {
+        const category = categories.find(c => c.id === videoSeries.category_id);
+        if (category) return getCategoryName(category);
+      }
+    }
+    return t('admin.content_uncategorized', 'Uncategorized');
   };
 
   const getStatusBadge = (status?: string | null) => {
@@ -880,7 +905,12 @@ const ContentManagement = () => {
   };
 
   const handleEditVideo = (video: Video) => {
-    setSelectedVideo(video);
+    // Ensure is_featured_process is explicitly set (handle boolean, number, or undefined)
+    const isFeatured = !!(video as any).is_featured_process;
+    setSelectedVideo({
+      ...video,
+      is_featured_process: isFeatured,
+    });
     
     // Load multilingual data from video (check if translations exist)
     const translations = (video as any)?.translations || {};
@@ -1224,13 +1254,22 @@ const ContentManagement = () => {
 
       if (response.success) {
         const savedVideo = response.data;
+        // Ensure is_featured_process is included in the saved video (explicitly set it)
+        if (savedVideo) {
+          savedVideo.is_featured_process = savedVideo.is_featured_process !== undefined 
+            ? savedVideo.is_featured_process 
+            : (selectedVideo.is_featured_process || false);
+        }
         if (selectedVideo.id) {
-          setVideos(prev => prev.map(v => v.id === selectedVideo.id ? savedVideo : v));
-          setFilteredVideos(prev => prev.map(v => v.id === selectedVideo.id ? savedVideo : v));
+          // Create a new object to ensure React detects the change
+          const updatedVideo = { ...savedVideo, is_featured_process: savedVideo.is_featured_process || false };
+          setVideos(prev => prev.map(v => v.id === selectedVideo.id ? updatedVideo : v));
+          setFilteredVideos(prev => prev.map(v => v.id === selectedVideo.id ? updatedVideo : v));
           toast.success(t('admin.content_video_updated'));
         } else {
-          setVideos(prev => [savedVideo, ...prev]);
-          setFilteredVideos(prev => [savedVideo, ...prev]);
+          const newVideo = { ...savedVideo, is_featured_process: savedVideo.is_featured_process || false };
+          setVideos(prev => [newVideo, ...prev]);
+          setFilteredVideos(prev => [newVideo, ...prev]);
           toast.success(t('admin.content_video_created'));
         }
         setIsVideoDialogOpen(false);
@@ -1283,6 +1322,90 @@ const ContentManagement = () => {
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to delete video");
+    }
+  };
+
+  const handleToggleFeaturedProcess = async (videoId: number) => {
+    const video = videos.find(v => v.id === videoId);
+    if (!video) return;
+
+    const currentStatus = !!(video as any).is_featured_process;
+    const newStatus = !currentStatus;
+    
+    try {
+      const response = await videoApi.update(videoId, {
+        is_featured_process: newStatus
+      });
+
+      if (response.success) {
+        const updatedVideo = response.data;
+        // Ensure is_featured_process is included
+        if (updatedVideo) {
+          (updatedVideo as any).is_featured_process = newStatus;
+        }
+        setVideos(prev => prev.map(v => v.id === videoId ? updatedVideo : v));
+        setFilteredVideos(prev => prev.map(v => v.id === videoId ? updatedVideo : v));
+        toast.success(newStatus 
+          ? 'Video added to Featured Process' 
+          : 'Video removed from Featured Process'
+        );
+      } else {
+        toast.error(response.message || 'Failed to update featured status');
+      }
+    } catch (error: any) {
+      console.error('Error toggling featured process:', error);
+      toast.error(error.message || 'Failed to update featured status');
+    }
+  };
+
+  const handleToggleCategoryHomepageFeatured = async (categoryId: number) => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    const currentStatus = (category as any)?.is_homepage_featured || false;
+    const newStatus = !currentStatus;
+    
+    try {
+      // If setting to featured, first unset any other featured category
+      if (newStatus) {
+        const otherFeatured = categories.find(c => c.id !== categoryId && (c as any)?.is_homepage_featured);
+        if (otherFeatured) {
+          try {
+            await categoryApi.update(otherFeatured.id!, { is_homepage_featured: false } as any);
+          } catch (error) {
+            console.error('Error unsetting other featured category:', error);
+          }
+        }
+      }
+
+      const response = await categoryApi.update(categoryId, { is_homepage_featured: newStatus } as any);
+      if (response.success) {
+        const updatedCategory = response.data;
+        // Update the category in the list
+        setCategories(prev => prev.map(c => {
+          if (c.id === categoryId) {
+            return { ...c, ...updatedCategory, is_homepage_featured: newStatus };
+          }
+          // If setting a new featured category, unset any other featured category
+          if (newStatus && (c as any)?.is_homepage_featured) {
+            return { ...c, is_homepage_featured: false };
+          }
+          return c;
+        }));
+        setFilteredCategories(prev => prev.map(c => {
+          if (c.id === categoryId) {
+            return { ...c, ...updatedCategory, is_homepage_featured: newStatus };
+          }
+          // If setting a new featured category, unset any other featured category
+          if (newStatus && (c as any)?.is_homepage_featured) {
+            return { ...c, is_homepage_featured: false };
+          }
+          return c;
+        }));
+        toast.success(newStatus ? 'Category set as homepage featured' : 'Category removed from homepage');
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update homepage featured status");
     }
   };
 
@@ -1598,6 +1721,7 @@ const ContentManagement = () => {
                     <TableHead className="w-[150px]">{t('admin.content_table_description', 'Description')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_sort_order', 'Sort Order')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_series', 'Series')}</TableHead>
+                    <TableHead className="w-[120px]">{t('admin.content_table_homepage', 'Homepage')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_created', 'Created')}</TableHead>
                     <TableHead className="w-[70px]">{t('admin.content_table_actions', 'Actions')}</TableHead>
                   </TableRow>
@@ -1645,6 +1769,15 @@ const ContentManagement = () => {
                         </span>
                       </TableCell>
                       <TableCell>
+                        {(category as any).is_homepage_featured ? (
+                          <Badge variant="default" className="bg-primary text-white">
+                            Featured
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center text-sm">
                           <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
                           {formatDate(category.created_at)}
@@ -1665,6 +1798,14 @@ const ContentManagement = () => {
                               {t('admin.content_edit', 'Edit')}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
+                              onClick={() => handleToggleCategoryHomepageFeatured(category.id!)}
+                            >
+                              <Star className="mr-2 h-4 w-4" />
+                              {(category as any).is_homepage_featured 
+                                ? 'Remove from Homepage' 
+                                : 'Set as Homepage Featured'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
                               onClick={() => handleDeleteCategory(category.id!)}
                               className="text-destructive"
                             >
@@ -1677,7 +1818,7 @@ const ContentManagement = () => {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         {categories.length === 0 ? t('admin.content_no_categories', 'No categories found. Create your first category!') : t('admin.content_no_categories_match', 'No categories match your search criteria.')}
                       </TableCell>
                     </TableRow>
@@ -1712,6 +1853,11 @@ const ContentManagement = () => {
                         </span>
                         <span>{t('admin.content_table_sort_order', 'Sort Order')}: {category.sort_order || 0}</span>
                         <span>{t('admin.content_table_series', 'Series')}: {series.filter(s => s.category_id === category.id).length || 0}</span>
+                        {(category as any).is_homepage_featured && (
+                          <Badge variant="default" className="bg-primary text-white text-xs">
+                            Homepage
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1727,6 +1873,14 @@ const ContentManagement = () => {
                       <DropdownMenuItem onClick={() => handleEditCategory(category)}>
                         <Edit className="mr-2 h-4 w-4" />
                         {t('admin.content_edit', 'Edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleCategoryHomepageFeatured(category.id!)}
+                      >
+                        <Star className="mr-2 h-4 w-4" />
+                        {(category as any).is_homepage_featured 
+                          ? 'Remove from Homepage' 
+                          : 'Set as Homepage Featured'}
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDeleteCategory(category.id!)}
@@ -2039,11 +2193,13 @@ const ContentManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[250px]">{t('admin.content_table_episode')}</TableHead>
+                    <TableHead className="w-[150px]">{t('admin.content_table_category', 'Category')}</TableHead>
                     <TableHead className="w-[150px]">{t('admin.content_table_series')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_duration')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_views')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_visibility')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_status')}</TableHead>
+                    <TableHead className="w-[100px]">Featured</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_uploaded')}</TableHead>
                     <TableHead className="w-[70px]">{t('admin.content_table_actions')}</TableHead>
                   </TableRow>
@@ -2072,6 +2228,11 @@ const ContentManagement = () => {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm truncate block">
+                          {getVideoCategoryName(video)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm truncate block">
                           {series.find(s => s.id === video.series_id) ? getSeriesTitle(series.find(s => s.id === video.series_id)!) : `Series #${video.series_id}`}
                         </span>
                       </TableCell>
@@ -2097,6 +2258,15 @@ const ContentManagement = () => {
                         {getStatusBadge(video.status)}
                       </TableCell>
                       <TableCell>
+                        {((video as any).is_featured_process === true || (video as any).is_featured_process === 1) ? (
+                          <Badge variant="default" className="bg-primary text-white">
+                            Featured
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center text-sm">
                           <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
                           {formatDate(video.created_at)}
@@ -2115,6 +2285,14 @@ const ContentManagement = () => {
                             <DropdownMenuItem onClick={() => handleEditVideo(video)}>
                               <Edit className="mr-2 h-4 w-4" />
                               {t('admin.content_edit', 'Edit')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleToggleFeaturedProcess(video.id)}
+                            >
+                              <Star className="mr-2 h-4 w-4" />
+                              {!!(video as any).is_featured_process 
+                                ? 'Remove from Featured Process' 
+                                : 'Add to Featured Process'}
                             </DropdownMenuItem>
                             {video.bunny_embed_url && (!video.duration || video.duration === 0) && (
                             <DropdownMenuItem 
@@ -2137,7 +2315,7 @@ const ContentManagement = () => {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         {videos.length === 0 ? 'No videos found. Create your first video!' : 'No videos match your search criteria.'}
                       </TableCell>
                     </TableRow>
@@ -2158,6 +2336,9 @@ const ContentManagement = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-lg mb-1 line-clamp-1">{getVideoTitle(video)}</h3>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Category: {getVideoCategoryName(video)}
+                      </p>
                       <p className="text-sm text-muted-foreground mb-3">
                         Series: {series.find(s => s.id === video.series_id) ? getSeriesTitle(series.find(s => s.id === video.series_id)!) : `Series #${video.series_id}`}
                       </p>
@@ -2177,6 +2358,11 @@ const ContentManagement = () => {
                         </div>
                         {getVisibilityBadge(video.visibility)}
                         {getStatusBadge(video.status)}
+                        {!!(video as any).is_featured_process && (
+                          <Badge variant="default" className="bg-primary text-white">
+                            Featured
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="flex items-center text-sm text-muted-foreground">
@@ -2198,6 +2384,14 @@ const ContentManagement = () => {
                       <DropdownMenuItem onClick={() => handleEditVideo(video)}>
                         <Edit className="mr-2 h-4 w-4" />
                         {t('admin.content_edit', 'Edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleFeaturedProcess(video.id)}
+                      >
+                        <Star className="mr-2 h-4 w-4" />
+                        {!!(video as any).is_featured_process 
+                          ? 'Remove from Featured Process' 
+                          : 'Add to Featured Process'}
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDeleteVideo(video.id)}

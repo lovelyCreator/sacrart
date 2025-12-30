@@ -27,11 +27,14 @@ class Category extends Model
         'image',
         'is_active',
         'sort_order',
+        'is_homepage_featured',
+        'homepage_image',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
+        'is_homepage_featured' => 'boolean',
     ];
 
     protected $appends = ['image_url'];

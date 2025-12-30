@@ -65,6 +65,7 @@ class Video extends Model
         'tags',
         'views',
         'unique_views',
+        'daily_views',
         'rating',
         'rating_count',
         'completion_rate',
@@ -78,6 +79,7 @@ class Video extends Model
         'processing_status',
         'processing_error',
         'processed_at',
+        'is_featured_process',
     ];
 
     protected $casts = [
@@ -93,12 +95,14 @@ class Video extends Model
         'file_size' => 'integer',
         'views' => 'integer',
         'unique_views' => 'integer',
+        'daily_views' => 'array',
         'rating' => 'decimal:2',
         'rating_count' => 'integer',
         'completion_rate' => 'integer',
         'episode_number' => 'integer',
         'sort_order' => 'integer',
         'price' => 'decimal:2',
+        'is_featured_process' => 'boolean',
     ];
 
     protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'bunny_player_url', 'likes_count', 'dislikes_count'];
@@ -375,16 +379,59 @@ class Video extends Model
     }
 
     /**
-     * Increment view count.
+     * Increment view count and update daily views tracking.
      */
     public function incrementViews()
     {
         $this->increment('views');
         
+        // Update daily views tracking
+        $today = now()->format('Y-m-d');
+        $dailyViews = $this->daily_views ?? [];
+        
+        // Increment today's view count
+        if (!isset($dailyViews[$today])) {
+            $dailyViews[$today] = 0;
+        }
+        $dailyViews[$today] = ($dailyViews[$today] ?? 0) + 1;
+        
+        // Keep only last 30 days of data to prevent JSON from growing too large
+        $cutoffDate = now()->subDays(30)->format('Y-m-d');
+        $dailyViews = array_filter($dailyViews, function($date) use ($cutoffDate) {
+            return $date >= $cutoffDate;
+        }, ARRAY_FILTER_USE_KEY);
+        
+        // Sort by date descending
+        krsort($dailyViews);
+        
+        $this->daily_views = $dailyViews;
+        $this->save();
+        
         // Also increment series views
         if ($this->series) {
             $this->series->increment('total_views');
         }
+    }
+    
+    /**
+     * Get views count for the last 7 days.
+     */
+    public function getViewsLast7Days(): int
+    {
+        if (!$this->daily_views || !is_array($this->daily_views)) {
+            return 0;
+        }
+        
+        $sevenDaysAgo = now()->subDays(7)->format('Y-m-d');
+        $total = 0;
+        
+        foreach ($this->daily_views as $date => $count) {
+            if ($date >= $sevenDaysAgo) {
+                $total += (int)$count;
+            }
+        }
+        
+        return $total;
     }
 
     /**

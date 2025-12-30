@@ -76,6 +76,8 @@ export interface Category {
   is_featured?: boolean;
   tags?: string[] | null;
   series_count?: number;
+  is_homepage_featured?: boolean;
+  homepage_image?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -113,6 +115,7 @@ export interface Series {
   sort_order?: number;
   tags?: string[] | null;
   category?: Category;
+  videos?: Video[]; // Videos in this series (when loaded with relationship)
   created_at: string;
   updated_at: string;
 }
@@ -156,6 +159,7 @@ export interface Video {
   tags: string[] | null;
   views: number;
   unique_views: number;
+  is_featured_process?: boolean;
   rating: string;
   rating_count: number;
   completion_rate: number;
@@ -281,6 +285,13 @@ export const categoryApi = {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ success: boolean; message: string }>(response);
+  },
+
+  async getHomepageFeatured() {
+    const response = await fetch(`${API_BASE_URL}/categories/homepage-featured`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Category }>(response);
   },
 };
 
@@ -566,6 +577,17 @@ export const videoApi = {
     if (limit) queryParams.append('limit', limit.toString());
     
     const response = await fetch(`${API_BASE_URL}/videos/trending-last-7-days?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Video[] }>(response);
+  },
+
+  // Get featured process videos
+  async getFeaturedProcess(limit?: number) {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', limit.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/videos/featured-process?${queryParams}`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ success: boolean; data: Video[] }>(response);
