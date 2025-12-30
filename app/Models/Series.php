@@ -47,6 +47,7 @@ class Series extends Model
         'published_at',
         'featured_until',
         'is_featured',
+        'is_homepage_featured',
         'sort_order',
         'tags',
     ];
@@ -55,6 +56,7 @@ class Series extends Model
         'published_at' => 'datetime',
         'featured_until' => 'datetime',
         'is_featured' => 'boolean',
+        'is_homepage_featured' => 'boolean',
         'is_free' => 'boolean',
         'rating' => 'decimal:2',
         'price' => 'decimal:2',

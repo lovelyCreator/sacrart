@@ -218,6 +218,7 @@ class SeriesController extends Controller
             'price' => 'nullable|numeric|min:0',
             'is_free' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
+            'is_homepage_featured' => 'nullable|boolean',
             'featured_until' => 'nullable|date',
             'tags' => 'nullable|json',
             'instructor_id' => 'nullable|exists:users,id',
@@ -410,6 +411,7 @@ class SeriesController extends Controller
             'price' => 'nullable|numeric|min:0',
             'is_free' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
+            'is_homepage_featured' => 'nullable|boolean',
             'featured_until' => 'nullable|date',
             'tags' => 'nullable|json',
             'instructor_id' => 'nullable|exists:users,id',
@@ -557,6 +559,38 @@ class SeriesController extends Controller
         return response()->json([
             'success' => true,
             'data' => $categories,
+        ]);
+    }
+
+    /**
+     * Get homepage featured series.
+     */
+    public function homepageFeatured(Request $request): JsonResponse
+    {
+        if (!Schema::hasTable('series')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Series table does not exist.',
+            ], 500);
+        }
+
+        $series = Series::where('is_homepage_featured', true)
+            ->where('status', 'published')
+            ->with(['category', 'videos' => function($query) {
+                $query->where('status', 'published')
+                      ->orderBy('episode_number')
+                      ->orderBy('sort_order')
+                      ->orderBy('created_at')
+                      ->limit(1);
+            }])
+            ->orderBy('sort_order')
+            ->orderBy('created_at', 'desc')
+            ->limit($request->get('limit', 1))
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $series,
         ]);
     }
 

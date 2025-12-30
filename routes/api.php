@@ -36,6 +36,7 @@ Route::post('/login', [AuthController::class, 'login']);
 // Public content routes
 Route::get('/categories/public', [CategoryController::class, 'public']);
 Route::get('/series/featured', [SeriesController::class, 'featured']);
+Route::get('/series/homepage-featured', [SeriesController::class, 'homepageFeatured']);
 Route::get('/series/popular', [SeriesController::class, 'popular']);
 Route::get('/series/new-releases', [SeriesController::class, 'newReleases']);
 

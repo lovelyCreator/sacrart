@@ -419,7 +419,7 @@ const SubscriptionPlans = () => {
               {t('admin.plans_create_plan')}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingPlan ? t('admin.plans_edit_plan') : t('admin.plans_create_new')}

@@ -78,6 +78,8 @@ const Home = () => {
   const [featuredCourse, setFeaturedCourse] = useState<any>(null);
   const [featuredCourses, setFeaturedCourses] = useState<any[]>([]);
   const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [homepageFeaturedSeries, setHomepageFeaturedSeries] = useState<any>(null);
+  const [homepageFeaturedSeriesLoading, setHomepageFeaturedSeriesLoading] = useState(false);
   const [heroSettings, setHeroSettings] = useState<Record<string, string>>({});
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [homepageVideos, setHomepageVideos] = useState<any[]>([]);
@@ -798,6 +800,65 @@ const Home = () => {
       setSeriesLoading(false);
     }
   };
+
+  // Fetch Homepage Featured Series
+  useEffect(() => {
+    const fetchHomepageFeaturedSeries = async () => {
+      setHomepageFeaturedSeriesLoading(true);
+      try {
+        console.log('Fetching homepage featured series...');
+        const response = await seriesApi.getHomepageFeatured(1);
+        console.log('Homepage featured series response:', response);
+        
+        if (response.success && response.data && response.data.length > 0) {
+          const series = response.data[0];
+          console.log('Found featured series:', series);
+          
+          // Get the first episode from the series
+          const firstEpisode = series.videos && series.videos.length > 0 ? series.videos[0] : null;
+          
+          const featuredSeriesData = {
+            id: series.id,
+            title: series.title,
+            description: series.description || series.short_description || '',
+            short_description: series.short_description || '',
+            category: series.category,
+            cover_image: series.cover_image || series.thumbnail,
+            thumbnail: series.thumbnail,
+            firstEpisode: firstEpisode ? {
+              id: firstEpisode.id,
+              title: firstEpisode.title || firstEpisode.name || '',
+              name: firstEpisode.name || firstEpisode.title || '',
+              description: firstEpisode.description || firstEpisode.short_description || firstEpisode.intro_description || '',
+              short_description: firstEpisode.short_description || firstEpisode.description || '',
+              intro_description: firstEpisode.intro_description || firstEpisode.description || '',
+            } : null,
+            video_count: series.video_count || 0,
+            total_duration: series.total_duration || 0,
+          };
+          
+          console.log('Setting homepage featured series:', featuredSeriesData);
+          setHomepageFeaturedSeries(featuredSeriesData);
+        } else {
+          console.log('No homepage featured series found');
+          setHomepageFeaturedSeries(null);
+        }
+      } catch (error) {
+        console.error('Error fetching homepage featured series:', error);
+        setHomepageFeaturedSeries(null);
+      } finally {
+        setHomepageFeaturedSeriesLoading(false);
+      }
+    };
+
+    if (user) {
+      // Only fetch for authenticated users
+      fetchHomepageFeaturedSeries();
+    } else {
+      // Clear featured series if user logs out
+      setHomepageFeaturedSeries(null);
+    }
+  }, [user, locale]);
 
   // Fetch Featured Videos (videos with most reviews/comments)
   useEffect(() => {
@@ -2559,9 +2620,18 @@ const Home = () => {
     );
   }
 
-  // Get featured video/series for hero
-  const heroVideo = featuredCourse || (homepageVideos.length > 0 ? homepageVideos[0] : null);
-  const heroBgImage = heroVideo?.intro_image_url || heroVideo?.intro_image || heroVideo?.thumbnail_url || heroVideo?.thumbnail || heroBgUrls[0] || (heroSettings.hero_background_images ? (() => {
+  // Get featured video/series for hero - prioritize homepage featured series
+  const heroSeries = homepageFeaturedSeries;
+  const heroVideo = heroSeries?.firstEpisode || featuredCourse || (homepageVideos.length > 0 ? homepageVideos[0] : null);
+  
+  // Debug logging
+  if (heroSeries) {
+    console.log('Using homepage featured series for hero:', heroSeries);
+  }
+  
+  const heroBgImage = heroSeries?.cover_image ? getImageUrl(heroSeries.cover_image) : 
+                      heroSeries?.thumbnail ? getImageUrl(heroSeries.thumbnail) :
+                      heroVideo?.intro_image_url || heroVideo?.intro_image || heroVideo?.thumbnail_url || heroVideo?.thumbnail || heroBgUrls[0] || (heroSettings.hero_background_images ? (() => {
     try {
       const customImages = JSON.parse(heroSettings.hero_background_images);
       if (Array.isArray(customImages) && customImages.length > 0) {
@@ -2588,7 +2658,7 @@ const Home = () => {
           <div 
             className="w-full h-full bg-cover bg-center bg-no-repeat" 
             style={{
-              backgroundImage: `url('${heroBgImage ? getImageUrl(heroBgImage) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk'}')`
+              backgroundImage: `url('${heroBgImage || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVfyR5ZlrKMKk0bXi_PlREAZwG2wlaY06GKkG7vqFruULd0d0gpN0MEF6YiBqrbSFJT9ywwTfvnbw9hEiuchbe0vyFrJQ7DWQWu7HLcMBHpDhZE9ng1i26YkG_Zt-jK_MJCbqYiTwhboc2c51KKDBRTK0njNkXpZeJWUe1fZ6YDybG3E3Qot1WQs7Hyh9R0FGYNUoT_stmSZWEt9dX2HC7GztEg0Qp8z5hTL7z-72asg1TYvAZyUShP6cXQ3Wo1CNvZdA5V-40xFk'}')`
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/40 to-black/30" />
@@ -2596,26 +2666,59 @@ const Home = () => {
         </div>
         <div className="relative z-10 w-full px-4 sm:px-6 md:px-16 pt-16 sm:pt-20 max-w-7xl mx-auto">
           <div className="flex flex-col gap-4 sm:gap-6 max-w-2xl animate-fade-in-up">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2 py-0.5 rounded bg-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white">
-                {heroVideo?.category?.name || t('index.hero.badge', 'Nuevo')}
-              </span>
-              <span className="text-xs sm:text-sm font-medium text-gray-300 uppercase tracking-widest">
-                {t('index.hero.series_original', 'Serie Original')}
-              </span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.9] tracking-tighter text-white drop-shadow-2xl">
-              {heroVideo?.title || heroSettings.hero_title || t('index.hero.title', 'El Arte de')} <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
-                {heroVideo?.category?.name || heroSettings.hero_subtitle || t('index.hero.subtitle', 'Lo Divino')}
-              </span>
-            </h1>
-            <p className="text-sm sm:text-base md:text-lg text-gray-200 line-clamp-3 md:line-clamp-none font-medium max-w-xl drop-shadow-md">
-              {heroVideo?.description || heroSettings.hero_description || t('index.hero.description', 'Descubre los secretos ancestrales del arte sacro en esta nueva serie documental.')}
-            </p>
+            {heroSeries && heroSeries.firstEpisode ? (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded bg-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white">
+                    {heroSeries?.category?.name || t('index.hero.badge', 'Nuevo')}
+                  </span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-300 uppercase tracking-widest">
+                    {t('index.hero.series_original', 'ORIGINAL SERIES')}
+                  </span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.9] tracking-tighter text-white drop-shadow-2xl">
+                  {heroSeries.title || t('index.hero.title', 'El Arte de')} <br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
+                    {heroSeries.firstEpisode.title || heroSeries.firstEpisode.name || ''}
+                  </span>
+                </h1>
+                <p className="text-sm sm:text-base md:text-lg text-gray-200 line-clamp-3 md:line-clamp-none font-medium max-w-xl drop-shadow-md">
+                  {heroSeries.firstEpisode.description || heroSeries.firstEpisode.short_description || heroSeries.firstEpisode.intro_description || heroSettings.hero_description || t('index.hero.description', 'Descubre los secretos ancestrales del arte sacro en esta nueva serie documental.')}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded bg-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white">
+                    {heroVideo?.category?.name || t('index.hero.badge', 'Nuevo')}
+                  </span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-300 uppercase tracking-widest">
+                    {t('index.hero.series_original', 'Serie Original')}
+                  </span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.9] tracking-tighter text-white drop-shadow-2xl">
+                  {heroVideo?.title || heroSettings.hero_title || t('index.hero.title', 'El Arte de')} <br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
+                    {heroVideo?.category?.name || heroSettings.hero_subtitle || t('index.hero.subtitle', 'Lo Divino')}
+                  </span>
+                </h1>
+                <p className="text-sm sm:text-base md:text-lg text-gray-200 line-clamp-3 md:line-clamp-none font-medium max-w-xl drop-shadow-md">
+                  {heroVideo?.description || heroSettings.hero_description || t('index.hero.description', 'Descubre los secretos ancestrales del arte sacro en esta nueva serie documental.')}
+                </p>
+              </>
+            )}
             <div className="flex flex-wrap gap-3 sm:gap-4 mt-4">
               <Button
-                onClick={() => heroVideo ? handleCourseClick(heroVideo.id) : navigateWithLocale('/browse')}
+                onClick={() => {
+                  if (heroSeries && heroSeries.firstEpisode) {
+                    // Navigate to episode detail page
+                    navigateWithLocale(`/episode/${heroSeries.firstEpisode.id}`);
+                  } else if (heroVideo) {
+                    handleCourseClick(heroVideo.id);
+                  } else {
+                    navigateWithLocale('/browse');
+                  }
+                }}
                 className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-lg font-bold text-sm sm:text-base md:text-lg transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/30"
               >
                 <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
@@ -2623,7 +2726,16 @@ const Home = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => heroVideo ? navigateWithLocale(`/video/${heroVideo.id}`) : navigateWithLocale('/browse')}
+                onClick={() => {
+                  if (heroSeries) {
+                    // Navigate to series detail page
+                    navigateWithLocale(`/series/${heroSeries.id}`);
+                  } else if (heroVideo) {
+                    navigateWithLocale(`/video/${heroVideo.id}`);
+                  } else {
+                    navigateWithLocale('/browse');
+                  }
+                }}
                 className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-lg font-bold text-sm sm:text-base md:text-lg transition-colors border border-white/10"
               >
                 <span className="hidden sm:inline">{t('index.hero.more_info', 'Más información')}</span>

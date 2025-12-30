@@ -350,6 +350,16 @@ export const seriesApi = {
     return handleResponse<{ success: boolean; data: Series[] }>(response);
   },
 
+  async getHomepageFeatured(limit?: number) {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', limit.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/series/homepage-featured?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Series[] }>(response);
+  },
+
   async getPopular(limit?: number) {
     const queryParams = new URLSearchParams();
     if (limit) queryParams.append('limit', limit.toString());

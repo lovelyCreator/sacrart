@@ -563,6 +563,7 @@ const ContentManagement = () => {
       published_at: serie.published_at || null,
       featured_until: serie.featured_until || null,
       is_featured: serie.is_featured ?? false,
+      ...(serie as any),
       sort_order: serie.sort_order || 0,
       tags: serie.tags || null,
       image: (serie as any)?.image || null,
@@ -661,6 +662,16 @@ const ContentManagement = () => {
       return;
     }
 
+    // Validate that sort_order is unique
+    const sortOrder = selectedCategory.sort_order || 0;
+    const existingCategory = categories.find(
+      c => c.id !== selectedCategory.id && c.sort_order === sortOrder
+    );
+    if (existingCategory) {
+      toast.error(t('admin.content_sort_order_duplicate', `Sort order ${sortOrder} is already used by another category. Please choose a different number.`));
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       
@@ -669,7 +680,7 @@ const ContentManagement = () => {
         description: categoryMultilingual.description.en || '',
         color: selectedCategory.color || '',
         icon: selectedCategory.icon || '',
-        sort_order: selectedCategory.sort_order || 0,
+        sort_order: sortOrder,
         // Include multilingual translations
         translations: {
           name: categoryMultilingual.name,
@@ -825,6 +836,7 @@ const ContentManagement = () => {
         thumbnail: (selectedSeries as any)?.thumbnail || null,
         cover_image: (selectedSeries as any)?.cover_image || null,
         trailer_url: (selectedSeries as any)?.trailer_url || null,
+        is_homepage_featured: (selectedSeries as any)?.is_homepage_featured || false,
         // Include multilingual translations
         translations: {
           title: seriesMultilingual.title,
@@ -1274,6 +1286,117 @@ const ContentManagement = () => {
     }
   };
 
+  const handleToggleHomepageFeatured = async (seriesId: number) => {
+    const serie = series.find(s => s.id === seriesId);
+    if (!serie) return;
+
+    const currentStatus = (serie as any)?.is_homepage_featured || false;
+    const newStatus = !currentStatus;
+    
+    try {
+      // If setting to featured, first unset any other featured series
+      if (newStatus) {
+        const otherFeatured = series.find(s => s.id !== seriesId && (s as any)?.is_homepage_featured);
+        if (otherFeatured) {
+          try {
+            await seriesApi.update(otherFeatured.id, { is_homepage_featured: false } as any);
+          } catch (error) {
+            console.error('Error unsetting other featured series:', error);
+          }
+        }
+      }
+
+      const response = await seriesApi.update(seriesId, { is_homepage_featured: newStatus } as any);
+      if (response.success) {
+        const updatedSeries = response.data;
+        // Update the series in the list
+        setSeries(prev => prev.map(s => {
+          if (s.id === seriesId) {
+            return { ...s, ...updatedSeries, is_homepage_featured: newStatus };
+          }
+          // If setting a new featured series, unset any other featured series
+          if (newStatus && (s as any)?.is_homepage_featured) {
+            return { ...s, is_homepage_featured: false };
+          }
+          return s;
+        }));
+        setFilteredSeries(prev => prev.map(s => {
+          if (s.id === seriesId) {
+            return { ...s, ...updatedSeries, is_homepage_featured: newStatus };
+          }
+          // If setting a new featured series, unset any other featured series
+          if (newStatus && (s as any)?.is_homepage_featured) {
+            return { ...s, is_homepage_featured: false };
+          }
+          return s;
+        }));
+        toast.success(newStatus ? 'Series set as homepage featured' : 'Series removed from homepage');
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update homepage featured status");
+    }
+  };
+
+  const handleAddEpisodeToSeries = (seriesId: number) => {
+    const selectedSerie = series.find(s => s.id === seriesId);
+    if (!selectedSerie) {
+      toast.error('Series not found');
+      return;
+    }
+    
+    setSelectedVideo({
+      id: 0,
+      title: '',
+      slug: '',
+      description: '',
+      short_description: null,
+      category_id: selectedSerie.category_id || undefined,
+      series_id: seriesId,
+      instructor_id: null,
+      video_url: null,
+      video_file_path: null,
+      thumbnail: null,
+      intro_image: null,
+      intro_description: null,
+      duration: 0,
+      file_size: null,
+      video_format: null,
+      video_quality: null,
+      bunny_video_id: null,
+      bunny_video_url: null,
+      bunny_embed_url: '',
+      bunny_thumbnail_url: null,
+      streaming_urls: null,
+      hls_url: null,
+      dash_url: null,
+      visibility: 'freemium',
+      status: 'draft',
+      is_free: true,
+      price: null,
+      episode_number: null,
+      sort_order: 0,
+      tags: null,
+      views: 0,
+      unique_views: 0,
+      likes_count: 0,
+      dislikes_count: 0,
+      rating: '0',
+      rating_count: 0,
+      completion_rate: 0,
+      published_at: null,
+      scheduled_at: null,
+      downloadable_resources: null,
+      allow_download: false,
+      meta_title: null,
+      meta_description: null,
+      meta_keywords: null,
+      created_at: '',
+      updated_at: '',
+    } as Video);
+    
+    setIsVideoDialogOpen(true);
+  };
+
   const handleToggleSeriesStatus = async (seriesId: number) => {
     const serie = series.find(s => s.id === seriesId);
     if (!serie) return;
@@ -1281,14 +1404,8 @@ const ContentManagement = () => {
     const newStatus = serie.status === 'published' ? 'draft' : 'published';
     
     try {
-      // Use categoryApi since series are categories
-      // Need to send name field as it's required by CategoryController
-      const updateData: Partial<Category> = {
-        name: serie.name || serie.title || '',
-        status: newStatus,
-      };
-      
-      const response = await categoryApi.update(seriesId, updateData);
+      // Use seriesApi to update the status
+      const response = await seriesApi.update(seriesId, { status: newStatus });
       if (response.success) {
         // Map category response to series format
         const categoryData = response.data;
@@ -1480,6 +1597,7 @@ const ContentManagement = () => {
                     <TableHead className="min-w-[300px]">{t('admin.content_table_category', 'Category')}</TableHead>
                     <TableHead className="w-[150px]">{t('admin.content_table_description', 'Description')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_sort_order', 'Sort Order')}</TableHead>
+                    <TableHead className="w-[100px]">{t('admin.content_table_series', 'Series')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_created', 'Created')}</TableHead>
                     <TableHead className="w-[70px]">{t('admin.content_table_actions', 'Actions')}</TableHead>
                   </TableRow>
@@ -1519,6 +1637,14 @@ const ContentManagement = () => {
                         <span className="font-medium">{category.sort_order || 0}</span>
                       </TableCell>
                       <TableCell>
+                        <span className="font-medium">
+                          {(() => {
+                            const seriesCount = series.filter(s => s.category_id === category.id).length;
+                            return seriesCount || 0;
+                          })()}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center text-sm">
                           <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
                           {formatDate(category.created_at)}
@@ -1551,7 +1677,7 @@ const ContentManagement = () => {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         {categories.length === 0 ? t('admin.content_no_categories', 'No categories found. Create your first category!') : t('admin.content_no_categories_match', 'No categories match your search criteria.')}
                       </TableCell>
                     </TableRow>
@@ -1584,7 +1710,8 @@ const ContentManagement = () => {
                           <Calendar className="h-3 w-3 mr-1" />
                           {formatDate(category.created_at)}
                         </span>
-                        <span>Sort: {category.sort_order || 0}</span>
+                        <span>{t('admin.content_table_sort_order', 'Sort Order')}: {category.sort_order || 0}</span>
+                        <span>{t('admin.content_table_series', 'Series')}: {series.filter(s => s.category_id === category.id).length || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -1632,11 +1759,13 @@ const ContentManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[300px]">{t('admin.content_table_series')}</TableHead>
+                    <TableHead className="min-w-[200px]">{t('admin.content_table_series', 'Series')}</TableHead>
+                    <TableHead className="w-[150px]">{t('admin.content_table_category', 'Category')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_episodes')}</TableHead>
                     <TableHead className="w-[100px]">{t('admin.content_table_duration')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_visibility')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_status')}</TableHead>
+                    <TableHead className="w-[120px]">{t('admin.content_table_homepage', 'Homepage')}</TableHead>
                     <TableHead className="w-[120px]">{t('admin.content_table_created')}</TableHead>
                     <TableHead className="w-[70px]">{t('admin.content_table_actions')}</TableHead>
                   </TableRow>
@@ -1650,22 +1779,46 @@ const ContentManagement = () => {
                             <Folder className="h-6 w-6" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{getSeriesTitle(serie) || 'Category'}</div>
+                            <div className="font-medium truncate">{getSeriesTitle(serie) || 'Series'}</div>
                             <div className="text-sm text-muted-foreground truncate">{getSeriesDescription(serie)}</div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
+                        <span className="text-sm font-medium">
+                          {serie.category_id ? (() => {
+                            const category = categories.find(c => c.id === serie.category_id);
+                            return category ? getCategoryName(category) : `Category #${serie.category_id}`;
+                          })() : '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         <span className="font-medium">{serie.video_count}</span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">{Math.floor(serie.total_duration / 60)}m</span>
+                        <span className="text-sm">
+                          {serie.total_duration ? (() => {
+                            const hours = Math.floor(serie.total_duration / 3600);
+                            const minutes = Math.floor((serie.total_duration % 3600) / 60);
+                            return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                          })() : '0m'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {getVisibilityBadge(serie.visibility)}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(serie.status)}
+                      </TableCell>
+                      <TableCell>
+                        {(serie as any)?.is_homepage_featured ? (
+                          <Badge variant="default" className="bg-primary text-white">
+                            <Star className="h-3 w-3 mr-1" />
+                            Featured
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center text-sm">
@@ -1683,26 +1836,41 @@ const ContentManagement = () => {
                           <DropdownMenuContent align="end" className="w-48 bg-popover border-border shadow-lg">
                             <DropdownMenuLabel className="font-semibold px-3 py-2">{t('admin.common_actions')}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleEditSeries(serie)}
-                              className="px-3 py-2 cursor-pointer"
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Series
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="px-3 py-2 cursor-pointer">
-                              <Plus className="mr-2 h-4 w-4" />
-                              Add Episode
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="px-3 py-2 cursor-pointer">
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Series
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleToggleSeriesStatus(serie.id)}
-                              className="px-3 py-2 cursor-pointer"
-                            >
+                      <DropdownMenuItem 
+                        onClick={() => handleEditSeries(serie)}
+                        className="px-3 py-2 cursor-pointer"
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Series
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleAddEpisodeToSeries(serie.id)}
+                        className="px-3 py-2 cursor-pointer"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Episode
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleHomepageFeatured(serie.id)}
+                        className="px-3 py-2 cursor-pointer"
+                      >
+                        {(serie as any)?.is_homepage_featured ? (
+                          <>
+                            <Star className="mr-2 h-4 w-4" />
+                            Remove from Homepage
+                          </>
+                        ) : (
+                          <>
+                            <Star className="mr-2 h-4 w-4" />
+                            Set as Homepage Featured
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleSeriesStatus(serie.id)}
+                        className="px-3 py-2 cursor-pointer"
+                      >
                               {serie.status === 'published' ? (
                                 <>
                                   <EyeOff className="mr-2 h-4 w-4" />
@@ -1728,7 +1896,7 @@ const ContentManagement = () => {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         {series.length === 0 ? 'No series found. Create your first series!' : 'No series match your search criteria.'}
                       </TableCell>
                     </TableRow>
@@ -1748,8 +1916,13 @@ const ContentManagement = () => {
                       <Folder className="h-6 w-6" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{getSeriesTitle(serie) || 'Category'}</h3>
-                      <p className="text-sm text-muted-foreground mb-1 line-clamp-1">{getSeriesDescription(serie)}</p>
+                      <h3 className="font-medium text-lg mb-1 line-clamp-1">{getSeriesTitle(serie) || 'Series'}</h3>
+                      <p className="text-sm text-muted-foreground mb-1 line-clamp-1">
+                        {t('admin.content_table_category', 'Category')}: {serie.category_id ? (() => {
+                          const category = categories.find(c => c.id === serie.category_id);
+                          return category ? getCategoryName(category) : `Category #${serie.category_id}`;
+                        })() : '-'}
+                      </p>
                       
                       <div className="flex flex-wrap gap-2 mb-3">
                         <div className="flex items-center text-sm bg-muted px-2 py-1 rounded">
@@ -1762,6 +1935,12 @@ const ContentManagement = () => {
                         </div>
                         {getVisibilityBadge(serie.visibility)}
                         {getStatusBadge(serie.status)}
+                        {(serie as any)?.is_homepage_featured && (
+                          <Badge variant="default" className="bg-primary text-white">
+                            <Star className="h-3 w-3 mr-1" />
+                            Homepage
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="flex items-center text-sm text-muted-foreground">
@@ -1780,22 +1959,37 @@ const ContentManagement = () => {
                     <DropdownMenuContent align="end" className="w-48 bg-popover border-border shadow-lg">
                       <DropdownMenuLabel className="font-semibold px-3 py-2">Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleEditSeries(serie)}
-                        className="px-3 py-2 cursor-pointer"
-                      >
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit Series
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="px-3 py-2 cursor-pointer">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Episode
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="px-3 py-2 cursor-pointer">
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Series
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleEditSeries(serie)}
+                              className="px-3 py-2 cursor-pointer"
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Series
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleAddEpisodeToSeries(serie.id)}
+                              className="px-3 py-2 cursor-pointer"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Episode
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleToggleHomepageFeatured(serie.id)}
+                              className="px-3 py-2 cursor-pointer"
+                            >
+                              {(serie as any)?.is_homepage_featured ? (
+                                <>
+                                  <Star className="mr-2 h-4 w-4" />
+                                  Remove from Homepage
+                                </>
+                              ) : (
+                                <>
+                                  <Star className="mr-2 h-4 w-4" />
+                                  Set as Homepage Featured
+                                </>
+                              )}
+                            </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleToggleSeriesStatus(serie.id)}
                         className="px-3 py-2 cursor-pointer"
