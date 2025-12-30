@@ -66,6 +66,7 @@ Route::get('/testimonials/public', [TestimonialController::class, 'public']);
 Route::get('/series', [SeriesController::class, 'index']);
 Route::get('/series/{series}', [SeriesController::class, 'show']);
 Route::get('/videos', [VideoController::class, 'index']);
+Route::get('/videos/trending-last-7-days', [VideoController::class, 'trendingLast7Days']);
 Route::get('/videos/{video}', [VideoController::class, 'show']);
 Route::get('/videos/{video}/stream', [VideoController::class, 'stream']);
 Route::get('/videos/{video}/subtitles/{locale?}', [VideoController::class, 'getSubtitleVtt'])->where('locale', '[a-z]{2}');

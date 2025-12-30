@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Video;
 use App\Models\Series;
+use App\Models\UserProgress;
 use App\Services\WebpConversionService;
 use App\Services\VideoTranscodingService;
 use App\Services\BunnyNetService;
@@ -13,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class VideoController extends Controller
 {
@@ -1732,6 +1734,81 @@ class VideoController extends Controller
                 'duration' => $duration,
                 'duration_formatted' => gmdate('H:i:s', $duration),
             ],
+        ]);
+    }
+
+    /**
+     * Get trending videos (most views in last 7 days)
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function trendingLast7Days(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $limit = $request->get('limit', 10);
+        
+        // Calculate date 7 days ago
+        $sevenDaysAgo = now()->subDays(7);
+        
+        // Get videos with most views in last 7 days
+        // Count views from user_progress where last_watched_at is within last 7 days
+        $trendingVideos = Video::query()
+            ->select('videos.*')
+            ->selectRaw('COUNT(user_progress.id) as views_last_7_days')
+            ->leftJoin('user_progress', function($join) use ($sevenDaysAgo) {
+                $join->on('videos.id', '=', 'user_progress.video_id')
+                     ->where('user_progress.last_watched_at', '>=', $sevenDaysAgo);
+            })
+            ->where('videos.status', 'published')
+            ->groupBy('videos.id')
+            ->having('views_last_7_days', '>', 0)
+            ->orderBy('views_last_7_days', 'desc')
+            ->orderBy('videos.views', 'desc')
+            ->limit($limit)
+            ->with(['series', 'instructor'])
+            ->withCount('comments')
+            ->get();
+        
+        // If we don't have enough videos with views in last 7 days, 
+        // fall back to videos published in last 7 days sorted by total views
+        if ($trendingVideos->count() < $limit) {
+            $fallbackVideos = Video::query()
+                ->where('status', 'published')
+                ->where(function($query) use ($sevenDaysAgo) {
+                    $query->where('published_at', '>=', $sevenDaysAgo)
+                          ->orWhere('created_at', '>=', $sevenDaysAgo);
+                })
+                ->orderBy('views', 'desc')
+                ->limit($limit - $trendingVideos->count())
+                ->with(['series', 'instructor'])
+                ->withCount('comments')
+                ->get();
+            
+            // Merge and remove duplicates
+            $existingIds = $trendingVideos->pluck('id')->toArray();
+            $fallbackVideos = $fallbackVideos->reject(function($video) use ($existingIds) {
+                return in_array($video->id, $existingIds);
+            });
+            
+            $trendingVideos = $trendingVideos->merge($fallbackVideos)->take($limit);
+        }
+        
+        // Apply visibility filters
+        if ($user) {
+            $subscriptionType = $user->subscription_type ?: 'freemium';
+            $trendingVideos = $trendingVideos->filter(function($video) use ($subscriptionType) {
+                return $video->isAccessibleTo($user);
+            })->values();
+        } else {
+            $trendingVideos = $trendingVideos->filter(function($video) {
+                return $video->visibility === 'freemium';
+            })->values();
+        }
+        
+        return response()->json([
+            'success' => true,
+            'data' => $trendingVideos,
         ]);
     }
 

@@ -559,6 +559,17 @@ export const videoApi = {
     });
     return handleResponse<{ success: boolean; data: { data: Video[]; total: number; current_page?: number; last_page?: number } }>(response);
   },
+
+  // Get trending videos (most views in last 7 days)
+  async getTrendingLast7Days(limit?: number) {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', limit.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/videos/trending-last-7-days?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Video[] }>(response);
+  },
 };
 
 export default {

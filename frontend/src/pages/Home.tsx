@@ -86,6 +86,8 @@ const Home = () => {
   const [homepageVideosLoading, setHomepageVideosLoading] = useState(false);
   const [newReleases, setNewReleases] = useState<any[]>([]);
   const [newReleasesLoading, setNewReleasesLoading] = useState(false);
+  const [trendingVideosLast7Days, setTrendingVideosLast7Days] = useState<any[]>([]);
+  const [trendingVideosLoading, setTrendingVideosLoading] = useState(false);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const homepageVideosCarouselRef = useRef<HTMLDivElement>(null);
@@ -1095,6 +1097,34 @@ const Home = () => {
       fetchHomepageVideos();
     }
   }, [heroSettings]);
+
+  // Fetch Trending Videos (most views in last 7 days)
+  useEffect(() => {
+    const fetchTrendingVideosLast7Days = async () => {
+      setTrendingVideosLoading(true);
+      try {
+        // Fetch trending videos from backend (most views in last 7 days)
+        const response = await videoApi.getTrendingLast7Days(10);
+
+        if (response.success && response.data) {
+          const videos = Array.isArray(response.data) ? response.data : [];
+          setTrendingVideosLast7Days(videos);
+        } else {
+          setTrendingVideosLast7Days([]);
+        }
+      } catch (error) {
+        console.error('Error fetching trending videos (last 7 days):', error);
+        setTrendingVideosLast7Days([]);
+      } finally {
+        setTrendingVideosLoading(false);
+      }
+    };
+
+    if (user) {
+      // Only fetch for authenticated users
+      fetchTrendingVideosLast7Days();
+    }
+  }, [user, locale]);
 
   // Fetch continue watching videos for authenticated users
   useEffect(() => {
@@ -2641,8 +2671,8 @@ const Home = () => {
     return null;
   })() : null);
 
-  // Get trending videos for "Tendencias Ahora" section (first 4)
-  const trendingForSection = homepageVideos.slice(0, 4);
+  // Get trending videos for "Tendencias Ahora" section (up to 10 videos from last 7 days)
+  const trendingForSection = trendingVideosLast7Days.slice(0, 10);
 
   // Get featured processes (using seriesByCategory or categories)
   const featuredProcesses = Object.values(seriesByCategory).flat().slice(0, 5);
@@ -2756,7 +2786,7 @@ const Home = () => {
             </h2>
             <ChevronRight className="text-primary text-xs sm:text-sm opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0" />
           </div>
-          {homepageVideosLoading ? (
+          {trendingVideosLoading ? (
             <div className="text-center text-gray-400 py-8 text-sm sm:text-base">{t('common.loading')}</div>
           ) : trendingForSection.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
