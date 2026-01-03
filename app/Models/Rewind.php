@@ -14,10 +14,19 @@ class Rewind extends Model
 
     protected $fillable = [
         'title',
+        'title_en',
+        'title_es',
+        'title_pt',
         'year',
         'slug',
         'description',
+        'description_en',
+        'description_es',
+        'description_pt',
         'short_description',
+        'short_description_en',
+        'short_description_es',
+        'short_description_pt',
         'instructor_id',
         'thumbnail',
         'cover_image',
@@ -67,13 +76,13 @@ class Rewind extends Model
 
         static::creating(function ($rewind) {
             if (empty($rewind->slug)) {
-                $rewind->slug = Str::slug($rewind->title);
+                $rewind->slug = Str::slug($rewind->title_en ?? $rewind->title);
             }
         });
 
         static::updating(function ($rewind) {
-            if ($rewind->isDirty('title') && empty($rewind->slug)) {
-                $rewind->slug = Str::slug($rewind->title);
+            if (($rewind->isDirty('title') || $rewind->isDirty('title_en')) && empty($rewind->slug)) {
+                $rewind->slug = Str::slug($rewind->title_en ?? $rewind->title);
             }
         });
     }
@@ -115,6 +124,78 @@ class Rewind extends Model
             return asset('storage/' . $this->thumbnail);
         }
         return null;
+    }
+
+    /**
+     * Get localized title based on current locale.
+     */
+    public function getTitleAttribute($value)
+    {
+        $locale = \Illuminate\Support\Facades\App::getLocale();
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['title_es'] ?? $this->attributes['title_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['title_pt'] ?? $this->attributes['title_en'] ?? $value;
+            default:
+                return $this->attributes['title_en'] ?? $value;
+        }
+    }
+
+    /**
+     * Get localized description based on current locale.
+     */
+    public function getDescriptionAttribute($value)
+    {
+        $locale = \Illuminate\Support\Facades\App::getLocale();
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['description_es'] ?? $this->attributes['description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['description_pt'] ?? $this->attributes['description_en'] ?? $value;
+            default:
+                return $this->attributes['description_en'] ?? $value;
+        }
+    }
+
+    /**
+     * Get localized short_description based on current locale.
+     */
+    public function getShortDescriptionAttribute($value)
+    {
+        $locale = \Illuminate\Support\Facades\App::getLocale();
+        switch ($locale) {
+            case 'es':
+                return $this->attributes['short_description_es'] ?? $this->attributes['short_description_en'] ?? $value;
+            case 'pt':
+                return $this->attributes['short_description_pt'] ?? $this->attributes['short_description_en'] ?? $value;
+            default:
+                return $this->attributes['short_description_en'] ?? $value;
+        }
+    }
+
+    /**
+     * Get all translations for admin editing.
+     */
+    public function getAllTranslations(): array
+    {
+        return [
+            'title' => [
+                'en' => $this->attributes['title_en'] ?? $this->attributes['title'] ?? '',
+                'es' => $this->attributes['title_es'] ?? '',
+                'pt' => $this->attributes['title_pt'] ?? '',
+            ],
+            'description' => [
+                'en' => $this->attributes['description_en'] ?? $this->attributes['description'] ?? '',
+                'es' => $this->attributes['description_es'] ?? '',
+                'pt' => $this->attributes['description_pt'] ?? '',
+            ],
+            'short_description' => [
+                'en' => $this->attributes['short_description_en'] ?? $this->attributes['short_description'] ?? '',
+                'es' => $this->attributes['short_description_es'] ?? '',
+                'pt' => $this->attributes['short_description_pt'] ?? '',
+            ],
+        ];
     }
 
     /**

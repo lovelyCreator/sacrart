@@ -146,6 +146,21 @@ class ReelController extends Controller
             }
         }
         
+        // Handle multilingual translations before validation
+        $translations = $request->input('translations');
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $requestData['translations'] = $decoded;
+            } else {
+                $requestData['translations'] = null;
+            }
+        } else if (is_array($translations)) {
+            $requestData['translations'] = $translations;
+        } else {
+            $requestData['translations'] = null;
+        }
+        
         $request->merge($requestData);
 
         $validated = $request->validate([
@@ -176,15 +191,11 @@ class ReelController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'meta_keywords' => 'nullable|string|max:255',
-            'translations' => 'nullable',
+            'translations' => 'nullable|array',
         ]);
 
         // Handle multilingual translations
-        $translations = $request->input('translations');
-        if (is_string($translations)) {
-            $decoded = json_decode($translations, true);
-            $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
-        }
+        $translations = $validated['translations'] ?? null;
 
         if ($translations && is_array($translations)) {
             if (isset($translations['title'])) {
@@ -347,6 +358,21 @@ class ReelController extends Controller
             }
         }
         
+        // Handle multilingual translations before validation
+        $translations = $request->input('translations');
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $requestData['translations'] = $decoded;
+            } else {
+                $requestData['translations'] = null;
+            }
+        } else if (is_array($translations)) {
+            $requestData['translations'] = $translations;
+        } else {
+            $requestData['translations'] = null;
+        }
+        
         $request->merge($requestData);
 
         $validated = $request->validate([
@@ -377,15 +403,11 @@ class ReelController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'meta_keywords' => 'nullable|string|max:255',
-            'translations' => 'nullable',
+            'translations' => 'nullable|array',
         ]);
 
         // Handle multilingual translations
-        $translations = $request->input('translations');
-        if (is_string($translations)) {
-            $decoded = json_decode($translations, true);
-            $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
-        }
+        $translations = $validated['translations'] ?? null;
 
         if ($translations && is_array($translations)) {
             if (isset($translations['title'])) {

@@ -49,11 +49,21 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useLocale } from '@/hooks/useLocale';
 import { rewindApi, videoApi, Rewind, Video } from '@/services/videoApi';
 import FileUpload from '@/components/admin/FileUpload';
+import LanguageTabs from '@/components/admin/LanguageTabs';
+
+interface MultilingualData {
+  en: string;
+  es: string;
+  pt: string;
+}
 
 const RewindsManagement = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { locale: urlLocale } = useLocale();
+  const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(urlLocale as 'en' | 'es' | 'pt' || 'en');
   const [rewinds, setRewinds] = useState<Rewind[]>([]);
   const [filteredRewinds, setFilteredRewinds] = useState<Rewind[]>([]);
   const [selectedRewind, setSelectedRewind] = useState<Rewind | null>(null);
@@ -63,6 +73,17 @@ const RewindsManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Multilingual state for rewinds
+  const [rewindMultilingual, setRewindMultilingual] = useState<{
+    title: MultilingualData;
+    description: MultilingualData;
+    short_description: MultilingualData;
+  }>({
+    title: { en: '', es: '', pt: '' },
+    description: { en: '', es: '', pt: '' },
+    short_description: { en: '', es: '', pt: '' },
+  });
 
   const getImageUrl = (imagePath: string | null | undefined): string | null => {
     if (!imagePath) return null;
@@ -137,13 +158,62 @@ const RewindsManagement = () => {
           const fullRewind = response.data;
           setSelectedRewind(fullRewind);
           setSelectedVideoIds(fullRewind.videos?.map(v => v.id) || []);
+          
+          // Load translations
+          if (fullRewind.translations && fullRewind.translations.title && fullRewind.translations.description) {
+            setRewindMultilingual({
+              title: {
+                en: fullRewind.translations.title.en || (fullRewind as any).title_en || fullRewind.title || '',
+                es: fullRewind.translations.title.es || (fullRewind as any).title_es || '',
+                pt: fullRewind.translations.title.pt || (fullRewind as any).title_pt || '',
+              },
+              description: {
+                en: fullRewind.translations.description.en || (fullRewind as any).description_en || fullRewind.description || '',
+                es: fullRewind.translations.description.es || (fullRewind as any).description_es || '',
+                pt: fullRewind.translations.description.pt || (fullRewind as any).description_pt || '',
+              },
+              short_description: {
+                en: fullRewind.translations.short_description.en || (fullRewind as any).short_description_en || fullRewind.short_description || '',
+                es: fullRewind.translations.short_description.es || (fullRewind as any).short_description_es || '',
+                pt: fullRewind.translations.short_description.pt || (fullRewind as any).short_description_pt || '',
+              },
+            });
+          } else {
+            setRewindMultilingual({
+              title: {
+                en: (fullRewind as any).title_en || fullRewind.title || '',
+                es: (fullRewind as any).title_es || '',
+                pt: (fullRewind as any).title_pt || '',
+              },
+              description: {
+                en: (fullRewind as any).description_en || fullRewind.description || '',
+                es: (fullRewind as any).description_es || '',
+                pt: (fullRewind as any).description_pt || '',
+              },
+              short_description: {
+                en: (fullRewind as any).short_description_en || fullRewind.short_description || '',
+                es: (fullRewind as any).short_description_es || '',
+                pt: (fullRewind as any).short_description_pt || '',
+              },
+            });
+          }
         } else {
           setSelectedRewind({ ...rewind });
           setSelectedVideoIds([]);
+          setRewindMultilingual({
+            title: { en: rewind.title || '', es: '', pt: '' },
+            description: { en: rewind.description || '', es: '', pt: '' },
+            short_description: { en: rewind.short_description || '', es: '', pt: '' },
+          });
         }
       } catch (error) {
         setSelectedRewind({ ...rewind });
         setSelectedVideoIds([]);
+        setRewindMultilingual({
+          title: { en: rewind.title || '', es: '', pt: '' },
+          description: { en: rewind.description || '', es: '', pt: '' },
+          short_description: { en: rewind.short_description || '', es: '', pt: '' },
+        });
       }
     } else {
       setSelectedRewind({
@@ -167,6 +237,11 @@ const RewindsManagement = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       } as Rewind);
+      setRewindMultilingual({
+        title: { en: '', es: '', pt: '' },
+        description: { en: '', es: '', pt: '' },
+        short_description: { en: '', es: '', pt: '' },
+      });
       setSelectedVideoIds([]);
     }
     setIsDialogOpen(true);
@@ -175,8 +250,8 @@ const RewindsManagement = () => {
   const handleSaveRewind = async () => {
     if (!selectedRewind) return;
 
-    if (!selectedRewind.title?.trim()) {
-      toast.error('Title is required');
+    if (!rewindMultilingual.title.en?.trim()) {
+      toast.error('Title (English) is required');
       return;
     }
 
@@ -184,10 +259,10 @@ const RewindsManagement = () => {
       setIsSubmitting(true);
 
       const payload: any = {
-        title: selectedRewind.title,
+        title: rewindMultilingual.title.en,
         year: selectedRewind.year || null,
-        description: selectedRewind.description || null,
-        short_description: selectedRewind.short_description || null,
+        description: rewindMultilingual.description.en || null,
+        short_description: rewindMultilingual.short_description.en || null,
         thumbnail: selectedRewind.thumbnail || null,
         cover_image: selectedRewind.cover_image || null,
         trailer_url: selectedRewind.trailer_url || null,
@@ -202,6 +277,7 @@ const RewindsManagement = () => {
         meta_description: selectedRewind.meta_description || null,
         meta_keywords: selectedRewind.meta_keywords || null,
         video_ids: selectedVideoIds,
+        translations: rewindMultilingual,
       };
 
       let response;
@@ -212,11 +288,53 @@ const RewindsManagement = () => {
       }
 
       if (response.success) {
-        toast.success(selectedRewind.id ? 'Rewind updated successfully' : 'Rewind created successfully');
-        await fetchRewinds();
+        const savedRewind = response.data;
+        
+        // Ensure translations are loaded for the saved rewind
+        if (savedRewind && !savedRewind.translations) {
+          if (savedRewind.title_en || savedRewind.title_es || savedRewind.title_pt) {
+            savedRewind.translations = {
+              title: {
+                en: savedRewind.title_en || savedRewind.title || '',
+                es: savedRewind.title_es || '',
+                pt: savedRewind.title_pt || '',
+              },
+              description: {
+                en: savedRewind.description_en || savedRewind.description || '',
+                es: savedRewind.description_es || '',
+                pt: savedRewind.description_pt || '',
+              },
+              short_description: {
+                en: savedRewind.short_description_en || savedRewind.short_description || '',
+                es: savedRewind.short_description_es || '',
+                pt: savedRewind.short_description_pt || '',
+              },
+            };
+          }
+        }
+        
+        if (selectedRewind.id) {
+          // Update existing rewind in state
+          const updatedRewind = { ...savedRewind };
+          setRewinds(prev => prev.map(r => r.id === selectedRewind.id ? updatedRewind : r));
+          setFilteredRewinds(prev => prev.map(r => r.id === selectedRewind.id ? updatedRewind : r));
+          toast.success('Rewind updated successfully');
+        } else {
+          // Add new rewind to state
+          const newRewind = { ...savedRewind };
+          setRewinds(prev => [newRewind, ...prev]);
+          setFilteredRewinds(prev => [newRewind, ...prev]);
+          toast.success('Rewind created successfully');
+        }
+        
         setIsDialogOpen(false);
         setSelectedRewind(null);
         setSelectedVideoIds([]);
+        setRewindMultilingual({
+          title: { en: '', es: '', pt: '' },
+          description: { en: '', es: '', pt: '' },
+          short_description: { en: '', es: '', pt: '' },
+        });
       } else {
         toast.error(response.message || 'Failed to save rewind');
       }
@@ -404,14 +522,24 @@ const RewindsManagement = () => {
           </DialogHeader>
           {selectedRewind && (
             <div className="grid gap-4 py-4">
+              {/* Language Tabs */}
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+                className="mb-4"
+              />
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">Title <span className="text-red-500">*</span></Label>
                   <Input
                     id="title"
-                    value={selectedRewind.title}
-                    onChange={(e) => setSelectedRewind({ ...selectedRewind, title: e.target.value })}
-                    placeholder="Enter rewind title"
+                    value={rewindMultilingual.title[contentLocale] || ''}
+                    onChange={(e) => setRewindMultilingual({
+                      ...rewindMultilingual,
+                      title: { ...rewindMultilingual.title, [contentLocale]: e.target.value }
+                    })}
+                    placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -432,9 +560,12 @@ const RewindsManagement = () => {
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  value={selectedRewind.description || ''}
-                  onChange={(e) => setSelectedRewind({ ...selectedRewind, description: e.target.value })}
-                  placeholder="Enter description"
+                  value={rewindMultilingual.description[contentLocale] || ''}
+                  onChange={(e) => setRewindMultilingual({
+                    ...rewindMultilingual,
+                    description: { ...rewindMultilingual.description, [contentLocale]: e.target.value }
+                  })}
+                  placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
                   rows={3}
                 />
               </div>
@@ -443,9 +574,12 @@ const RewindsManagement = () => {
                 <Label htmlFor="shortDescription">Short Description</Label>
                 <Textarea
                   id="shortDescription"
-                  value={selectedRewind.short_description || ''}
-                  onChange={(e) => setSelectedRewind({ ...selectedRewind, short_description: e.target.value })}
-                  placeholder="Enter short description"
+                  value={rewindMultilingual.short_description[contentLocale] || ''}
+                  onChange={(e) => setRewindMultilingual({
+                    ...rewindMultilingual,
+                    short_description: { ...rewindMultilingual.short_description, [contentLocale]: e.target.value }
+                  })}
+                  placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
                   rows={2}
                 />
               </div>

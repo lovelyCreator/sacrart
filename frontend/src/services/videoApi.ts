@@ -850,8 +850,13 @@ export const rewindApi = {
           formData.append(key, JSON.stringify(value));
         } else if (key === 'video_ids' && Array.isArray(value)) {
           formData.append(key, JSON.stringify(value));
+        } else if (key === 'translations' && typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
         } else if (key === 'cover_image_file' && value instanceof File) {
           formData.append(key, value);
+        } else if (typeof value === 'boolean') {
+          // Convert boolean to "1" or "0" for Laravel validation
+          formData.append(key, value ? '1' : '0');
         } else {
           formData.append(key, String(value));
         }
@@ -877,19 +882,28 @@ export const rewindApi = {
           formData.append(key, JSON.stringify(value));
         } else if (key === 'video_ids' && Array.isArray(value)) {
           formData.append(key, JSON.stringify(value));
+        } else if (key === 'translations' && typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
         } else if (key === 'cover_image_file' && value instanceof File) {
           formData.append(key, value);
+        } else if (typeof value === 'boolean') {
+          // Convert boolean to "1" or "0" for Laravel validation
+          formData.append(key, value ? '1' : '0');
         } else {
           formData.append(key, String(value));
         }
       }
     });
     
+    // Laravel needs POST with _method=PUT for FormData to parse correctly
+    formData.append('_method', 'PUT');
+    
     const headers = getAuthHeaders();
     delete (headers as any)['Content-Type'];
     
+    // Use POST with method spoofing instead of PUT for FormData
     const response = await fetch(`${API_BASE_URL}/admin/rewinds/${id}`, {
-      method: 'PUT',
+      method: 'POST',
       headers: headers,
       body: formData,
     });

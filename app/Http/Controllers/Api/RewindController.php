@@ -82,6 +82,11 @@ class RewindController extends Controller
                     $q->where('status', 'published');
                 }
             }]);
+            
+            // Load translations for admin requests
+            if ($isAdminRequest) {
+                $rewind->translations = $rewind->getAllTranslations();
+            }
         }
 
         return response()->json([
@@ -112,6 +117,36 @@ class RewindController extends Controller
             }
         }
         
+        // Handle video_ids before validation
+        $videoIds = $request->input('video_ids');
+        if (is_string($videoIds)) {
+            $decoded = json_decode($videoIds, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $requestData['video_ids'] = $decoded;
+            } else {
+                $requestData['video_ids'] = null;
+            }
+        } else if (is_array($videoIds)) {
+            $requestData['video_ids'] = $videoIds;
+        } else {
+            $requestData['video_ids'] = null;
+        }
+        
+        // Handle multilingual translations before validation
+        $translations = $request->input('translations');
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $requestData['translations'] = $decoded;
+            } else {
+                $requestData['translations'] = null;
+            }
+        } else if (is_array($translations)) {
+            $requestData['translations'] = $translations;
+        } else {
+            $requestData['translations'] = null;
+        }
+        
         $request->merge($requestData);
 
         $validated = $request->validate([
@@ -135,10 +170,56 @@ class RewindController extends Controller
             'meta_keywords' => 'nullable|string|max:255',
             'video_ids' => 'nullable|array',
             'video_ids.*' => 'exists:videos,id',
+            'translations' => 'nullable|array',
         ]);
 
-        $validated['slug'] = Str::slug($validated['title']);
+        // Handle multilingual translations
+        $translations = $validated['translations'] ?? null;
+
+        if ($translations && is_array($translations)) {
+            if (isset($translations['title'])) {
+                $validated['title_en'] = $translations['title']['en'] ?? $validated['title'] ?? '';
+                $validated['title_es'] = $translations['title']['es'] ?? '';
+                $validated['title_pt'] = $translations['title']['pt'] ?? '';
+                // Also update the main name field if not provided
+                if (!isset($validated['title'])) {
+                    $validated['title'] = $validated['title_en'];
+                }
+            }
+            if (isset($translations['description'])) {
+                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? '';
+                $validated['description_es'] = $translations['description']['es'] ?? '';
+                $validated['description_pt'] = $translations['description']['pt'] ?? '';
+                // Also update the main description field if not provided
+                if (!isset($validated['description'])) {
+                    $validated['description'] = $validated['description_en'];
+                }
+            }
+            if (isset($translations['short_description'])) {
+                $validated['short_description_en'] = $translations['short_description']['en'] ?? $validated['short_description'] ?? '';
+                $validated['short_description_es'] = $translations['short_description']['es'] ?? '';
+                $validated['short_description_pt'] = $translations['short_description']['pt'] ?? '';
+                // Also update the main short_description field if not provided
+                if (!isset($validated['short_description'])) {
+                    $validated['short_description'] = $validated['short_description_en'];
+                }
+            }
+        } else {
+            // If translations are not provided but title/description are, update the English versions
+            if (isset($validated['title'])) {
+                $validated['title_en'] = $validated['title'];
+            }
+            if (isset($validated['description'])) {
+                $validated['description_en'] = $validated['description'];
+            }
+            if (isset($validated['short_description'])) {
+                $validated['short_description_en'] = $validated['short_description'];
+            }
+        }
+
+        $validated['slug'] = Str::slug($validated['title_en'] ?? $validated['title']);
         $validated['instructor_id'] = Auth::id();
+        unset($validated['translations']);
 
         // Handle cover image file upload
         if ($request->hasFile('cover_image_file')) {
@@ -188,10 +269,14 @@ class RewindController extends Controller
             $rewind->updateStatistics();
         }
 
+        // Load relationships and translations
+        $rewind->load(['instructor', 'videos']);
+        $rewind->translations = $rewind->getAllTranslations();
+
         return response()->json([
             'success' => true,
             'message' => 'Rewind created successfully.',
-            'data' => $rewind->load(['instructor', 'videos']),
+            'data' => $rewind,
         ], 201);
     }
 
@@ -212,6 +297,12 @@ class RewindController extends Controller
         $rewind->load(['instructor', 'videos' => function ($q) {
             $q->orderByPivot('sort_order');
         }]);
+
+        // Load translations for admin requests
+        $user = Auth::user();
+        if ($user && $user->isAdmin()) {
+            $rewind->translations = $rewind->getAllTranslations();
+        }
 
         return response()->json([
             'success' => true,
@@ -241,6 +332,36 @@ class RewindController extends Controller
             }
         }
         
+        // Handle video_ids before validation
+        $videoIds = $request->input('video_ids');
+        if (is_string($videoIds)) {
+            $decoded = json_decode($videoIds, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $requestData['video_ids'] = $decoded;
+            } else {
+                $requestData['video_ids'] = null;
+            }
+        } else if (is_array($videoIds)) {
+            $requestData['video_ids'] = $videoIds;
+        } else {
+            $requestData['video_ids'] = null;
+        }
+        
+        // Handle multilingual translations before validation
+        $translations = $request->input('translations');
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $requestData['translations'] = $decoded;
+            } else {
+                $requestData['translations'] = null;
+            }
+        } else if (is_array($translations)) {
+            $requestData['translations'] = $translations;
+        } else {
+            $requestData['translations'] = null;
+        }
+        
         $request->merge($requestData);
 
         $validated = $request->validate([
@@ -264,11 +385,55 @@ class RewindController extends Controller
             'meta_keywords' => 'nullable|string|max:255',
             'video_ids' => 'nullable|array',
             'video_ids.*' => 'exists:videos,id',
+            'translations' => 'nullable|array',
         ]);
 
-        if (isset($validated['title'])) {
-            $validated['slug'] = Str::slug($validated['title']);
+        // Handle multilingual translations
+        $translations = $validated['translations'] ?? null;
+
+        if ($translations && is_array($translations)) {
+            if (isset($translations['title'])) {
+                // Prioritize translations over direct title field
+                $validated['title_en'] = $translations['title']['en'] ?? $validated['title'] ?? $rewind->title_en ?? '';
+                $validated['title_es'] = $translations['title']['es'] ?? '';
+                $validated['title_pt'] = $translations['title']['pt'] ?? '';
+                // Always update the main title field to match English translation
+                $validated['title'] = $validated['title_en'];
+            }
+            if (isset($translations['description'])) {
+                // Prioritize translations over direct description field
+                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? $rewind->description_en ?? '';
+                $validated['description_es'] = $translations['description']['es'] ?? '';
+                $validated['description_pt'] = $translations['description']['pt'] ?? '';
+                // Always update the main description field to match English translation
+                $validated['description'] = $validated['description_en'];
+            }
+            if (isset($translations['short_description'])) {
+                // Prioritize translations over direct short_description field
+                $validated['short_description_en'] = $translations['short_description']['en'] ?? $validated['short_description'] ?? $rewind->short_description_en ?? '';
+                $validated['short_description_es'] = $translations['short_description']['es'] ?? '';
+                $validated['short_description_pt'] = $translations['short_description']['pt'] ?? '';
+                // Always update the main short_description field to match English translation
+                $validated['short_description'] = $validated['short_description_en'];
+            }
+        } else {
+            // If translations are not provided but title/description are, update the English versions
+            if (isset($validated['title'])) {
+                $validated['title_en'] = $validated['title'];
+            }
+            if (isset($validated['description'])) {
+                $validated['description_en'] = $validated['description'];
+            }
+            if (isset($validated['short_description'])) {
+                $validated['short_description_en'] = $validated['short_description'];
+            }
         }
+
+        if (isset($validated['title']) || isset($validated['title_en'])) {
+            $validated['slug'] = Str::slug($validated['title_en'] ?? $validated['title'] ?? $rewind->title_en ?? $rewind->title ?? '');
+        }
+        
+        unset($validated['translations']);
 
         // Handle cover image file upload
         if ($request->hasFile('cover_image_file')) {
@@ -309,10 +474,15 @@ class RewindController extends Controller
             $rewind->updateStatistics();
         }
 
+        // Load relationships and translations
+        $rewind->load(['instructor', 'videos']);
+        $rewind->refresh();
+        $rewind->translations = $rewind->getAllTranslations();
+
         return response()->json([
             'success' => true,
             'message' => 'Rewind updated successfully.',
-            'data' => $rewind->load(['instructor', 'videos']),
+            'data' => $rewind,
         ]);
     }
 
