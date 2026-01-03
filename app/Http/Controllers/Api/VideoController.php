@@ -43,7 +43,7 @@ class VideoController extends Controller
         $locale = in_array(substr($locale, 0, 2), ['en', 'es', 'pt']) ? substr($locale, 0, 2) : 'en';
         app()->setLocale($locale);
         
-        $query = Video::with(['series', 'instructor'])->withCount('comments');
+        $query = Video::with(['series.category', 'instructor'])->withCount('comments');
 
         // Check if this is an admin request (admin routes)
         $isAdminRequest = $request->is('api/admin/*');

@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { videoApi, Video, categoryApi, Category } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
@@ -23,9 +22,11 @@ const Explore = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedVisibility, setSelectedVisibility] = useState('all');
   const [selectedSort, setSelectedSort] = useState('popular');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'new' | 'trending'>('all');
+  const [trendingVideosLast7Days, setTrendingVideosLast7Days] = useState<Video[]>([]);
+  const [trendingVideosLoading, setTrendingVideosLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
   const { navigateWithLocale, locale } = useLocale();
@@ -69,17 +70,30 @@ const Explore = () => {
       }
     };
 
-    // Fetch videos
+    fetchCategories();
+  }, [locale]);
+
+  // Fetch videos - refetch when category changes
+  useEffect(() => {
     const fetchVideos = async () => {
       setLoading(true);
       try {
-        // Fetch all published videos
-        const response = await videoApi.getPublic({ 
+        // Build query params
+        const params: any = { 
           status: 'published',
           sort_by: 'created_at',
           sort_order: 'desc',
-          per_page: 100
-        });
+          per_page: 1000 // Get more videos to ensure we have all
+        };
+
+        // If a category is selected, filter by category_id on backend
+        // Backend handles videos through series relationship
+        if (selectedCategory !== 'all') {
+          params.category_id = parseInt(selectedCategory);
+        }
+
+        // Fetch videos
+        const response = await videoApi.getPublic(params);
         
         const videosData = Array.isArray(response.data) 
           ? response.data 
@@ -87,17 +101,9 @@ const Explore = () => {
         
         setVideos(videosData);
         
-        // Get new releases (sorted by created_at desc, first 10)
-        const sortedByDate = [...videosData].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        setNewReleases(sortedByDate.slice(0, 10));
-        
-        // Get trending (sorted by views desc, first 10)
-        const sortedByViews = [...videosData].sort((a, b) => 
-          (b.views || 0) - (a.views || 0)
-        );
-        setTrendingVideos(sortedByViews.slice(0, 10));
+        // Clear new releases and trending - they will be fetched separately
+        setNewReleases([]);
+        setTrendingVideos([]);
 
         // Load user favorites if authenticated
         if (user) {
@@ -126,12 +132,130 @@ const Explore = () => {
       }
     };
 
-    fetchCategories();
     fetchVideos();
-  }, [user, locale]);
+  }, [user, locale, selectedCategory]);
+
+  // Fetch trending videos (most reproductions in last 7 days) - same as homepage
+  useEffect(() => {
+    const fetchTrendingVideos = async () => {
+      setTrendingVideosLoading(true);
+      try {
+        // Fetch 10 for section display, or more if trending filter is selected
+        const limit = selectedFilter === 'trending' ? 1000 : 10;
+        const response = await videoApi.getTrendingLast7Days(limit);
+        if (response.success && response.data) {
+          const videos = Array.isArray(response.data) ? response.data : [];
+          setTrendingVideosLast7Days(videos);
+          // Also set trendingVideos for the section display (first 10)
+          setTrendingVideos(videos.slice(0, 10));
+        } else {
+          setTrendingVideosLast7Days([]);
+          setTrendingVideos([]);
+        }
+      } catch (error) {
+        console.error('Error fetching trending videos:', error);
+        setTrendingVideosLast7Days([]);
+        setTrendingVideos([]);
+      } finally {
+        setTrendingVideosLoading(false);
+      }
+    };
+
+    // Fetch trending videos when "All" category is selected (for the section display)
+    // Or when trending filter is selected (for the filter results)
+    if (selectedCategory === 'all' || selectedFilter === 'trending') {
+      fetchTrendingVideos();
+    } else if (selectedCategory !== 'all') {
+      setTrendingVideosLast7Days([]);
+      setTrendingVideos([]);
+    }
+  }, [selectedCategory, selectedFilter, locale]);
+
+  // Fetch new releases (videos from this week - Monday to Sunday) - same as homepage
+  useEffect(() => {
+    const fetchNewReleases = async () => {
+      if (selectedCategory !== 'all') {
+        setNewReleases([]);
+        return;
+      }
+
+      try {
+        // Fetch all published videos
+        const response = await videoApi.getPublic({ 
+          status: 'published',
+          sort_by: 'created_at',
+          sort_order: 'desc',
+          per_page: 1000
+        });
+        
+        const videosData = Array.isArray(response.data) 
+          ? response.data 
+          : response.data?.data || [];
+        
+        // Calculate start of this week (Monday) and end of this week (Sunday)
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Days to go back to Monday
+        
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() + daysToMonday);
+        startOfWeek.setHours(0, 0, 0, 0); // Start of Monday
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999); // End of Sunday
+        
+        // Filter videos from this week (Monday to Sunday)
+        const newReleasesData = videosData
+          .filter((video: Video) => {
+            const videoDate = new Date(video.created_at);
+            return videoDate >= startOfWeek && videoDate <= endOfWeek;
+          })
+          .sort((a: Video, b: Video) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+          .slice(0, 10);
+        
+        setNewReleases(newReleasesData);
+      } catch (error) {
+        console.error('Error fetching new releases:', error);
+        setNewReleases([]);
+      }
+    };
+
+    fetchNewReleases();
+  }, [selectedCategory, locale]);
 
   useEffect(() => {
-    let filtered = [...videos];
+    // Determine which video source to use based on filter
+    let sourceVideos = [...videos];
+    
+    // If trending filter is selected, use trending videos
+    if (selectedFilter === 'trending') {
+      sourceVideos = [...trendingVideosLast7Days];
+    }
+    
+    let filtered = [...sourceVideos];
+
+    // Filter by "New in this week" (Monday to Sunday of current week)
+    if (selectedFilter === 'new') {
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Days to go back to Monday
+      
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() + daysToMonday);
+      startOfWeek.setHours(0, 0, 0, 0); // Start of Monday
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999); // End of Sunday
+      
+      filtered = filtered.filter(item => {
+        const itemDate = new Date(item.created_at);
+        return itemDate >= startOfWeek && itemDate <= endOfWeek;
+      });
+    }
 
     // Search filter
     if (searchTerm) {
@@ -139,20 +263,14 @@ const Explore = () => {
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.short_description && item.short_description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.category && item.category.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        (item.category && item.category.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.series && item.series.category && item.series.category.name.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(item => {
-        if (item.category) {
-          return item.category.name.toLowerCase() === selectedCategory.toLowerCase() || 
-                 item.category.id.toString() === selectedCategory;
-        }
-        return false;
-      });
-    }
+    // Category filter is now handled by backend when selectedCategory !== 'all'
+    // Backend filters videos that belong to series in the selected category
+    // No need to filter again on frontend
 
     // Visibility filter
     if (selectedVisibility !== 'all') {
@@ -187,21 +305,10 @@ const Explore = () => {
     }
 
     setFilteredVideos(filtered);
-    
-    // Update new releases and trending based on filtered results
-    const sortedByDate = [...filtered].sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-    setNewReleases(sortedByDate.slice(0, 10));
-    
-    const sortedByViews = [...filtered].sort((a, b) => 
-      (b.views || 0) - (a.views || 0)
-    );
-    setTrendingVideos(sortedByViews.slice(0, 10));
-  }, [videos, searchTerm, selectedCategory, selectedVisibility, selectedSort]);
+  }, [videos, trendingVideosLast7Days, searchTerm, selectedCategory, selectedVisibility, selectedSort, selectedFilter]);
 
   const handleVideoClick = (videoId: number) => {
-    navigateWithLocale(`/video/${videoId}`);
+    navigateWithLocale(`/episode/${videoId}`);
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent, videoId: number) => {
@@ -283,7 +390,7 @@ const Explore = () => {
             {video.title || ''}
           </h3>
           <p className="text-[11px] text-gray-400 mt-1 font-medium tracking-wide line-clamp-1">
-            {video.category?.name || (video as any).series_title || video.instructor?.name || t('explore.video', 'Video')}
+            {video.category?.name || (video as any).series_title || video.instructor?.name || t('library.video')}
             {(video as any).series_title && video.category?.name && ' • '}
             {(video as any).series_title && !video.category?.name && (video as any).series_title}
           </p>
@@ -310,7 +417,7 @@ const Explore = () => {
       <section className="container mx-auto px-6 md:px-12 mb-16">
         <div className="flex flex-col items-center justify-center max-w-4xl mx-auto pt-8">
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-8 text-center tracking-tight">
-            {t('explore.title', '¿Qué te gustaría ver hoy?')}
+            {t('explore.title')}
           </h1>
           
           {/* Search Input */}
@@ -321,7 +428,7 @@ const Explore = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-[#18181b] border border-white/10 rounded-[4px] py-4 pl-14 pr-6 text-base md:text-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all shadow-xl shadow-black/50"
-              placeholder={t('explore.search_placeholder', 'Títulos, artistas, técnicas, materiales...')}
+              placeholder={t('explore.search_placeholder')}
               type="text"
             />
           </div>
@@ -329,21 +436,27 @@ const Explore = () => {
           {/* Category Filter Pills */}
           <div className="flex flex-wrap justify-center gap-2 md:gap-3">
             <button
-              onClick={() => setSelectedCategory('all')}
+              onClick={() => {
+                setSelectedCategory('all');
+                setSearchTerm(''); // Clear search when selecting All
+              }}
               className={`px-5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wide transition-transform hover:scale-105 ${
                 selectedCategory === 'all'
                   ? 'bg-primary text-white shadow-lg shadow-primary/10'
                   : 'bg-[#18181b] border border-white/10 hover:bg-white/10 text-gray-400 hover:border-white/20 hover:text-white'
               }`}
             >
-              {t('explore.all', 'Todo')}
+              {t('library.all')}
             </button>
             {categories.map((category) => (
               <button
                 key={category.id}
-                onClick={() => setSelectedCategory(category.name)}
+                onClick={() => {
+                  setSelectedCategory(category.id.toString());
+                  setSearchTerm(''); // Clear search when selecting a category
+                }}
                 className={`px-5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wide transition-all hover:border-white/20 hover:text-white ${
-                  selectedCategory === category.name
+                  selectedCategory === category.id.toString()
                     ? 'bg-primary text-white shadow-lg shadow-primary/10'
                     : 'bg-[#18181b] border border-white/10 hover:bg-white/10 text-gray-400'
                 }`}
@@ -352,15 +465,58 @@ const Explore = () => {
               </button>
             ))}
           </div>
+
+          {/* Filter Pills - New in this week and Trending */}
+          {/* <div className="flex flex-wrap justify-center gap-2 md:gap-3 mt-4">
+            <button
+              onClick={() => {
+                setSelectedFilter('all');
+                setSearchTerm(''); // Clear search when selecting filter
+              }}
+              className={`px-5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wide transition-transform hover:scale-105 ${
+                selectedFilter === 'all'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/10'
+                  : 'bg-[#18181b] border border-white/10 hover:bg-white/10 text-gray-400 hover:border-white/20 hover:text-white'
+              }`}
+            >
+              {t('library.all')}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedFilter('new');
+                setSearchTerm(''); // Clear search when selecting filter
+              }}
+              className={`px-5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wide transition-all hover:border-white/20 hover:text-white ${
+                selectedFilter === 'new'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/10'
+                  : 'bg-[#18181b] border border-white/10 hover:bg-white/10 text-gray-400'
+              }`}
+            >
+              {t('index.new_releases.title')}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedFilter('trending');
+                setSearchTerm(''); // Clear search when selecting filter
+              }}
+              className={`px-5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wide transition-all hover:border-white/20 hover:text-white ${
+                selectedFilter === 'trending'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/10'
+                  : 'bg-[#18181b] border border-white/10 hover:bg-white/10 text-gray-400'
+              }`}
+            >
+              {t('index.trending.title')}
+            </button>
+          </div> */}
         </div>
       </section>
 
-      {/* New Releases Section */}
-      {newReleases.length > 0 && (
+      {/* New Releases Section - Only show when no category is selected, no filter, and no search */}
+      {newReleases.length > 0 && selectedCategory === 'all' && !searchTerm && selectedFilter === 'all' && (
         <section className="container mx-auto px-6 md:px-12 mb-12">
           <div className="flex items-center gap-2 mb-6">
             <h2 className="text-xl font-bold text-white tracking-tight">
-              {t('explore.new_releases', 'Novedades esta semana')}
+              {t('index.new_releases.title')}
             </h2>
           </div>
           <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
@@ -371,12 +527,12 @@ const Explore = () => {
         </section>
       )}
 
-      {/* Trending Section */}
-      {trendingVideos.length > 0 && (
+      {/* Trending Section - Only show when no category is selected, no filter, and no search */}
+      {trendingVideos.length > 0 && selectedCategory === 'all' && !searchTerm && selectedFilter === 'all' && (
         <section className="container mx-auto px-6 md:px-12">
           <div className="flex items-center gap-2 mb-6">
             <h2 className="text-xl font-bold text-white tracking-tight">
-              {t('explore.trending', 'Trending en SACRART')}
+              {t('index.trending.title')}
             </h2>
           </div>
           <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
@@ -387,12 +543,36 @@ const Explore = () => {
         </section>
       )}
 
-      {/* All Results Section - Show when there's a search or filter */}
-      {(searchTerm || selectedCategory !== 'all' || selectedVisibility !== 'all') && filteredVideos.length > 0 && (
+      {/* All Results Section - Show all videos when category is selected, filter is active, or search is active */}
+      {/* When category is selected, filter is active, or search is active, show filtered videos */}
+      {((selectedCategory !== 'all') || selectedFilter !== 'all' || searchTerm || selectedVisibility !== 'all') && filteredVideos.length > 0 && (
         <section className="container mx-auto px-6 md:px-12 mt-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white tracking-tight">
-              {t('explore.results', 'Resultados')} ({filteredVideos.length})
+              {selectedFilter === 'new' 
+                ? `${t('index.new_releases.title')} (${filteredVideos.length})`
+                : selectedFilter === 'trending'
+                  ? `${t('index.trending.title')} (${filteredVideos.length})`
+                  : selectedCategory !== 'all'
+                    ? `${categories.find(c => c.id.toString() === selectedCategory)?.name || t('library.all')} (${filteredVideos.length})`
+                    : `${t('library.all')} (${filteredVideos.length})`
+              }
+            </h2>
+          </div>
+          <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
+            {filteredVideos.map((video) => (
+              <VideoCard key={video.id} video={video} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Show all videos when "All" is selected and no search/filters (after New Releases and Trending) */}
+      {selectedCategory === 'all' && !searchTerm && selectedVisibility === 'all' && selectedFilter === 'all' && filteredVideos.length > 0 && (
+        <section className="container mx-auto px-6 md:px-12 mt-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              {t('library.all')} ({filteredVideos.length})
             </h2>
           </div>
           <div className="flex overflow-x-auto gap-4 pb-8 snap-x episode-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
@@ -404,15 +584,15 @@ const Explore = () => {
       )}
 
       {/* No Results */}
-      {filteredVideos.length === 0 && (searchTerm || selectedCategory !== 'all' || selectedVisibility !== 'all') && (
+      {filteredVideos.length === 0 && !loading && (searchTerm || selectedCategory !== 'all' || selectedVisibility !== 'all') && (
         <section className="container mx-auto px-6 md:px-12">
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-[#18181b] rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="h-12 w-12 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">{t('explore.no_videos', 'No se encontraron videos')}</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">{t('explore.no_videos')}</h3>
             <p className="text-gray-400 mb-4">
-              {t('explore.try_different_filters', 'Intenta con diferentes filtros o términos de búsqueda')}
+              {t('explore.try_different_filters')}
             </p>
             <Button
               onClick={() => {
@@ -422,7 +602,7 @@ const Explore = () => {
               }}
               className="bg-primary hover:bg-primary/90 text-white"
             >
-              {t('explore.clear_filters', 'Limpiar filtros')}
+              {t('explore.clear_filters')}
             </Button>
           </div>
         </section>
