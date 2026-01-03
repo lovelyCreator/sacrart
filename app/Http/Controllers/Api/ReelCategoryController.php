@@ -79,11 +79,19 @@ class ReelCategoryController extends Controller
                 $validated['name_en'] = $translations['name']['en'] ?? $validated['name'] ?? '';
                 $validated['name_es'] = $translations['name']['es'] ?? '';
                 $validated['name_pt'] = $translations['name']['pt'] ?? '';
+                // Also update the main name field if not provided
+                if (!isset($validated['name'])) {
+                    $validated['name'] = $validated['name_en'];
+                }
             }
             if (isset($translations['description'])) {
                 $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? '';
                 $validated['description_es'] = $translations['description']['es'] ?? '';
                 $validated['description_pt'] = $translations['description']['pt'] ?? '';
+                // Also update the main description field if not provided
+                if (!isset($validated['description'])) {
+                    $validated['description'] = $validated['description_en'];
+                }
             }
         } else {
             $validated['name_en'] = $validated['name'] ?? '';
@@ -111,6 +119,23 @@ class ReelCategoryController extends Controller
      */
     public function update(Request $request, ReelCategory $reelCategory): JsonResponse
     {
+        \Log::info('🟢 [Backend] ReelCategory Update Request Received', [
+            'id' => $reelCategory->id,
+            'method' => $request->method(),
+            'real_method' => $request->getMethod(),
+            'all_input' => $request->all(),
+            'input_name' => $request->input('name'),
+            'input_translations' => $request->input('translations'),
+            'input_method' => $request->input('_method'),
+            'content_type' => $request->header('Content-Type'),
+            'current_category' => [
+                'name' => $reelCategory->name,
+                'name_en' => $reelCategory->name_en,
+                'name_es' => $reelCategory->name_es,
+                'name_pt' => $reelCategory->name_pt,
+            ],
+        ]);
+        
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255|unique:reel_categories,name,' . $reelCategory->id,
             'description' => 'nullable|string',
@@ -121,23 +146,62 @@ class ReelCategoryController extends Controller
             'translations' => 'nullable',
         ]);
         
+        \Log::info('🟢 [Backend] After validation', [
+            'validated' => $validated,
+        ]);
+        
         // Handle multilingual translations
         $translations = $request->input('translations');
+        \Log::info('🟢 [Backend] Translations input', [
+            'raw' => $translations,
+            'type' => gettype($translations),
+        ]);
+        
         if (is_string($translations)) {
             $decoded = json_decode($translations, true);
             $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+            \Log::info('🟢 [Backend] Decoded translations', [
+                'decoded' => $translations,
+                'json_error' => json_last_error_msg(),
+            ]);
         }
         
         if ($translations && is_array($translations)) {
+            \Log::info('🟢 [Backend] Processing translations array', [
+                'translations' => $translations,
+            ]);
+            
             if (isset($translations['name'])) {
+                // Prioritize translations over direct name field
                 $validated['name_en'] = $translations['name']['en'] ?? $validated['name'] ?? $reelCategory->name_en ?? '';
                 $validated['name_es'] = $translations['name']['es'] ?? '';
                 $validated['name_pt'] = $translations['name']['pt'] ?? '';
+                // Always update the main name field to match English translation
+                $validated['name'] = $validated['name_en'];
+                
+                \Log::info('🟢 [Backend] Set name fields from translations', [
+                    'name' => $validated['name'],
+                    'name_en' => $validated['name_en'],
+                    'name_es' => $validated['name_es'],
+                    'name_pt' => $validated['name_pt'],
+                ]);
             }
             if (isset($translations['description'])) {
+                // Prioritize translations over direct description field
                 $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? $reelCategory->description_en ?? '';
                 $validated['description_es'] = $translations['description']['es'] ?? '';
                 $validated['description_pt'] = $translations['description']['pt'] ?? '';
+                // Always update the main description field to match English translation
+                $validated['description'] = $validated['description_en'];
+            }
+        } else {
+            \Log::info('🟢 [Backend] No translations provided, using direct fields');
+            // If translations are not provided but name/description are, update the English versions
+            if (isset($validated['name'])) {
+                $validated['name_en'] = $validated['name'];
+            }
+            if (isset($validated['description'])) {
+                $validated['description_en'] = $validated['description'];
             }
         }
         
@@ -147,7 +211,34 @@ class ReelCategoryController extends Controller
         
         unset($validated['translations']);
         
-        $reelCategory->update($validated);
+        // Log what we're about to update for debugging
+        \Log::info('🟢 [Backend] Before update', [
+            'id' => $reelCategory->id,
+            'validated' => $validated,
+            'before_update' => [
+                'name' => $reelCategory->name,
+                'name_en' => $reelCategory->name_en,
+                'name_es' => $reelCategory->name_es,
+                'name_pt' => $reelCategory->name_pt,
+            ],
+        ]);
+        
+        $updated = $reelCategory->update($validated);
+        
+        // Refresh the model to ensure we have the latest data
+        $reelCategory->refresh();
+        
+        \Log::info('🟢 [Backend] After update', [
+            'id' => $reelCategory->id,
+            'updated' => $updated,
+            'after_update' => [
+                'name' => $reelCategory->name,
+                'name_en' => $reelCategory->name_en,
+                'name_es' => $reelCategory->name_es,
+                'name_pt' => $reelCategory->name_pt,
+            ],
+            'attributes' => $reelCategory->getAttributes(),
+        ]);
         $reelCategory->translations = $reelCategory->getAllTranslations();
         
         return response()->json([

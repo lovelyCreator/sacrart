@@ -59,7 +59,7 @@ class ReelController extends Controller
         $locale = in_array(substr($locale, 0, 2), ['en', 'es', 'pt']) ? substr($locale, 0, 2) : 'en';
         app()->setLocale($locale);
         
-        $query = Reel::with(['instructor']);
+        $query = Reel::with(['instructor', 'category']);
 
         $isAdminRequest = $request->is('api/admin/*');
 
@@ -106,6 +106,17 @@ class ReelController extends Controller
 
         $perPage = $request->get('per_page', 15);
         $reels = $query->paginate($perPage);
+
+        // Load translations for admin requests
+        if ($isAdminRequest) {
+            foreach ($reels->items() as $reel) {
+                $reel->translations = $reel->getAllTranslations();
+                // Also load category translations if category exists
+                if ($reel->category) {
+                    $reel->category->translations = $reel->category->getAllTranslations();
+                }
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -165,7 +176,7 @@ class ReelController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'meta_keywords' => 'nullable|string|max:255',
-            'translations' => 'nullable|array',
+            'translations' => 'nullable',
         ]);
 
         // Handle multilingual translations
@@ -270,13 +281,21 @@ class ReelController extends Controller
 
         $reel = Reel::create($validated);
         
+        // Load relationships
+        $reel->load(['instructor', 'category']);
+        
+        // Load category translations if category exists
+        if ($reel->category) {
+            $reel->category->translations = $reel->category->getAllTranslations();
+        }
+        
         // Load all translations for the response
         $reel->translations = $reel->getAllTranslations();
 
         return response()->json([
             'success' => true,
             'message' => 'Reel created successfully.',
-            'data' => $reel->load(['instructor', 'category']),
+            'data' => $reel,
         ], 201);
     }
 
@@ -358,7 +377,7 @@ class ReelController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'meta_keywords' => 'nullable|string|max:255',
-            'translations' => 'nullable|array',
+            'translations' => 'nullable',
         ]);
 
         // Handle multilingual translations
@@ -441,13 +460,24 @@ class ReelController extends Controller
 
         $reel->update($validated);
         
+        // Refresh the model to ensure we have the latest data
+        $reel->refresh();
+        
+        // Reload the reel with relationships (this will load the updated category)
+        $reel->load(['instructor', 'category']);
+        
+        // Load category translations if category exists
+        if ($reel->category) {
+            $reel->category->translations = $reel->category->getAllTranslations();
+        }
+        
         // Load all translations for the response
         $reel->translations = $reel->getAllTranslations();
 
         return response()->json([
             'success' => true,
             'message' => 'Reel updated successfully.',
-            'data' => $reel->load(['instructor', 'category']),
+            'data' => $reel,
         ]);
     }
 
@@ -475,7 +505,7 @@ class ReelController extends Controller
         $locale = in_array(substr($locale, 0, 2), ['en', 'es', 'pt']) ? substr($locale, 0, 2) : 'en';
         app()->setLocale($locale);
         
-        $query = Reel::with(['instructor']);
+        $query = Reel::with(['instructor', 'category']);
 
         if ($user) {
             $subscriptionType = $user->subscription_type ?: 'freemium';

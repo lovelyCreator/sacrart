@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\App;
 
 class Reel extends Model
 {

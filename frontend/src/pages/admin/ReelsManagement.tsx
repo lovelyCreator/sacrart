@@ -63,6 +63,11 @@ const ReelsManagement = () => {
   const { t, i18n } = useTranslation();
   const { locale: urlLocale } = useLocale();
   const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(urlLocale as 'en' | 'es' | 'pt' || 'en');
+  // Get current site language for displaying table items - use useMemo to make it reactive
+  const displayLocale = useMemo(() => {
+    const lang = i18n.language || urlLocale || 'en';
+    return lang.substring(0, 2) as 'en' | 'es' | 'pt';
+  }, [i18n.language, urlLocale]);
   const [activeTab, setActiveTab] = useState<'reels' | 'categories'>('reels');
   
   const [reels, setReels] = useState<Reel[]>([]);
@@ -97,6 +102,44 @@ const ReelsManagement = () => {
     description: { en: '', es: '', pt: '' },
   });
 
+  // Helper function to get translated value from translations object or multilingual columns
+  const getTranslatedValue = (item: any, field: string, locale?: 'en' | 'es' | 'pt'): string => {
+    // Use the current site language for display (not contentLocale which is only for modals)
+    const currentLocale = locale || displayLocale;
+    
+    // First try to get from translations object
+    const translations = (item as any)?.translations || {};
+    const fieldTranslations = translations[field] || {};
+    if (fieldTranslations[currentLocale]) {
+      return fieldTranslations[currentLocale];
+    }
+    if (fieldTranslations['en']) {
+      return fieldTranslations['en'];
+    }
+    
+    // If translations object doesn't have the field, try multilingual columns directly
+    const columnName = `${field}_${currentLocale}`;
+    if (item[columnName]) {
+      return item[columnName];
+    }
+    const columnNameEn = `${field}_en`;
+    if (item[columnNameEn]) {
+      return item[columnNameEn];
+    }
+    
+    // Fallback to the main field value
+    return item[field] || '';
+  };
+
+  // Helper functions for specific fields (use displayLocale for table display)
+  const getReelTitle = (reel: Reel): string => {
+    return getTranslatedValue(reel, 'title', displayLocale);
+  };
+
+  const getCategoryName = (category: ReelCategory): string => {
+    return getTranslatedValue(category, 'name', displayLocale);
+  };
+
   useEffect(() => {
     fetchReels();
     fetchCategories();
@@ -105,24 +148,28 @@ const ReelsManagement = () => {
   useEffect(() => {
     if (searchTerm.trim()) {
       if (activeTab === 'reels') {
-        const filtered = reels.filter(reel =>
-          reel.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          reel.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          reel.category?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const filtered = reels.filter(reel => {
+          const title = getReelTitle(reel);
+          const categoryName = reel.category ? getCategoryName(reel.category) : '';
+          return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (reel.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+        });
         setFilteredReels(filtered);
       } else {
-        const filtered = categories.filter(cat =>
-          cat.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          cat.description?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const filtered = categories.filter(cat => {
+          const name = getCategoryName(cat);
+          const description = getTranslatedValue(cat, 'description', displayLocale);
+          return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            description.toLowerCase().includes(searchTerm.toLowerCase());
+        });
         setFilteredCategories(filtered);
       }
     } else {
       setFilteredReels(reels);
       setFilteredCategories(categories);
     }
-  }, [searchTerm, reels, categories, activeTab]);
+  }, [searchTerm, reels, categories, activeTab, displayLocale]);
 
   const fetchReels = async () => {
     try {
@@ -385,8 +432,94 @@ const ReelsManagement = () => {
       }
 
       if (response.success) {
-        toast.success(selectedReel.id ? 'Reel updated successfully' : 'Reel created successfully');
-        await fetchReels();
+        const savedReel = response.data;
+        
+        // Ensure translations are loaded for the saved reel
+        if (savedReel && !savedReel.translations) {
+          if (savedReel.title_en || savedReel.title_es || savedReel.title_pt) {
+            savedReel.translations = {
+              title: {
+                en: savedReel.title_en || savedReel.title || '',
+                es: savedReel.title_es || '',
+                pt: savedReel.title_pt || '',
+              },
+              description: {
+                en: savedReel.description_en || savedReel.description || '',
+                es: savedReel.description_es || '',
+                pt: savedReel.description_pt || '',
+              },
+              short_description: {
+                en: savedReel.short_description_en || savedReel.short_description || '',
+                es: savedReel.short_description_es || '',
+                pt: savedReel.short_description_pt || '',
+              },
+            };
+          }
+        }
+        
+        // Ensure category translations are loaded
+        if (savedReel?.category && !savedReel.category.translations) {
+          if (savedReel.category.name_en || savedReel.category.name_es || savedReel.category.name_pt) {
+            savedReel.category.translations = {
+              name: {
+                en: savedReel.category.name_en || savedReel.category.name || '',
+                es: savedReel.category.name_es || '',
+                pt: savedReel.category.name_pt || '',
+              },
+              description: {
+                en: savedReel.category.description_en || savedReel.category.description || '',
+                es: savedReel.category.description_es || '',
+                pt: savedReel.category.description_pt || '',
+              },
+            };
+          }
+        }
+        
+        if (selectedReel.id) {
+          // Update existing reel in state
+          // Handle category: use the one from response (which should have translations loaded),
+          // or fetch from local categories if category_id is set but category object is missing
+          let updatedCategory = savedReel.category || null;
+          if (!updatedCategory && savedReel.category_id) {
+            // If category_id is set but category object is missing from response, find it from local categories
+            const foundCategory = categories.find(c => c.id === savedReel.category_id);
+            if (foundCategory) {
+              updatedCategory = { ...foundCategory };
+              // Ensure translations are loaded for the category
+              if (!updatedCategory.translations) {
+                if (updatedCategory.name_en || updatedCategory.name_es || updatedCategory.name_pt) {
+                  updatedCategory.translations = {
+                    name: {
+                      en: updatedCategory.name_en || updatedCategory.name || '',
+                      es: updatedCategory.name_es || '',
+                      pt: updatedCategory.name_pt || '',
+                    },
+                    description: {
+                      en: updatedCategory.description_en || updatedCategory.description || '',
+                      es: updatedCategory.description_es || '',
+                      pt: updatedCategory.description_pt || '',
+                    },
+                  };
+                }
+              }
+            }
+          }
+          
+          const updatedReel = { 
+            ...savedReel,
+            category: updatedCategory
+          };
+          setReels(prev => prev.map(r => r.id === selectedReel.id ? updatedReel : r));
+          setFilteredReels(prev => prev.map(r => r.id === selectedReel.id ? updatedReel : r));
+          toast.success('Reel updated successfully');
+        } else {
+          // Add new reel to state
+          const newReel = { ...savedReel };
+          setReels(prev => [newReel, ...prev]);
+          setFilteredReels(prev => [newReel, ...prev]);
+          toast.success('Reel created successfully');
+        }
+        
         setIsReelDialogOpen(false);
         setSelectedReel(null);
         setReelMultilingual({
@@ -426,16 +559,59 @@ const ReelsManagement = () => {
         translations: categoryMultilingual,
       };
 
+      console.log('🔵 [Frontend] handleSaveCategory - Payload:', {
+        categoryId: selectedCategory.id,
+        payload,
+        categoryMultilingual,
+        selectedCategory,
+      });
+
       let response;
       if (selectedCategory.id) {
+        console.log('🔵 [Frontend] Calling update API for category ID:', selectedCategory.id);
         response = await reelCategoryApi.update(selectedCategory.id, payload);
       } else {
+        console.log('🔵 [Frontend] Calling create API');
         response = await reelCategoryApi.create(payload);
       }
+      
+      console.log('🔵 [Frontend] handleSaveCategory - Response:', response);
 
       if (response.success) {
-        toast.success(selectedCategory.id ? 'Category updated successfully' : 'Category created successfully');
-        await fetchCategories();
+        const savedCategory = response.data;
+        
+        // Ensure translations are loaded for the saved category
+        if (savedCategory && !savedCategory.translations) {
+          if (savedCategory.name_en || savedCategory.name_es || savedCategory.name_pt) {
+            savedCategory.translations = {
+              name: {
+                en: savedCategory.name_en || savedCategory.name || '',
+                es: savedCategory.name_es || '',
+                pt: savedCategory.name_pt || '',
+              },
+              description: {
+                en: savedCategory.description_en || savedCategory.description || '',
+                es: savedCategory.description_es || '',
+                pt: savedCategory.description_pt || '',
+              },
+            };
+          }
+        }
+        
+        if (selectedCategory.id) {
+          // Update existing category in state
+          const updatedCategory = { ...savedCategory };
+          setCategories(prev => prev.map(c => c.id === selectedCategory.id ? updatedCategory : c));
+          setFilteredCategories(prev => prev.map(c => c.id === selectedCategory.id ? updatedCategory : c));
+          toast.success('Category updated successfully');
+        } else {
+          // Add new category to state
+          const newCategory = { ...savedCategory };
+          setCategories(prev => [newCategory, ...prev]);
+          setFilteredCategories(prev => [newCategory, ...prev]);
+          toast.success('Category created successfully');
+        }
+        
         setIsCategoryDialogOpen(false);
         setSelectedCategory(null);
         setCategoryMultilingual({
@@ -580,7 +756,7 @@ const ReelsManagement = () => {
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody key={`reels-${displayLocale}`}>
                 {filteredReels.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
@@ -589,11 +765,11 @@ const ReelsManagement = () => {
                   </TableRow>
                 ) : (
                   filteredReels.map((reel) => (
-                    <TableRow key={reel.id}>
-                      <TableCell className="font-medium">{reel.title}</TableCell>
+                    <TableRow key={`reel-${reel.id}-${displayLocale}`}>
+                      <TableCell className="font-medium">{getReelTitle(reel)}</TableCell>
                       <TableCell>
                         {reel.category ? (
-                          <Badge variant="outline">{reel.category.name}</Badge>
+                          <Badge variant="outline">{getCategoryName(reel.category)}</Badge>
                         ) : reel.category_tag ? (
                           <Badge variant="outline">{reel.category_tag}</Badge>
                         ) : null}
@@ -671,7 +847,7 @@ const ReelsManagement = () => {
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody key={`categories-${displayLocale}`}>
                 {filteredCategories.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
@@ -680,8 +856,8 @@ const ReelsManagement = () => {
                   </TableRow>
                 ) : (
                   filteredCategories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableRow key={`category-${category.id}-${displayLocale}`}>
+                      <TableCell className="font-medium">{getCategoryName(category)}</TableCell>
                       <TableCell>{category.icon || '-'}</TableCell>
                       <TableCell>
                         {category.color && (
