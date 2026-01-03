@@ -1,0 +1,172 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\ReelCategory;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
+
+class ReelCategoryController extends Controller
+{
+    /**
+     * Display a listing of reel categories.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $locale = $request->header('Accept-Language', app()->getLocale());
+        $locale = in_array(substr($locale, 0, 2), ['en', 'es', 'pt']) ? substr($locale, 0, 2) : 'en';
+        app()->setLocale($locale);
+        
+        $isAdminRequest = $request->is('api/admin/*');
+        
+        $query = ReelCategory::query();
+        
+        if (!$isAdminRequest) {
+            $query->where('is_active', true);
+        }
+        
+        $query->orderBy('sort_order', 'asc');
+        
+        if ($request->has('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+        
+        $perPage = $request->get('per_page', 100);
+        $categories = $query->paginate($perPage);
+        
+        if ($isAdminRequest) {
+            foreach ($categories->items() as $category) {
+                $category->translations = $category->getAllTranslations();
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    /**
+     * Store a newly created reel category.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'icon' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:50',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
+            'translations' => 'nullable',
+        ]);
+        
+        // Handle multilingual translations
+        $translations = $request->input('translations');
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+        
+        if ($translations && is_array($translations)) {
+            if (isset($translations['name'])) {
+                $validated['name_en'] = $translations['name']['en'] ?? $validated['name'] ?? '';
+                $validated['name_es'] = $translations['name']['es'] ?? '';
+                $validated['name_pt'] = $translations['name']['pt'] ?? '';
+            }
+            if (isset($translations['description'])) {
+                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? '';
+                $validated['description_es'] = $translations['description']['es'] ?? '';
+                $validated['description_pt'] = $translations['description']['pt'] ?? '';
+            }
+        } else {
+            $validated['name_en'] = $validated['name'] ?? '';
+            $validated['description_en'] = $validated['description'] ?? '';
+        }
+        
+        $validated['slug'] = Str::slug($validated['name_en'] ?? $validated['name'] ?? '');
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        $validated['sort_order'] = $validated['sort_order'] ?? 0;
+        
+        unset($validated['translations']);
+        
+        $category = ReelCategory::create($validated);
+        $category->translations = $category->getAllTranslations();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Reel category created successfully.',
+            'data' => $category,
+        ], 201);
+    }
+
+    /**
+     * Update the specified reel category.
+     */
+    public function update(Request $request, ReelCategory $reelCategory): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255|unique:reel_categories,name,' . $reelCategory->id,
+            'description' => 'nullable|string',
+            'icon' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:50',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
+            'translations' => 'nullable',
+        ]);
+        
+        // Handle multilingual translations
+        $translations = $request->input('translations');
+        if (is_string($translations)) {
+            $decoded = json_decode($translations, true);
+            $translations = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+        
+        if ($translations && is_array($translations)) {
+            if (isset($translations['name'])) {
+                $validated['name_en'] = $translations['name']['en'] ?? $validated['name'] ?? $reelCategory->name_en ?? '';
+                $validated['name_es'] = $translations['name']['es'] ?? '';
+                $validated['name_pt'] = $translations['name']['pt'] ?? '';
+            }
+            if (isset($translations['description'])) {
+                $validated['description_en'] = $translations['description']['en'] ?? $validated['description'] ?? $reelCategory->description_en ?? '';
+                $validated['description_es'] = $translations['description']['es'] ?? '';
+                $validated['description_pt'] = $translations['description']['pt'] ?? '';
+            }
+        }
+        
+        if (isset($validated['name']) || isset($validated['name_en'])) {
+            $validated['slug'] = Str::slug($validated['name_en'] ?? $validated['name'] ?? $reelCategory->name_en ?? $reelCategory->name ?? '');
+        }
+        
+        unset($validated['translations']);
+        
+        $reelCategory->update($validated);
+        $reelCategory->translations = $reelCategory->getAllTranslations();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Reel category updated successfully.',
+            'data' => $reelCategory,
+        ]);
+    }
+
+    /**
+     * Remove the specified reel category.
+     */
+    public function destroy(ReelCategory $reelCategory): JsonResponse
+    {
+        $reelCategory->delete();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Reel category deleted successfully.',
+        ]);
+    }
+}

@@ -20,6 +20,9 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\HeroBackgroundController;
 use App\Http\Controllers\Api\TestimonialController;
 use App\Http\Controllers\Api\LanguageController;
+use App\Http\Controllers\Api\ReelController;
+use App\Http\Controllers\Api\RewindController;
+use App\Http\Controllers\Api\ReelCategoryController;
 
 // Preflight CORS for all API routes (avoid auth/csrf on OPTIONS)
 Route::options('/{any}', function () {
@@ -28,6 +31,10 @@ Route::options('/{any}', function () {
 
 Route::get('/test', function() {
 	return response()->json(['ok' => true]);
+});
+
+Route::get('/test-cors', function() {
+	return response()->json(['cors' => 'working', 'origin' => request()->header('Origin')]);
 });
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -72,6 +79,12 @@ Route::get('/videos/featured-process', [VideoController::class, 'featuredProcess
 Route::get('/videos/{video}', [VideoController::class, 'show']);
 Route::get('/videos/{video}/stream', [VideoController::class, 'stream']);
 Route::get('/videos/{video}/subtitles/{locale?}', [VideoController::class, 'getSubtitleVtt'])->where('locale', '[a-z]{2}');
+
+// Public routes for reels and rewinds (authentication optional)
+Route::get('/reels/public', [ReelController::class, 'getPublic']);
+Route::get('/reels/{reel}', [ReelController::class, 'show']);
+Route::get('/rewinds/public', [RewindController::class, 'getPublic']);
+Route::get('/rewinds/{rewind}', [RewindController::class, 'show']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -138,6 +151,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/videos', [VideoController::class, 'index']);
         Route::get('/admin/videos/{video}', [VideoController::class, 'show']);
         Route::get('/admin/categories', [CategoryController::class, 'index']);
+
+        // Reels (Admin CRUD)
+        Route::get('/admin/reels', [ReelController::class, 'index']);
+        Route::post('/admin/reels', [ReelController::class, 'store']);
+        Route::get('/admin/reels/{reel}', [ReelController::class, 'show']);
+        Route::put('/admin/reels/{reel}', [ReelController::class, 'update']);
+        Route::delete('/admin/reels/{reel}', [ReelController::class, 'destroy']);
+
+        // Reel Categories (Admin CRUD)
+        Route::get('/admin/reel-categories', [ReelCategoryController::class, 'index']);
+        Route::post('/admin/reel-categories', [ReelCategoryController::class, 'store']);
+        Route::put('/admin/reel-categories/{reelCategory}', [ReelCategoryController::class, 'update']);
+        Route::delete('/admin/reel-categories/{reelCategory}', [ReelCategoryController::class, 'destroy']);
+
+        // Rewinds (Admin CRUD)
+        Route::get('/admin/rewinds', [RewindController::class, 'index']);
+        Route::post('/admin/rewinds', [RewindController::class, 'store']);
+        Route::get('/admin/rewinds/{rewind}', [RewindController::class, 'show']);
+        Route::put('/admin/rewinds/{rewind}', [RewindController::class, 'update']);
+        Route::delete('/admin/rewinds/{rewind}', [RewindController::class, 'destroy']);
 
         // FAQ Management (Admin CRUD)
         Route::post('/admin/faqs', [FaqController::class, 'store']);

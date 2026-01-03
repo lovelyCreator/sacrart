@@ -594,9 +594,406 @@ export const videoApi = {
   },
 };
 
+// Reel Category interface
+export interface ReelCategory {
+  id: number;
+  name: string;
+  name_en?: string | null;
+  name_es?: string | null;
+  name_pt?: string | null;
+  slug: string;
+  description?: string | null;
+  description_en?: string | null;
+  description_es?: string | null;
+  description_pt?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  translations?: {
+    name: { en: string; es: string; pt: string };
+    description: { en: string; es: string; pt: string };
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+// Reel interface
+export interface Reel {
+  id: number;
+  title: string;
+  slug: string;
+  description?: string | null;
+  short_description?: string | null;
+  instructor_id?: number | null;
+  category_id?: number | null;
+  bunny_video_id?: string | null;
+  bunny_video_url?: string | null;
+  bunny_embed_url?: string | null;
+  bunny_thumbnail_url?: string | null;
+  bunny_player_url?: string | null;
+  video_url?: string | null;
+  video_file_path?: string | null;
+  duration: number;
+  file_size?: number | null;
+  video_format?: string | null;
+  video_quality?: string | null;
+  thumbnail?: string | null;
+  thumbnail_url?: string | null;
+  intro_image?: string | null;
+  intro_image_url?: string | null;
+  visibility: 'freemium' | 'basic' | 'premium';
+  status: 'draft' | 'published' | 'archived';
+  is_free: boolean;
+  price?: string | null;
+  category_tag?: string | null;
+  category?: ReelCategory | null;
+  tags?: string[] | null;
+  sort_order: number;
+  views: number;
+  unique_views: number;
+  rating: string;
+  rating_count: number;
+  published_at?: string | null;
+  scheduled_at?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  processing_error?: string | null;
+  processed_at?: string | null;
+  translations?: {
+    title: { en: string; es: string; pt: string };
+    description: { en: string; es: string; pt: string };
+    short_description: { en: string; es: string; pt: string };
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+// Rewind interface
+export interface Rewind {
+  id: number;
+  title: string;
+  year?: number | null;
+  slug: string;
+  description?: string | null;
+  short_description?: string | null;
+  instructor_id?: number | null;
+  thumbnail?: string | null;
+  cover_image?: string | null;
+  image_url?: string | null;
+  trailer_url?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  video_count: number;
+  total_duration: number;
+  total_views: number;
+  rating: string;
+  rating_count: number;
+  visibility: 'freemium' | 'basic' | 'premium';
+  status: 'draft' | 'published' | 'archived';
+  is_free: boolean;
+  price?: string | null;
+  published_at?: string | null;
+  featured_until?: string | null;
+  is_featured: boolean;
+  sort_order: number;
+  tags?: string[] | null;
+  videos?: Video[];
+  created_at: string;
+  updated_at: string;
+}
+
+// Reel API
+export const reelApi = {
+  getAll: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/reels?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: any }>(response);
+  },
+
+  get: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/reels/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Reel }>(response);
+  },
+
+  create: async (data: Partial<Reel>) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'tags' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'translations' && typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'intro_image_file' && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const headers = getAuthHeaders();
+    delete (headers as any)['Content-Type']; // Let browser set Content-Type for FormData
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reels`, {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+    return handleResponse<{ success: boolean; data: Reel; message: string }>(response);
+  },
+
+  update: async (id: number, data: Partial<Reel>) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'tags' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'translations' && typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'intro_image_file' && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const headers = getAuthHeaders();
+    delete (headers as any)['Content-Type'];
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reels/${id}`, {
+      method: 'PUT',
+      headers: headers,
+      body: formData,
+    });
+    return handleResponse<{ success: boolean; data: Reel; message: string }>(response);
+  },
+
+  delete: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/reels/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+
+  getPublic: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${API_BASE_URL}/reels/public?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: any }>(response);
+  },
+};
+
+// Rewind API
+export const rewindApi = {
+  getAll: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/rewinds?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: any }>(response);
+  },
+
+  get: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/rewinds/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: Rewind }>(response);
+  },
+
+  create: async (data: Partial<Rewind>) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'tags' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'video_ids' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'cover_image_file' && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const headers = getAuthHeaders();
+    delete (headers as any)['Content-Type'];
+    
+    const response = await fetch(`${API_BASE_URL}/admin/rewinds`, {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+    return handleResponse<{ success: boolean; data: Rewind; message: string }>(response);
+  },
+
+  update: async (id: number, data: Partial<Rewind>) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'tags' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'video_ids' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'cover_image_file' && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const headers = getAuthHeaders();
+    delete (headers as any)['Content-Type'];
+    
+    const response = await fetch(`${API_BASE_URL}/admin/rewinds/${id}`, {
+      method: 'PUT',
+      headers: headers,
+      body: formData,
+    });
+    return handleResponse<{ success: boolean; data: Rewind; message: string }>(response);
+  },
+
+  delete: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/rewinds/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+
+  getPublic: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${API_BASE_URL}/rewinds/public?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: any }>(response);
+  },
+};
+
+// Reel Category API
+export const reelCategoryApi = {
+  getAll: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/reel-categories?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: any }>(response);
+  },
+
+  create: async (data: Partial<ReelCategory>) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'translations' && typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
+        } else if (typeof value === 'boolean') {
+          // Convert boolean to "1" or "0" for Laravel validation
+          formData.append(key, value ? '1' : '0');
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const headers = getAuthHeaders();
+    delete (headers as any)['Content-Type'];
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reel-categories`, {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+    return handleResponse<{ success: boolean; data: ReelCategory; message: string }>(response);
+  },
+
+  update: async (id: number, data: Partial<ReelCategory>) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'translations' && typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
+        } else if (typeof value === 'boolean') {
+          // Convert boolean to "1" or "0" for Laravel validation
+          formData.append(key, value ? '1' : '0');
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const headers = getAuthHeaders();
+    delete (headers as any)['Content-Type'];
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reel-categories/${id}`, {
+      method: 'PUT',
+      headers: headers,
+      body: formData,
+    });
+    return handleResponse<{ success: boolean; data: ReelCategory; message: string }>(response);
+  },
+
+  delete: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/reel-categories/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+};
+
 export default {
   category: categoryApi,
   series: seriesApi,
   video: videoApi,
+  reel: reelApi,
+  rewind: rewindApi,
+  reelCategory: reelCategoryApi,
 };
 

@@ -3,6 +3,8 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import AdminDashboard from './AdminDashboard';
 import UsersManagement from './UsersManagement';
 import ContentManagement from './ContentManagement';
+import ReelsManagement from './ReelsManagement';
+import RewindsManagement from './RewindsManagement';
 import SubscriptionPlans from './SubscriptionPlans';
 import PaymentsTransactions from './PaymentsTransactions';
 import CouponsDiscounts from './CouponsDiscounts';
@@ -28,6 +30,8 @@ const AdminRoutes = () => {
       {!adminPath && <AdminDashboard />}
       {adminPath === 'users' && <UsersManagement />}
       {adminPath === 'content' && <ContentManagement />}
+      {adminPath === 'reels' && <ReelsManagement />}
+      {adminPath === 'rewinds' && <RewindsManagement />}
       {adminPath === 'plans' && <SubscriptionPlans />}
       {adminPath === 'payments' && <PaymentsTransactions />}
       {adminPath === 'coupons' && <CouponsDiscounts />}
@@ -37,7 +41,7 @@ const AdminRoutes = () => {
       {adminPath === 'faqs' && <FaqManagement />}
       {adminPath === 'settings' && <Settings />}
       {adminPath === 'analytics' && <AnalyticsReports />}
-      {adminPath && !['users', 'content', 'plans', 'payments', 'coupons', 'multilingual', 'support', 'feedback', 'faqs', 'settings', 'analytics'].includes(adminPath) && (
+      {adminPath && !['users', 'content', 'reels', 'rewinds', 'plans', 'payments', 'coupons', 'multilingual', 'support', 'feedback', 'faqs', 'settings', 'analytics'].includes(adminPath) && (
         <Navigate to={`/${locale}/admin`} replace />
       )}
     </AdminLayout>
