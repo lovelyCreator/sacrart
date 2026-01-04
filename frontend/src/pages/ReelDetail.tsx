@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { videoApi, Video } from '@/services/videoApi';
+import { reelApi, Reel } from '@/services/videoApi';
 import { toast } from 'sonner';
 import { Play, Pause, RotateCcw, Subtitles, Settings, Maximize, X } from 'lucide-react';
 
@@ -28,11 +28,11 @@ interface Episode {
 const ReelDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { navigateWithLocale } = useLocale();
+  const { t, i18n } = useTranslation();
+  const { navigateWithLocale, locale } = useLocale();
   const isMobile = useIsMobile();
   
-  const [video, setVideo] = useState<Video | null>(null);
+  const [reel, setReel] = useState<Reel | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'episodios' | 'transcripcion'>('transcripcion');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -62,24 +62,26 @@ const ReelDetail = () => {
   ]);
 
   useEffect(() => {
-    const fetchVideo = async () => {
+    const fetchReel = async () => {
       try {
         setLoading(true);
         if (id) {
-          const response = await videoApi.get(parseInt(id));
-          if (response.success && response.data && response.data.video) {
-            setVideo(response.data.video);
+          const response = await reelApi.getPublicById(parseInt(id));
+          if (response.success && response.data) {
+            setReel(response.data);
+          } else {
+            toast.error('Reel not found');
           }
         }
       } catch (error: any) {
-        console.error('Error loading video:', error);
-        toast.error(error.message || 'Error al cargar el video');
+        console.error('Error loading reel:', error);
+        toast.error(error.message || 'Error al cargar el reel');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchVideo();
+    fetchReel();
   }, [id]);
 
   const getImageUrl = (src: string | null | undefined): string => {
@@ -136,8 +138,19 @@ const ReelDetail = () => {
     }
   };
 
-  const thumbnailUrl = video ? getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '') : '';
-  const videoUrl = video?.bunny_embed_url || video?.bunny_video_url || video?.video_url_full || video?.video_url || '';
+  // Helper to get translated value
+  const getTranslatedValue = (reel: Reel, field: 'title' | 'description' | 'short_description'): string => {
+    const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+    if (reel.translations && reel.translations[field]) {
+      return reel.translations[field][currentLocale as 'en' | 'es' | 'pt'] || 
+             reel.translations[field].en || 
+             (reel as any)[field] || '';
+    }
+    return (reel as any)[`${field}_${currentLocale}`] || (reel as any)[field] || '';
+  };
+
+  const thumbnailUrl = reel ? getImageUrl(reel.thumbnail_url || reel.thumbnail || reel.bunny_thumbnail_url || '') : '';
+  const videoUrl = reel?.bunny_player_url || reel?.bunny_embed_url || reel?.bunny_video_url || '';
 
   if (loading) {
     return (
@@ -147,13 +160,17 @@ const ReelDetail = () => {
     );
   }
 
-  if (!video) {
+  if (!reel) {
     return (
       <main className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
-        <p>Video no encontrado</p>
+        <p>Reel no encontrado</p>
       </main>
     );
   }
+
+  const reelTitle = getTranslatedValue(reel, 'title');
+  const reelDescription = getTranslatedValue(reel, 'description');
+  const reelShortDesc = getTranslatedValue(reel, 'short_description');
 
   // Mobile view - Fullscreen video with modal buttons
   if (isMobile) {
@@ -172,7 +189,7 @@ const ReelDetail = () => {
               onPause={() => setIsPlaying(false)}
             />
           ) : thumbnailUrl ? (
-            <img src={thumbnailUrl} alt={video.title || ''} className="w-full h-full object-cover" />
+            <img src={thumbnailUrl} alt={reelTitle} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900"></div>
           )}
@@ -251,7 +268,7 @@ const ReelDetail = () => {
             <div className="flex justify-between items-start px-6 pt-2 pb-4 border-b border-white/5">
               <div>
                 <h2 className="text-[#A05245] text-[10px] font-bold tracking-[0.2em] uppercase mb-2">Viendo Ahora</h2>
-                <h3 className="font-serif font-bold text-xl text-white leading-tight">{video.title || 'Virgen de Filipinas'}</h3>
+                <h3 className="font-serif font-bold text-xl text-white leading-tight">{reelTitle}</h3>
               </div>
               <button
                 onClick={() => {
@@ -368,7 +385,7 @@ const ReelDetail = () => {
             />
           ) : thumbnailUrl ? (
             <img
-              alt={video.title || ''}
+              alt={reelTitle}
               className="w-full h-full object-cover opacity-90"
               src={thumbnailUrl}
             />
@@ -444,11 +461,13 @@ const ReelDetail = () => {
             <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Temporada 1</span>
           </div>
           <h1 className="font-serif text-4xl lg:text-5xl font-bold text-white mb-2 leading-tight">
-            {video.title || 'Virgen de Filipinas'}
+            {reelTitle}
           </h1>
-          <h2 className="text-lg text-gray-400 font-light flex items-center gap-2">
-            <span className="text-[#A05245] font-serif">Capítulo 1:</span> Preparación del bloque
-          </h2>
+          {reelShortDesc && (
+            <h2 className="text-lg text-gray-400 font-light flex items-center gap-2">
+              {reelShortDesc}
+            </h2>
+          )}
         </div>
 
         {/* Tabs */}

@@ -702,6 +702,11 @@ export interface Rewind {
   sort_order: number;
   tags?: string[] | null;
   videos?: Video[];
+  translations?: {
+    title: { en: string; es: string; pt: string };
+    description: { en: string; es: string; pt: string };
+    short_description: { en: string; es: string; pt: string };
+  };
   created_at: string;
   updated_at: string;
 }
@@ -811,10 +816,13 @@ export const reelApi = {
         }
       });
     }
-    const response = await fetch(`${API_BASE_URL}/reels/public?${queryParams}`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(`${API_BASE_URL}/reels/public?${queryParams}`);
     return handleResponse<{ success: boolean; data: any }>(response);
+  },
+
+  getPublicById: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/reels/${id}`);
+    return handleResponse<{ success: boolean; data: Reel }>(response);
   },
 };
 

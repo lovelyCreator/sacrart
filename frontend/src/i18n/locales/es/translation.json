@@ -1417,12 +1417,22 @@
     "contact": "Contacto",
     "description": "La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.",
     "reels": {
+      "title": "REELS",
+      "pinceladas": "PINCELADAS",
       "subtitle": "Tu enciclopedia visual de arte sacro en formato vertical.",
       "subtitle2": "Trucos, historias y momentos del taller.",
       "search_placeholder": "Busca una técnica, material o curiosidad...",
       "see_all": "Ver todo",
       "no_results": "No se encontraron reels con estos criterios.",
-      "error_load": "Error al cargar los reels"
+      "error_load": "Error al cargar los reels",
+      "back_to_reels": "Volver a Reels",
+      "default_category": "Reels",
+      "view": "Vista",
+      "sort_recent": "Más Recientes",
+      "sort_popular": "Más Populares",
+      "sort_oldest": "Más Antiguos",
+      "load_more": "Cargar Más",
+      "tip": "Tip"
     },
     "rewind": {
       "archive": "El Archivo",

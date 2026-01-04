@@ -1390,12 +1390,22 @@
     "contact": "Contato",
     "description": "A primeira plataforma de streaming dedicada exclusivamente ao ensino e difusão da arte sacra.",
     "reels": {
+      "title": "REELS",
+      "pinceladas": "PINCELADAS",
       "subtitle": "Sua enciclopédia visual de arte sacra em formato vertical.",
       "subtitle2": "Truques, histórias e momentos da oficina.",
       "search_placeholder": "Busque uma técnica, material ou curiosidade...",
       "see_all": "Ver tudo",
       "no_results": "Nenhum reel encontrado com estes critérios.",
-      "error_load": "Erro ao carregar os reels"
+      "error_load": "Erro ao carregar os reels",
+      "back_to_reels": "Voltar para Reels",
+      "default_category": "Reels",
+      "view": "Vista",
+      "sort_recent": "Mais Recentes",
+      "sort_popular": "Mais Populares",
+      "sort_oldest": "Mais Antigos",
+      "load_more": "Carregar Mais",
+      "tip": "Dica"
     },
     "rewind": {
       "archive": "O Arquivo",

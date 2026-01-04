@@ -328,6 +328,10 @@ class ReelController extends Controller
         if ($user && $user->isAdmin()) {
             $reel->translations = $reel->getAllTranslations();
         }
+        // Load category translations for public API
+        if ($reel->category) {
+            $reel->category->translations = $reel->category->getAllTranslations();
+        }
         $reel->incrementViews();
 
         return response()->json([
@@ -560,6 +564,13 @@ class ReelController extends Controller
 
         $perPage = $request->get('per_page', 100);
         $reels = $query->paginate($perPage);
+
+        // Load category translations for public API
+        foreach ($reels->items() as $reel) {
+            if ($reel->category) {
+                $reel->category->translations = $reel->category->getAllTranslations();
+            }
+        }
 
         return response()->json([
             'success' => true,

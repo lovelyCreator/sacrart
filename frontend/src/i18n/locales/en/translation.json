@@ -1408,12 +1408,22 @@
     "contact": "Contact",
     "description": "The first streaming platform dedicated exclusively to teaching and spreading sacred art.",
     "reels": {
+      "title": "REELS",
+      "pinceladas": "PINCELADAS",
       "subtitle": "Your visual encyclopedia of sacred art in vertical format.",
       "subtitle2": "Tricks, stories and workshop moments.",
       "search_placeholder": "Search for a technique, material or curiosity...",
       "see_all": "See all",
       "no_results": "No reels found with these criteria.",
-      "error_load": "Error loading reels"
+      "error_load": "Error loading reels",
+      "back_to_reels": "Back to Reels",
+      "default_category": "Reels",
+      "view": "View",
+      "sort_recent": "Most Recent",
+      "sort_popular": "Most Popular",
+      "sort_oldest": "Oldest",
+      "load_more": "Load More",
+      "tip": "Tip"
     },
     "rewind": {
       "archive": "The Archive",
