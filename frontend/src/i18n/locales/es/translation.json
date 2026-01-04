@@ -40,7 +40,21 @@
     "create": "Crear",
     "update": "Actualizar",
     "language": "Idioma",
-    "reload": "Recargar Página"
+    "reload": "Recargar Página",
+    "months": {
+      "jan": "Ene",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Abr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Ago",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dic"
+    }
   },
   "notFound": {
     "title": "Esta obra aún no está terminada.",
@@ -1466,7 +1480,8 @@
       "series_long": "Serie de {count} Cap.",
       "load_older": "Cargar Años Anteriores",
       "watching_now": "Viendo Ahora",
-      "chapter": "Capítulo {current} de {total}",
+      "chapter": "Capítulo",
+      "of": "de",
       "documentary": "Documental",
       "my_list": "Mi Lista",
       "like": "Me gusta",

@@ -936,10 +936,25 @@ export const rewindApi = {
         }
       });
     }
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': getLocale(),
+    };
     const response = await fetch(`${API_BASE_URL}/rewinds/public?${queryParams}`, {
-      headers: getAuthHeaders(),
+      headers,
     });
     return handleResponse<{ success: boolean; data: any }>(response);
+  },
+
+  getPublicById: async (id: number) => {
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': getLocale(),
+    };
+    const response = await fetch(`${API_BASE_URL}/rewinds/${id}`, {
+      headers,
+    });
+    return handleResponse<{ success: boolean; data: Rewind }>(response);
   },
 };
 

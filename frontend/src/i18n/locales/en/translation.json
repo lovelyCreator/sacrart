@@ -40,7 +40,21 @@
     "create": "Create",
     "update": "Update",
     "language": "Language",
-    "reload": "Reload Page"
+    "reload": "Reload Page",
+    "months": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    }
   },
   "notFound": {
     "title": "This work is not yet finished.",
@@ -1457,7 +1471,8 @@
       "series_long": "Series of {count} Ep.",
       "load_older": "Load Older Years",
       "watching_now": "Watching Now",
-      "chapter": "Chapter {current} of {total}",
+      "chapter": "Chapter",
+      "of": "of",
       "documentary": "Documentary",
       "my_list": "My List",
       "like": "Like",

@@ -40,7 +40,21 @@
     "create": "Criar",
     "update": "Atualizar",
     "language": "Idioma",
-    "reload": "Recarregar Página"
+    "reload": "Recarregar Página",
+    "months": {
+      "jan": "Jan",
+      "feb": "Fev",
+      "mar": "Mar",
+      "apr": "Abr",
+      "may": "Mai",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Ago",
+      "sep": "Set",
+      "oct": "Out",
+      "nov": "Nov",
+      "dec": "Dez"
+    }
   },
   "notFound": {
     "title": "Esta obra ainda não está terminada.",
@@ -1439,7 +1453,8 @@
       "series_long": "Série de {count} Cap.",
       "load_older": "Carregar Anos Anteriores",
       "watching_now": "Assistindo Agora",
-      "chapter": "Capítulo {current} de {total}",
+      "chapter": "Capítulo",
+      "of": "de",
       "documentary": "Documentário",
       "my_list": "Minha Lista",
       "like": "Curtir",
