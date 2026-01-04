@@ -10,7 +10,8 @@ import {
   Download,
   FileText,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -35,11 +36,13 @@ const EpisodeDetail = () => {
   const [userProgress, setUserProgress] = useState<any>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
-  // Reset like/dislike state when video ID changes
+  // Reset like/dislike/favorite state when video ID changes
   useEffect(() => {
     setIsLiked(false);
     setIsDisliked(false);
+    setIsFavorite(false);
   }, [id]);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<VideoComment[]>([]);
@@ -671,31 +674,37 @@ const EpisodeDetail = () => {
               setUserProgress(existingProgress);
               setIsLiked(likedStatus);
               setIsDisliked(dislikedStatus);
+              setIsFavorite(existingProgress.is_favorite === true || existingProgress.is_favorite === 1);
             }
             
-            // Always fetch latest progress to ensure like/dislike status is up to date
+            // Always fetch latest progress to ensure like/dislike/favorite status is up to date
             const progressResponse = await userProgressApi.getVideoProgress(videoData.id);
             if (progressResponse.success) {
               const progress = progressResponse.data;
               if (progress) {
                 const likedStatus = progress.is_liked === true || progress.is_liked === 1;
                 const dislikedStatus = progress.is_disliked === true || progress.is_disliked === 1;
+                const favoriteStatus = progress.is_favorite === true || progress.is_favorite === 1;
                 
-                console.log('📊 Loading like/dislike status:', {
+                console.log('📊 Loading like/dislike/favorite status:', {
                   is_liked: progress.is_liked,
                   is_disliked: progress.is_disliked,
+                  is_favorite: progress.is_favorite,
                   likedStatus,
-                  dislikedStatus
+                  dislikedStatus,
+                  favoriteStatus
                 });
                 
                 setUserProgress(progress);
                 setIsLiked(likedStatus);
                 setIsDisliked(dislikedStatus);
+                setIsFavorite(favoriteStatus);
               } else {
                 // No progress record exists yet, reset to default
-                console.log('📊 No progress record, resetting like/dislike to false');
+                console.log('📊 No progress record, resetting like/dislike/favorite to false');
                 setIsLiked(false);
                 setIsDisliked(false);
+                setIsFavorite(false);
               }
             }
           } catch (error) {
@@ -705,12 +714,14 @@ const EpisodeDetail = () => {
               setUserProgress(existingProgress);
               setIsLiked(existingProgress.is_liked === true || existingProgress.is_liked === 1);
               setIsDisliked(existingProgress.is_disliked === true || existingProgress.is_disliked === 1);
+              setIsFavorite(existingProgress.is_favorite === true || existingProgress.is_favorite === 1);
             }
           }
         } else {
           // Not authenticated, reset to default
           setIsLiked(false);
           setIsDisliked(false);
+          setIsFavorite(false);
         }
 
         // Fetch comments
@@ -1417,6 +1428,60 @@ const EpisodeDetail = () => {
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (!user || !video) {
+      toast.error(t('video.please_sign_in_favorites', 'Please sign in to add favorites'));
+      return;
+    }
+
+    // Store previous state for error rollback
+    const previousFavoriteState = isFavorite;
+    
+    // Optimistically update UI immediately for instant feedback
+    const newFavoriteState = !isFavorite;
+    setIsFavorite(newFavoriteState);
+
+    try {
+      const response = await userProgressApi.toggleFavorite(video.id);
+      if (response.success && response.data) {
+        // Update state from response data (server truth)
+        const isFavoriteValue = response.data.is_favorite === true || response.data.is_favorite === 1;
+        
+        setIsFavorite(isFavoriteValue);
+        
+        // Update userProgress state as well
+        setUserProgress((prev: any) => ({
+          ...prev,
+          is_favorite: isFavoriteValue,
+        }));
+        
+        // Show success message
+        if (isFavoriteValue) {
+          toast.success(t('video.added_to_favorites', 'Added to favorites'));
+        } else {
+          toast.success(t('video.removed_from_favorites', 'Removed from favorites'));
+        }
+      } else {
+        // If response doesn't have data, fetch latest progress
+        try {
+          const progressResponse = await userProgressApi.getVideoProgress(video.id);
+          if (progressResponse.success && progressResponse.data) {
+            const progress = progressResponse.data;
+            setIsFavorite(progress.is_favorite === true || progress.is_favorite === 1);
+            setUserProgress(progress);
+          }
+        } catch (fetchError) {
+          console.error('Failed to fetch updated progress:', fetchError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      // Revert optimistic update on error
+      setIsFavorite(previousFavoriteState);
+      toast.error(error instanceof Error ? error.message : t('video.failed_update_favorites', 'Failed to update favorites'));
+    }
+  };
+
   const handleSubmitComment = async () => {
     if (!user || !video) {
       toast.error(t('video.please_sign_in'));
@@ -1833,6 +1898,21 @@ const EpisodeDetail = () => {
             </div>
           </div>
           <div className="flex items-center gap-4 ml-auto self-end lg:self-center">
+            <button
+              onClick={handleToggleFavorite}
+              className="transition-colors focus:outline-none"
+              title={isFavorite ? t('video.removed_from_favorites', 'Remove from favorites') : t('video.added_to_favorites', 'Add to favorites')}
+            >
+              <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+                isFavorite 
+                  ? 'border-primary bg-primary/10' 
+                  : 'border-white/30 hover:border-white bg-transparent'
+              }`}>
+                <Plus className={`h-5 w-5 transition-colors ${
+                  isFavorite ? 'text-primary' : 'text-white'
+                }`} />
+              </div>
+            </button>
             <button
               onClick={handleLike}
               className="transition-colors focus:outline-none"

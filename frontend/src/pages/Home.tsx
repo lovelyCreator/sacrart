@@ -3343,15 +3343,10 @@ const Home = () => {
             <div className="relative group/slider">
               <div className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 sm:pb-8 snap-x snap-mandatory hide-scrollbar">
                 {featuredProcesses.slice(0, 5).map((item) => {
-                  // Check if item is a video (has video-specific properties) or a series
-                  const isVideo = 'duration' in item || 'bunny_embed_url' in item;
-                  const itemId = isVideo ? item.id : (item.category_id || item.id);
+                  // Featured process items are always videos (episodes)
                   const handleClick = () => {
-                    if (isVideo) {
-                      handleCourseClick(item.id);
-                    } else {
-                      handleCategoryClick(itemId);
-                    }
+                    // Navigate to episode detail page
+                    navigateWithLocale(`/episode/${item.id}`);
                   };
                   
                   return (
@@ -3362,9 +3357,7 @@ const Home = () => {
                       >
                         <img
                           src={getImageUrl(
-                            isVideo 
-                              ? (item.intro_image_url || item.intro_image || item.thumbnail_url || item.thumbnail || '')
-                              : (item.cover_image || item.thumbnail_url || '')
+                            item.intro_image_url || item.intro_image || item.thumbnail_url || item.thumbnail || ''
                           )}
                           alt={item.name || item.title || ''}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -3377,10 +3370,7 @@ const Home = () => {
                         <div className="absolute bottom-4 left-4 right-4">
                           <h3 className="font-bold text-base md:text-lg text-white leading-tight line-clamp-2">{item.name || item.title || ''}</h3>
                           <p className="text-xs md:text-sm text-primary font-bold mt-1.5">
-                            {isVideo 
-                              ? t('index.featured_processes.new_episode', 'Nuevo Episodio')
-                              : t('index.featured_processes.new_episode', 'Nuevo Episodio')
-                            }
+                            {t('index.featured_processes.new_episode', 'Nuevo Episodio')}
                           </p>
                         </div>
                       </div>

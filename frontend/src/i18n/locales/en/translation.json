@@ -1425,6 +1425,24 @@
       "load_more": "Load More",
       "tip": "Tip"
     },
+    "reel": {
+      "episodes": "Episodes",
+      "transcription": "Transcription",
+      "watching_now": "Watching Now",
+      "original_series": "Original Series",
+      "season": "Season",
+      "playing": "Playing",
+      "no_episodes": "No more episodes in this category",
+      "no_transcription": "No transcription available for this reel",
+      "reel_not_found": "Reel not found",
+      "error_load": "Error loading reel",
+      "playback_error": "Playback error. Please try reloading the page.",
+      "load_error": "Error loading video. Please check your connection.",
+      "player_init_error": "Error initializing player. Please reload the page.",
+      "subtitles_info": "Subtitles can be controlled from the player controls",
+      "settings_info": "Settings are available in the player controls",
+      "fullscreen_error": "Error entering fullscreen"
+    },
     "rewind": {
       "archive": "The Archive",
       "subtitle": "Explore the workshop history year by year. The process unfiltered.",

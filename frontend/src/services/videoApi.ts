@@ -667,6 +667,7 @@ export interface Reel {
     description: { en: string; es: string; pt: string };
     short_description: { en: string; es: string; pt: string };
   };
+  category_reels?: Reel[];
   created_at: string;
   updated_at: string;
 }

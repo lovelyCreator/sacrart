@@ -1434,6 +1434,24 @@
       "load_more": "Cargar Más",
       "tip": "Tip"
     },
+    "reel": {
+      "episodes": "Episodios",
+      "transcription": "Transcripción",
+      "watching_now": "Viendo Ahora",
+      "original_series": "Serie Original",
+      "season": "Temporada",
+      "playing": "Reproduciendo",
+      "no_episodes": "No hay más episodios en esta categoría",
+      "no_transcription": "No hay transcripción disponible para este reel",
+      "reel_not_found": "Reel no encontrado",
+      "error_load": "Error al cargar el reel",
+      "playback_error": "Error de reproducción. Por favor, intente recargar la página.",
+      "load_error": "Error al cargar el video. Por favor, verifique su conexión.",
+      "player_init_error": "Error al inicializar el reproductor. Por favor, recargue la página.",
+      "subtitles_info": "Los subtítulos se pueden controlar desde los controles del reproductor",
+      "settings_info": "La configuración está disponible en los controles del reproductor",
+      "fullscreen_error": "Error al entrar en pantalla completa"
+    },
     "rewind": {
       "archive": "El Archivo",
       "subtitle": "Explora la historia del taller año a año. El proceso sin filtros.",

@@ -1407,6 +1407,24 @@
       "load_more": "Carregar Mais",
       "tip": "Dica"
     },
+    "reel": {
+      "episodes": "Episódios",
+      "transcription": "Transcrição",
+      "watching_now": "Assistindo Agora",
+      "original_series": "Série Original",
+      "season": "Temporada",
+      "playing": "Reproduzindo",
+      "no_episodes": "Não há mais episódios nesta categoria",
+      "no_transcription": "Não há transcrição disponível para este reel",
+      "reel_not_found": "Reel não encontrado",
+      "error_load": "Erro ao carregar o reel",
+      "playback_error": "Erro de reprodução. Por favor, tente recarregar a página.",
+      "load_error": "Erro ao carregar o vídeo. Por favor, verifique sua conexão.",
+      "player_init_error": "Erro ao inicializar o reprodutor. Por favor, recarregue a página.",
+      "subtitles_info": "As legendas podem ser controladas a partir dos controles do reprodutor",
+      "settings_info": "As configurações estão disponíveis nos controles do reprodutor",
+      "fullscreen_error": "Erro ao entrar em tela cheia"
+    },
     "rewind": {
       "archive": "O Arquivo",
       "subtitle": "Explore a história da oficina ano a ano. O processo sem filtros.",

@@ -170,8 +170,8 @@ class UserProgressController extends Controller
             // Create new progress record
             $progress = UserProgress::create([
                 'user_id' => $user->id,
-                'category_id' => $video->category_id,
                 'video_id' => $video->id,
+                'series_id' => $video->series_id,
                 'is_favorite' => true,
                 'favorited_at' => now(),
                 'first_watched_at' => now(),

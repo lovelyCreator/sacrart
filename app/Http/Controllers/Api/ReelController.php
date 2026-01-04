@@ -331,12 +331,31 @@ class ReelController extends Controller
         // Load category translations for public API
         if ($reel->category) {
             $reel->category->translations = $reel->category->getAllTranslations();
+            
+            // Load all reels from the same category (including current reel)
+            $subscriptionType = $user ? ($user->subscription_type ?: 'freemium') : 'freemium';
+            $categoryReels = Reel::where('category_id', $reel->category_id)
+                ->visibleTo($subscriptionType)
+                ->published()
+                ->orderBy('sort_order', 'asc')
+                ->get();
+            
+            // Load translations for category reels
+            foreach ($categoryReels as $categoryReel) {
+                $categoryReel->translations = $categoryReel->getAllTranslations();
+            }
         }
         $reel->incrementViews();
 
+        // Prepare response data with category_reels
+        $responseData = $reel->toArray();
+        if ($reel->category && isset($categoryReels)) {
+            $responseData['category_reels'] = $categoryReels->toArray();
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $reel,
+            'data' => $responseData,
         ]);
     }
 

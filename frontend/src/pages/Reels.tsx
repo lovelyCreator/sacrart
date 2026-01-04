@@ -6,14 +6,8 @@ import { useLocale } from '@/hooks/useLocale';
 import { Play, Key, User, Church, Smile, Lightbulb, ArrowLeft, ChevronDown, PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Definir categorías/tags iniciales (matching code.html order)
-const REEL_CATEGORIES = [
-  { tag: 'tips', label: 'Tips Express', icon: '⚡', color: 'yellow-500' },
-  { tag: 'curiosidades', label: 'Curiosidades', icon: '🤓', color: 'blue-400' },
-  { tag: 'procesos', label: 'Procesos', icon: '✨', color: 'yellow-200' },
-  { tag: 'preguntas', label: 'Q&A', icon: '🗣️', color: 'white' },
-  { tag: 'bendiciones', label: 'Bendiciones', icon: '⛪', color: 'white' },
-];
+// Reel categories will be fetched from API, but we can define default labels
+// Note: These labels should match what's in the database or be translated
 
 const Reels = () => {
   const { t, i18n } = useTranslation();
