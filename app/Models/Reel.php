@@ -78,6 +78,11 @@ class Reel extends Model
         'price' => 'decimal:2',
         'sort_order' => 'integer',
         'tags' => 'array',
+        // AI-generated transcription and audio fields
+        'transcriptions' => 'array',
+        'caption_urls' => 'array',
+        'audio_urls' => 'array',
+        'transcription_processed_at' => 'datetime',
     ];
 
     protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'bunny_player_url'];

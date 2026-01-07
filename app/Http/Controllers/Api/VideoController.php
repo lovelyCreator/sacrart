@@ -9,6 +9,7 @@ use App\Models\UserProgress;
 use App\Services\WebpConversionService;
 use App\Services\VideoTranscodingService;
 use App\Services\BunnyNetService;
+use App\Services\VideoTranscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -21,15 +22,18 @@ class VideoController extends Controller
     protected $webpService;
     protected $transcodingService;
     protected $bunnyNetService;
+    protected $transcriptionService;
 
     public function __construct(
         WebpConversionService $webpService,
         VideoTranscodingService $transcodingService,
-        BunnyNetService $bunnyNetService
+        BunnyNetService $bunnyNetService,
+        VideoTranscriptionService $transcriptionService
     ) {
         $this->webpService = $webpService;
         $this->transcodingService = $transcodingService;
         $this->bunnyNetService = $bunnyNetService;
+        $this->transcriptionService = $transcriptionService;
     }
     /**
      * Display a listing of videos.
@@ -1362,18 +1366,68 @@ class VideoController extends Controller
         $locale = $request->input('locale', 'en');
         
         // Get transcription based on locale
+        // First try new JSON format, then fall back to old fields
         $transcription = null;
-        switch ($locale) {
-            case 'es':
-                $transcription = $video->transcription_es ?? $video->transcription;
-                break;
-            case 'pt':
-                $transcription = $video->transcription_pt ?? $video->transcription;
-                break;
-            default:
-                $transcription = $video->transcription_en ?? $video->transcription;
-                break;
+        $transcriptions = $video->transcriptions; // JSON field
+        
+        if ($transcriptions && is_array($transcriptions) && isset($transcriptions[$locale])) {
+            // Check if transcription is stored as array with 'text' field (new format)
+            if (is_array($transcriptions[$locale]) && isset($transcriptions[$locale]['text'])) {
+                $transcription = $transcriptions[$locale]['text'];
+            } else {
+                // Direct string value (old format)
+                $transcription = $transcriptions[$locale];
+            }
+        } else {
+            // Fall back to old field names for backward compatibility
+            switch ($locale) {
+                case 'es':
+                    $transcription = $video->transcription_es ?? $video->transcription;
+                    break;
+                case 'pt':
+                    $transcription = $video->transcription_pt ?? $video->transcription;
+                    break;
+                default:
+                    $transcription = $video->transcription_en ?? $video->transcription;
+                    break;
+            }
         }
+
+        // Debug logging to see what we're returning
+        Log::debug('getSubtitles API response', [
+            'video_id' => $video->id,
+            'locale' => $locale,
+            'transcription_type' => gettype($transcription),
+            'transcription_is_array' => is_array($transcription),
+            'transcription_length' => is_string($transcription) ? strlen($transcription) : (is_array($transcription) ? count($transcription) : 0),
+            'transcription_preview' => is_string($transcription) ? substr($transcription, 0, 100) : (is_array($transcription) ? json_encode(array_slice($transcription, 0, 5)) : ''),
+        ]);
+
+        // CRITICAL FIX: Ensure transcription is always a string, never an array!
+        if (is_array($transcription)) {
+            Log::error('Transcription is an array in API response! Converting to string.', [
+                'video_id' => $video->id,
+                'locale' => $locale,
+                'array_count' => count($transcription),
+                'first_elements' => array_slice($transcription, 0, 5),
+            ]);
+            
+            // If it's an array of words, join them into a sentence
+            $transcription = implode(' ', array_map(function($item) {
+                if (is_string($item)) {
+                    return $item;
+                } elseif (is_array($item) && isset($item['word'])) {
+                    return $item['word'];
+                } elseif (is_array($item) && isset($item['punctuated_word'])) {
+                    return $item['punctuated_word'];
+                } else {
+                    return '';
+                }
+            }, $transcription));
+        }
+
+        // Ensure we have a string
+        $transcription = is_string($transcription) ? $transcription : '';
 
         // Convert transcription to WebVTT format if available
         $webvtt = null;
@@ -1384,7 +1438,7 @@ class VideoController extends Controller
         return response()->json([
             'success' => true,
             'locale' => $locale,
-            'transcription' => $transcription,
+            'transcription' => $transcription, // Always a string
             'webvtt_url' => $webvtt ? route('api.videos.subtitles.vtt', ['video' => $video->id, 'locale' => $locale]) : null,
         ]);
     }
@@ -1402,17 +1456,31 @@ class VideoController extends Controller
         }
 
         // Get transcription based on locale
+        // First try new JSON format, then fall back to old fields
         $transcription = null;
-        switch ($locale) {
-            case 'es':
-                $transcription = $video->transcription_es ?? $video->transcription;
-                break;
-            case 'pt':
-                $transcription = $video->transcription_pt ?? $video->transcription;
-                break;
-            default:
-                $transcription = $video->transcription_en ?? $video->transcription;
-                break;
+        $transcriptions = $video->transcriptions; // JSON field
+        
+        if ($transcriptions && is_array($transcriptions) && isset($transcriptions[$locale])) {
+            // Check if transcription is stored as array with 'text' field (new format)
+            if (is_array($transcriptions[$locale]) && isset($transcriptions[$locale]['text'])) {
+                $transcription = $transcriptions[$locale]['text'];
+            } else {
+                // Direct string value (old format)
+                $transcription = $transcriptions[$locale];
+            }
+        } else {
+            // Fall back to old field names for backward compatibility
+            switch ($locale) {
+                case 'es':
+                    $transcription = $video->transcription_es ?? $video->transcription;
+                    break;
+                case 'pt':
+                    $transcription = $video->transcription_pt ?? $video->transcription;
+                    break;
+                default:
+                    $transcription = $video->transcription_en ?? $video->transcription;
+                    break;
+            }
         }
 
         if (!$transcription) {
@@ -2019,5 +2087,98 @@ class VideoController extends Controller
                 : 'Bunny.net credentials test failed. Please check the details below.',
             'results' => $results,
         ], $results['all_valid'] ? 200 : 400);
+    }
+
+    /**
+     * Process video transcription and upload captions for multiple languages
+     * This endpoint triggers Deepgram transcription and uploads captions to Bunny.net
+     * 
+     * @param int $id Video ID
+     * @return JsonResponse
+     */
+    public function processTranscription(Request $request, $id): JsonResponse
+    {
+        // Only admins can trigger transcription processing
+        if (!Auth::user()->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+
+        $video = Video::findOrFail($id);
+
+        $validated = $request->validate([
+            'languages' => 'nullable|array',
+            'languages.*' => 'string|in:en,es,pt,fr,de,it',
+            'source_language' => 'nullable|string|in:en,es,pt,fr,de,it',
+        ]);
+
+        $languages = $validated['languages'] ?? ['en', 'es', 'pt'];
+        $sourceLanguage = $validated['source_language'] ?? 'en';
+
+        try {
+            $result = $this->transcriptionService->processVideoTranscription(
+                $video,
+                $languages,
+                $sourceLanguage
+            );
+
+            return response()->json($result, $result['success'] ? 200 : 500);
+
+        } catch (\Exception $e) {
+            \Log::error('Transcription processing exception', [
+                'video_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process transcription: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get transcription status for a video
+     */
+    public function getTranscriptionStatus($id): JsonResponse
+    {
+        $video = Video::findOrFail($id);
+
+        $status = $this->transcriptionService->getTranscriptionStatus($video);
+
+        return response()->json([
+            'success' => true,
+            'data' => $status,
+        ]);
+    }
+
+    /**
+     * Reprocess a specific language transcription
+     */
+    public function reprocessLanguage(Request $request, $id): JsonResponse
+    {
+        if (!Auth::user()->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+
+        $video = Video::findOrFail($id);
+
+        $validated = $request->validate([
+            'language' => 'required|string|in:en,es,pt,fr,de,it',
+            'source_language' => 'nullable|string|in:en,es,pt,fr,de,it',
+        ]);
+
+        $result = $this->transcriptionService->reprocessLanguage(
+            $video,
+            $validated['language'],
+            $validated['source_language'] ?? 'en'
+        );
+
+        return response()->json($result, $result['success'] ? 200 : 500);
     }
 }

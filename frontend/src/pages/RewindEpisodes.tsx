@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { rewindApi, Rewind, Video } from '@/services/videoApi';
 import { useLocale } from '@/hooks/useLocale';
-import { Play, Pause, SkipForward, SkipBack, Volume2, Maximize, MoreVertical, RotateCcw, Plus, ThumbsUp, ThumbsDown, ListOrdered, Lock } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, Maximize, MoreVertical, RotateCcw, Plus, ThumbsUp, ThumbsDown, ListOrdered, Lock, Subtitles } from 'lucide-react';
 import { toast } from 'sonner';
+import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer';
 
 // Transcription segment interface
 interface TranscriptionSegment {
@@ -104,14 +105,22 @@ const RewindEpisodes = () => {
     fetchData();
   }, [id, t, i18n.language, locale]);
 
+  // Reload transcription when language or current video changes
+  useEffect(() => {
+    if (currentVideo && currentVideo.id) {
+      loadTranscription(currentVideo);
+    }
+  }, [i18n.language, locale, currentVideo?.id]);
+
   // Load transcription for current video
   const loadTranscription = async (video: Video) => {
     if (!video.id) return;
     
     try {
       const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+      const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
       const response = await fetch(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/videos/${video.id}/subtitles?locale=${currentLocale}`,
+        `${baseUrl}/videos/${video.id}/transcription?locale=${currentLocale}`,
         {
           headers: {
             'Accept': 'application/json',
@@ -122,14 +131,41 @@ const RewindEpisodes = () => {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Transcription API response:', data); // Debug log
+        
         if (data.success && data.transcription) {
+          let transcriptionText = data.transcription;
+          
+          // CRITICAL FIX: Handle if transcription is an array of words instead of string
+          if (Array.isArray(transcriptionText)) {
+            console.warn('Transcription is an array! Converting to string...', transcriptionText);
+            transcriptionText = transcriptionText.map(item => {
+              if (typeof item === 'string') {
+                return item;
+              } else if (item && typeof item === 'object') {
+                return item.punctuated_word || item.word || item.text || '';
+              }
+              return '';
+            }).join(' ');
+            console.log('Converted to string:', transcriptionText.substring(0, 100));
+          }
+          
+          // Ensure it's a string
+          if (typeof transcriptionText !== 'string') {
+            console.error('Transcription is not a string or array:', typeof transcriptionText, transcriptionText);
+            transcriptionText = String(transcriptionText || '');
+          }
+          
           // Parse transcription text into segments
-          const segments = parseTranscription(data.transcription, video.duration || 0);
+          const segments = parseTranscription(transcriptionText, video.duration || 0);
+          console.log('Parsed transcription segments:', segments.length); // Debug log
           setTranscription(segments);
         } else {
+          console.log('No transcription data in response'); // Debug log
           setTranscription([]);
         }
       } else {
+        console.error('Transcription API error:', response.status, response.statusText);
         setTranscription([]);
       }
     } catch (error) {
@@ -307,6 +343,7 @@ const RewindEpisodes = () => {
           <div className="relative aspect-[9/16] bg-stone-900 rounded-lg overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.7)] border border-white/10 group ring-1 ring-white/5">
             {currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url) ? (
               <iframe
+                key={`bunny-iframe-${currentVideo.id}-${(i18n.language || locale || 'en').substring(0, 2)}`}
                 id={`bunny-iframe-${currentVideo.id}`}
                 src={(() => {
                   const embedUrl = currentVideo.bunny_embed_url || currentVideo.bunny_player_url || '';
@@ -320,8 +357,21 @@ const RewindEpisodes = () => {
                     }
                   }
                   const separator = finalUrl.includes('?') ? '&' : '?';
-                  // Enable controls - Bunny.net will show its native control bar
+                  // Enable controls and captions - Bunny.net will show its native control bar
                   finalUrl = `${finalUrl}${separator}autoplay=false&responsive=true&controls=true`;
+                  
+                  // Add captions if available
+                  if (currentVideo.caption_urls && Object.keys(currentVideo.caption_urls).length > 0) {
+                    const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+                    // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
+                    // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
+                    if (currentVideo.caption_urls[currentLocale]) {
+                      finalUrl += `&defaultTextTrack=${currentLocale}`;
+                    } else if (currentVideo.caption_urls['en']) {
+                      finalUrl += `&defaultTextTrack=en`;
+                    }
+                  }
+                  
                   return finalUrl;
                 })()}
                 className="w-full h-full object-cover border-0"
@@ -356,6 +406,21 @@ const RewindEpisodes = () => {
               </div>
             )}
           </div>
+
+          {/* Multi-Language Audio Player */}
+          {currentVideo && currentVideo.audio_urls && Object.keys(currentVideo.audio_urls).length > 0 && (
+            <div className="mt-6" key={`audio-player-${currentVideo.id}-${i18n.language.substring(0, 2)}`}>
+              <MultiLanguageAudioPlayer
+                audioTracks={Object.entries(currentVideo.audio_urls).map(([lang, url]) => ({
+                  language: lang,
+                  url: url as string,
+                  label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+                }))}
+                defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
+                videoRef={null}
+              />
+            </div>
+          )}
         </div>
 
         {/* Content Section */}
@@ -432,6 +497,24 @@ const RewindEpisodes = () => {
           <div className="flex-1 overflow-y-auto relative">
             {activeTab === 'transcripcion' ? (
               <div className="py-6 space-y-8 max-w-3xl">
+                {/* Caption Info Banner */}
+                {currentVideo && currentVideo.caption_urls && Object.keys(currentVideo.caption_urls).length > 0 && (
+                  <div className="mb-6 p-4 bg-[#A05245]/10 border border-[#A05245]/20 rounded-lg flex items-start gap-3">
+                    <Subtitles className="h-5 w-5 text-[#A05245] flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        <span className="text-white font-semibold">{t('rewind.captions_available', 'Captions available in video player')}</span>
+                        <br />
+                        {t('rewind.captions_hint', 'Click the CC button in the video player to enable subtitles.')}
+                        {' '}
+                        <span className="text-[#A05245]">
+                          {t('rewind.available_languages', 'Available')}: {Object.keys(currentVideo.caption_urls).map(lang => lang.toUpperCase()).join(', ')}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
                 {transcription.length > 0 ? (
                   transcription.map((segment, index) => (
                     <div

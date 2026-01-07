@@ -6,6 +6,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { reelApi, Reel } from '@/services/videoApi';
 import { toast } from 'sonner';
 import { Play, Pause, RotateCcw, Subtitles, Settings, Maximize, X } from 'lucide-react';
+import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer';
 
 // Sample transcription data structure
 interface TranscriptionSegment {
@@ -505,6 +506,7 @@ const ReelDetail = () => {
         <div className="absolute inset-0 z-0">
           {reel && (reel.bunny_embed_url || reel.bunny_player_url) ? (
             <iframe
+              key={`bunny-iframe-${reel.id}-${(i18n.language || locale || 'en').substring(0, 2)}`}
               id={`bunny-iframe-${reel.id}`}
               src={(() => {
                 const embedUrl = reel.bunny_embed_url || reel.bunny_player_url || '';
@@ -518,8 +520,21 @@ const ReelDetail = () => {
                   }
                 }
                 const separator = finalUrl.includes('?') ? '&' : '?';
-                // Enable controls - Bunny.net will show its native control bar
+                // Enable controls and captions - Bunny.net will show its native control bar
                 finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
+                
+                // Add captions if available
+                if (reel.caption_urls && Object.keys(reel.caption_urls).length > 0) {
+                  const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+                  // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
+                  // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
+                  if (reel.caption_urls[currentLocale]) {
+                    finalUrl += `&defaultTextTrack=${currentLocale}`;
+                  } else if (reel.caption_urls['en']) {
+                    finalUrl += `&defaultTextTrack=en`;
+                  }
+                }
+                
                 return finalUrl;
               })()}
               className="w-full h-full object-cover border-0"
@@ -544,6 +559,21 @@ const ReelDetail = () => {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20"></div>
         </div>
+
+        {/* Multi-Language Audio Player */}
+        {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (
+          <div className="absolute top-4 right-4 left-4 z-20" key={`audio-player-mobile-${reel.id}-${i18n.language.substring(0, 2)}`}>
+            <MultiLanguageAudioPlayer
+              audioTracks={Object.entries(reel.audio_urls).map(([lang, url]) => ({
+                language: lang,
+                url: url as string,
+                label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+              }))}
+              defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
+              videoRef={null}
+            />
+          </div>
+        )}
 
         {/* Custom video controls hidden - using Bunny.net native controls */}
 
@@ -732,6 +762,7 @@ const ReelDetail = () => {
         <div className="relative aspect-[9/16] h-full max-h-[85vh] bg-black rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 group">
           {reel && (reel.bunny_embed_url || reel.bunny_player_url) ? (
             <iframe
+              key={`bunny-iframe-mobile-${reel.id}-${(i18n.language || locale || 'en').substring(0, 2)}`}
               id={`bunny-iframe-${reel.id}`}
               src={(() => {
                 const embedUrl = reel.bunny_embed_url || reel.bunny_player_url || '';
@@ -745,8 +776,21 @@ const ReelDetail = () => {
                   }
                 }
                 const separator = finalUrl.includes('?') ? '&' : '?';
-                // Enable controls - Bunny.net will show its native control bar
+                // Enable controls and captions - Bunny.net will show its native control bar
                 finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
+                
+                // Add captions if available
+                if (reel.caption_urls && Object.keys(reel.caption_urls).length > 0) {
+                  const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+                  // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
+                  // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
+                  if (reel.caption_urls[currentLocale]) {
+                    finalUrl += `&defaultTextTrack=${currentLocale}`;
+                  } else if (reel.caption_urls['en']) {
+                    finalUrl += `&defaultTextTrack=en`;
+                  }
+                }
+                
                 return finalUrl;
               })()}
               className="w-full h-full object-cover border-0 opacity-90"
@@ -833,6 +877,21 @@ const ReelDetail = () => {
             </div>
           </div> */}
         </div>
+
+        {/* Multi-Language Audio Player */}
+        {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (
+          <div className="mt-6" key={`audio-player-desktop-${reel.id}-${i18n.language.substring(0, 2)}`}>
+            <MultiLanguageAudioPlayer
+              audioTracks={Object.entries(reel.audio_urls).map(([lang, url]) => ({
+                language: lang,
+                url: url as string,
+                label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+              }))}
+              defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
+              videoRef={null}
+            />
+          </div>
+        )}
       </div>
 
       {/* Right Side - Content (60%) */}

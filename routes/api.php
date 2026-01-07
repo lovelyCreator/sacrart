@@ -79,6 +79,7 @@ Route::get('/videos/featured-process', [VideoController::class, 'featuredProcess
 Route::get('/videos/{video}', [VideoController::class, 'show']);
 Route::get('/videos/{video}/stream', [VideoController::class, 'stream']);
 Route::get('/videos/{video}/subtitles/{locale?}', [VideoController::class, 'getSubtitleVtt'])->where('locale', '[a-z]{2}');
+Route::get('/videos/{video}/transcription', [VideoController::class, 'getSubtitles']); // JSON transcription endpoint
 
 // Public routes for reels and rewinds (authentication optional)
 Route::get('/reels/public', [ReelController::class, 'getPublic']);
@@ -144,6 +145,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/admin/videos/{id}', [VideoController::class, 'destroy']);
         Route::post('/admin/videos/{id}/reencode', [VideoController::class, 'reencode']);
         Route::get('/admin/videos/{id}/codec-info', [VideoController::class, 'codecInfo']);
+        
+        // Transcription processing routes
+        Route::post('/admin/videos/{id}/process-transcription', [VideoController::class, 'processTranscription']);
+        Route::get('/admin/videos/{id}/transcription-status', [VideoController::class, 'getTranscriptionStatus']);
+        Route::post('/admin/videos/{id}/reprocess-language', [VideoController::class, 'reprocessLanguage']);
         
         // Admin read access to series and videos (for admin panel)
         Route::get('/admin/series', [SeriesController::class, 'index']);

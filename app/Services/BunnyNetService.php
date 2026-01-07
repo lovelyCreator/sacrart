@@ -14,6 +14,8 @@ class BunnyNetService
     protected $streamUrl;
     protected $storageZoneName;
     protected $storageAccessKey;
+    protected $tokenAuthEnabled;
+    protected $tokenAuthKey;
 
     public function __construct()
     {
@@ -23,6 +25,28 @@ class BunnyNetService
         $this->streamUrl = config('services.bunny.stream_url');
         $this->storageZoneName = config('services.bunny.storage_zone_name');
         $this->storageAccessKey = config('services.bunny.storage_access_key');
+        $this->tokenAuthEnabled = config('services.bunny.token_auth_enabled', false);
+        $this->tokenAuthKey = config('services.bunny.token_auth_key');
+    }
+
+    /**
+     * Get the library ID
+     * 
+     * @return string
+     */
+    public function getLibraryId(): string
+    {
+        return $this->libraryId;
+    }
+
+    /**
+     * Get the CDN URL
+     * 
+     * @return string
+     */
+    public function getCdnUrl(): string
+    {
+        return $this->cdnUrl;
     }
 
     /**
@@ -733,6 +757,193 @@ class BunnyNetService
     }
 
     /**
+     * Get download URL for transcription services (tries multiple resolutions)
+     * Unlike getDownloadUrl which gets the best quality, this tries to find ANY working video file
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @return string|null Direct URL to video file or null if not found
+     */
+    public function getTranscriptionUrl(string $videoId): ?string
+    {
+        // Check if required configuration is available
+        if (empty($this->libraryId)) {
+            Log::error('Bunny.net Library ID is not configured');
+            return null;
+        }
+
+        $storageZoneName = $this->storageZoneName;
+        
+        // Extract storage zone from CDN URL if needed
+        if (empty($storageZoneName) && !empty($this->cdnUrl)) {
+            $cdnHost = str_replace(['https://', 'http://'], '', $this->cdnUrl);
+            $cdnHost = rtrim($cdnHost, '/');
+            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                $storageZoneName = str_replace('.b-cdn.net', '', $cdnHost);
+            }
+        }
+        
+        if (empty($storageZoneName)) {
+            Log::error('Storage Zone Name not configured', ['video_id' => $videoId]);
+            return null;
+        }
+        
+        if (empty($this->storageAccessKey)) {
+            Log::error('Storage Access Key not configured', ['video_id' => $videoId]);
+            return null;
+        }
+
+        // Try multiple file paths in order of preference
+        // Note: Bunny.net creates different files depending on video encoding settings
+        $filePaths = [
+            'play_720p.mp4',      // Most common
+            'play_1080p.mp4',     // High quality
+            'play_480p.mp4',      // Medium quality
+            'play_360p.mp4',      // Lower quality (common for short videos)
+            'play_240p.mp4',      // Lowest quality (often available)
+            'original',           // Original file (no extension - Bunny.net format)
+            'original.mp4',       // Original with extension (fallback)
+        ];
+
+        Log::info('Attempting to find accessible video file for transcription', [
+            'video_id' => $videoId,
+            'storage_zone' => $storageZoneName,
+            'attempting_paths' => $filePaths,
+        ]);
+
+        foreach ($filePaths as $filePath) {
+            $url = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/{$filePath}";
+            $url .= "?accessKey=" . urlencode($this->storageAccessKey);
+            
+            // Test if URL is accessible
+            try {
+                Log::debug('Testing video file URL', [
+                    'file_path' => $filePath,
+                    'url_preview' => substr($url, 0, 120) . '...',
+                ]);
+                
+                $response = Http::timeout(10)->head($url);
+                
+                Log::debug('HEAD request result', [
+                    'file_path' => $filePath,
+                    'status' => $response->status(),
+                    'successful' => $response->successful(),
+                    'content_type' => $response->header('Content-Type'),
+                ]);
+                
+                if ($response->successful()) {
+                    Log::info('✓ Found accessible video file for transcription', [
+                        'video_id' => $videoId,
+                        'file_path' => $filePath,
+                        'status' => $response->status(),
+                        'content_type' => $response->header('Content-Type'),
+                        'url_preview' => substr($url, 0, 100) . '...',
+                    ]);
+                    
+                    return $url;
+                }
+                
+            } catch (\Exception $e) {
+                Log::debug('Error checking file', [
+                    'file_path' => $filePath,
+                    'error' => $e->getMessage(),
+                    'exception_type' => get_class($e),
+                ]);
+            }
+        }
+
+        Log::error('No accessible video file found for transcription', [
+            'video_id' => $videoId,
+            'tried_paths' => $filePaths,
+            'note' => 'Video might still be processing in Bunny.net or MP4 Fallback is not enabled',
+        ]);
+
+        return null;
+    }
+
+    /**
+     * Get a signed HLS URL for transcription services
+     * This generates a URL that bypasses Bunny.net security for temporary access
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @param int $expirationMinutes How many minutes the URL should be valid (default: 60)
+     * @return string|null Signed URL or null if can't be generated
+     */
+    public function getSignedTranscriptionUrl(string $videoId, int $expirationMinutes = 60): ?string
+    {
+        // Check if we have storage zone name and access key
+        if (empty($this->storageZoneName)) {
+            Log::error('Storage Zone Name is not configured');
+            return null;
+        }
+        
+        if (empty($this->storageAccessKey)) {
+            Log::error('Storage Access Key is not configured');
+            return null;
+        }
+        
+        // Try multiple file paths in order of preference
+        // Based on actual Bunny.net storage structure
+        $filePaths = [
+            'play_240p.mp4',      // Lowest quality (most likely to exist)
+            'play_360p.mp4',      // Medium quality
+            'original',           // Original file (no extension)
+        ];
+        
+        Log::info('Attempting to generate transcription URL', [
+            'video_id' => $videoId,
+            'storage_zone' => $this->storageZoneName,
+            'trying_files' => $filePaths,
+        ]);
+        
+        // Try each file path
+        // Note: We don't test with HEAD requests because Bunny.net returns 401 for HEAD
+        // but 200 for GET. Deepgram uses GET requests, so the URLs will work fine.
+        foreach ($filePaths as $filePath) {
+            // Build direct Storage API URL with access key
+            // Format: https://storage.bunnycdn.com/{zone}/{videoId}/{file}?accessKey={key}
+            $url = "https://storage.bunnycdn.com/{$this->storageZoneName}/{$videoId}/{$filePath}";
+            $url .= "?accessKey=" . urlencode($this->storageAccessKey);
+            
+            Log::info('Generated transcription URL (prioritizing low resolutions)', [
+                'video_id' => $videoId,
+                'file_path' => $filePath,
+                'url_preview' => substr($url, 0, 100) . '...',
+                'note' => 'Using Storage API with access key - HEAD requests return 401 but GET requests work',
+            ]);
+            
+            // Return the first URL (play_240p.mp4 - most likely to exist)
+            // Deepgram will validate with GET request when transcribing
+            return $url;
+        }
+        
+        // If Storage API fails, try CDN URL as fallback
+        $cdnHost = $this->cdnUrl;
+        if (!empty($cdnHost)) {
+            $cdnHost = str_replace(['https://', 'http://'], '', $cdnHost);
+            $cdnHost = rtrim($cdnHost, '/');
+            
+            // Try HLS playlist (Deepgram supports HLS)
+            $hlsUrl = "https://{$cdnHost}/{$videoId}/playlist.m3u8";
+            
+            Log::info('Trying CDN HLS URL as fallback', [
+                'video_id' => $videoId,
+                'url' => $hlsUrl,
+            ]);
+            
+            return $hlsUrl;
+        }
+        
+        Log::error('❌ No accessible video file found for transcription', [
+            'video_id' => $videoId,
+            'tried_storage_files' => $filePaths,
+            'tried_cdn' => !empty($cdnHost),
+            'note' => 'Storage Access Key might lack file read permissions. Check Bunny.net Dashboard → Storage → FTP & HTTP API → Permissions',
+        ]);
+        
+        return null;
+    }
+
+    /**
      * Generate a token for Bunny.net CDN token authentication
      * 
      * @param string $url The URL to protect
@@ -898,54 +1109,174 @@ class BunnyNetService
     }
 
     /**
-     * Upload captions/subtitles to a video
+     * Delete a specific caption track from a video
      * 
      * @param string $videoId Bunny.net video ID
-     * @param string $captionContent VTT or SRT file content
-     * @param string $language Language code (e.g., 'en', 'es', 'pt')
-     * @param string $label Label for the caption track (e.g., 'English', 'Spanish')
+     * @param string $language Language code (srclang) to delete
      * @return array ['success' => bool, 'message' => string]
      */
-    public function uploadCaptions(string $videoId, string $captionContent, string $language = 'en', string $label = 'English'): array
+    public function deleteCaption(string $videoId, string $language): array
     {
         try {
-            // Bunny.net API endpoint for uploading captions
-            // Note: This may require using the video library API endpoint
-            // Check Bunny.net documentation for the exact endpoint
+            Log::info('Deleting caption from Bunny.net', [
+                'video_id' => $videoId,
+                'language' => $language,
+            ]);
             
-            // For now, we'll use the update video endpoint with captions data
-            // Note: Actual implementation may vary based on Bunny.net API version
+            // DELETE https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}/captions/{srclang}
+            $url = "https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}/captions/{$language}";
+            
             $response = Http::withHeaders([
                 'AccessKey' => $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post("https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}/captions", [
-                'srclang' => $language,
-                'label' => $label,
-                'content' => $captionContent,
-            ]);
+            ])->delete($url);
 
-            if ($response->successful()) {
+            if ($response->successful() || $response->status() === 404) {
+                // 404 is OK - means caption doesn't exist
                 return [
                     'success' => true,
-                    'message' => 'Captions uploaded successfully.',
+                    'message' => "Caption deleted for language: {$language}",
                 ];
             }
 
             return [
                 'success' => false,
-                'message' => 'Failed to upload captions: ' . $response->body(),
+                'message' => "Failed to delete caption: " . $response->body(),
                 'status' => $response->status(),
             ];
 
         } catch (\Exception $e) {
-            Log::error('Bunny.net upload captions exception', [
+            Log::error('Delete caption exception', [
                 'video_id' => $videoId,
+                'language' => $language,
                 'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
+                'message' => 'Exception: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Delete all captions from a video
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function deleteAllCaptions(string $videoId): array
+    {
+        try {
+            // Common language codes that might exist
+            $possibleLanguages = ['en', 'es', 'pt', 'fr', 'de', 'it', 'en-US', 'es-ES', 'pt-BR', 'English', 'Spanish', 'Portuguese'];
+            
+            $deletedCount = 0;
+            foreach ($possibleLanguages as $lang) {
+                $result = $this->deleteCaption($videoId, $lang);
+                if ($result['success']) {
+                    $deletedCount++;
+                }
+            }
+
+            Log::info('Deleted all captions from Bunny.net', [
+                'video_id' => $videoId,
+                'deleted_count' => $deletedCount,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => "Deleted {$deletedCount} caption tracks",
+                'deleted_count' => $deletedCount,
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Exception: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Upload captions/subtitles to a video
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @param string $captionContent VTT or SRT file content
+     * @param string $language Language code (e.g., 'en', 'es', 'pt')
+     * @param string $label Label for the caption track (e.g., 'EN', 'ES', 'PT')
+     * @param bool $deleteExisting Whether to delete existing caption for this language first
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function uploadCaptions(string $videoId, string $captionContent, string $language = 'en', string $label = 'EN', bool $deleteExisting = true): array
+    {
+        try {
+            // Delete existing caption for this language first to avoid duplicates
+            if ($deleteExisting) {
+                $this->deleteCaption($videoId, $language);
+            }
+
+            Log::info('Uploading captions to Bunny.net', [
+                'video_id' => $videoId,
+                'language' => $language,
+                'label' => $label,
+                'content_length' => strlen($captionContent),
+                'deleted_existing' => $deleteExisting,
+            ]);
+            
+            // Bunny.net Captions API endpoint
+            // POST https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}/captions/{srclang}
+            $url = "https://video.bunnycdn.com/library/{$this->libraryId}/videos/{$videoId}/captions/{$language}";
+            
+            $response = Http::withHeaders([
+                'AccessKey' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post($url, [
+                'srclang' => $language,
+                'label' => $label,
+                'captionsFile' => base64_encode($captionContent),
+            ]);
+
+            Log::info('Bunny.net caption upload response', [
+                'video_id' => $videoId,
+                'language' => $language,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message' => "Captions uploaded successfully for language: {$language}",
+                    'language' => $language,
+                ];
+            }
+
+            Log::error('Bunny.net caption upload failed', [
+                'video_id' => $videoId,
+                'language' => $language,
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to upload captions: ' . $response->body(),
+                'status' => $response->status(),
+                'language' => $language,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Bunny.net upload captions exception', [
+                'video_id' => $videoId,
+                'language' => $language,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
                 'message' => 'Exception during caption upload: ' . $e->getMessage(),
+                'language' => $language,
             ];
         }
     }

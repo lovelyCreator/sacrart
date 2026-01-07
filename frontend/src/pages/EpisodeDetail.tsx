@@ -21,6 +21,7 @@ import { videoApi } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
 import { commentsApi, VideoComment } from '@/services/commentsApi';
 import { toast } from 'sonner';
+import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer';
 
 const EpisodeDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -1608,7 +1609,7 @@ const EpisodeDetail = () => {
                     </div>
                   )}
                   <iframe
-                    key={`bunny-video-${video.id}-${showVideoPlayer}`}
+                    key={`bunny-video-${video.id}-${locale.substring(0, 2)}-${showVideoPlayer}`}
                     id={`bunny-iframe-${video.id}`}
                     src={(() => {
                       const embedUrl = video.bunny_embed_url || video.bunny_player_url || '';
@@ -1630,7 +1631,19 @@ const EpisodeDetail = () => {
                       
                       // Enable autoplay - video should start playing automatically
                       const separator = finalUrl.includes('?') ? '&' : '?';
-                      finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true`;
+                      finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
+                      
+                      // Add captions if available
+                      if (video.caption_urls && Object.keys(video.caption_urls).length > 0) {
+                        const currentLocale = locale.substring(0, 2);
+                        // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
+                        // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
+                        if (video.caption_urls[currentLocale]) {
+                          finalUrl += `&defaultTextTrack=${currentLocale}`;
+                        } else if (video.caption_urls['en']) {
+                          finalUrl += `&defaultTextTrack=en`;
+                        }
+                      }
                       
                       // console.log('Final iframe URL (with autoplay):', finalUrl);
                       return finalUrl;
@@ -1847,6 +1860,21 @@ const EpisodeDetail = () => {
           )}
         </div>
       </section>
+
+      {/* Multi-Language Audio Player */}
+      {video && video.audio_urls && Object.keys(video.audio_urls).length > 0 && hasAccess && (
+        <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-6" key={`audio-player-${video.id}-${locale.substring(0, 2)}`}>
+          <MultiLanguageAudioPlayer
+            audioTracks={Object.entries(video.audio_urls).map(([lang, url]) => ({
+              language: lang,
+              url: url as string,
+              label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+            }))}
+            defaultLanguage={locale.substring(0, 2) as 'en' | 'es' | 'pt'}
+            videoRef={null}
+          />
+        </section>
+      )}
 
       {/* Action Buttons Section */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-6 mb-12">

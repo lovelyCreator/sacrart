@@ -55,4 +55,8 @@ return [
         'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS'),
         'api_key' => env('GOOGLE_CLOUD_API_KEY'), // REST API key (AIzaSy... format)
     ],
+
+    'deepgram' => [
+        'api_key' => env('DEEPGRAM_API_KEY'),
+    ],
 ];

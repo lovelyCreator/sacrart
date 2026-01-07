@@ -103,6 +103,11 @@ class Video extends Model
         'sort_order' => 'integer',
         'price' => 'decimal:2',
         'is_featured_process' => 'boolean',
+        // AI-generated transcription and audio fields
+        'transcriptions' => 'array',
+        'caption_urls' => 'array',
+        'audio_urls' => 'array',
+        'transcription_processed_at' => 'datetime',
     ];
 
     protected $appends = ['video_url_full', 'intro_image_url', 'thumbnail_url', 'bunny_player_url', 'likes_count', 'dislikes_count'];

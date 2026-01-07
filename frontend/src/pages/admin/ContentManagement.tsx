@@ -58,7 +58,9 @@ import {
   RefreshCw,
   Languages,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Subtitles,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -1162,7 +1164,10 @@ const ContentManagement = () => {
         return; // Success
       }
     } catch (error: any) {
-      console.error('Failed to fetch duration from server:', error);
+      // Only log non-404 errors (404 is expected for videos not yet in Bunny.net)
+      if (!error.message?.includes('Video not found')) {
+        console.error('Failed to fetch duration from server:', error);
+      }
       
       // Show helpful error message
       const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
@@ -1305,6 +1310,34 @@ const ContentManagement = () => {
       console.error('Error deleting series:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
       toast.error(`Failed to delete series: ${errorMessage}`);
+    }
+  };
+
+  // Handle transcription processing
+  const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
+  
+  const handleProcessTranscription = async (videoId: number) => {
+    if (!confirm('Process transcriptions for this video? This will generate captions in English, Spanish, and Portuguese using Deepgram AI.')) {
+      return;
+    }
+
+    setProcessingTranscription(prev => ({ ...prev, [videoId]: true }));
+
+    try {
+      const result = await videoApi.processTranscription(videoId, ['en', 'es', 'pt'], 'en');
+      
+      if (result.success) {
+        toast.success(result.message || 'Transcription processing completed successfully!');
+        // Refresh videos list to show updated transcription status
+        fetchContent();
+      } else {
+        toast.error(result.message || 'Failed to process transcription');
+      }
+    } catch (error: any) {
+      console.error('Transcription processing error:', error);
+      toast.error(error.message || 'An error occurred while processing transcription');
+    } finally {
+      setProcessingTranscription(prev => ({ ...prev, [videoId]: false }));
     }
   };
 
@@ -2302,6 +2335,19 @@ const ContentManagement = () => {
                                 Fetch Duration
                             </DropdownMenuItem>
                               )}
+                            {video.bunny_video_id && (
+                              <DropdownMenuItem 
+                                onClick={() => handleProcessTranscription(video.id)}
+                                disabled={processingTranscription[video.id]}
+                              >
+                                {processingTranscription[video.id] ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Subtitles className="mr-2 h-4 w-4" />
+                                )}
+                                Process Captions (AI)
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem 
                               onClick={() => handleDeleteVideo(video.id)}
                               className="text-destructive"

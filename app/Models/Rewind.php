@@ -63,6 +63,11 @@ class Rewind extends Model
         'total_views' => 'integer',
         'rating_count' => 'integer',
         'sort_order' => 'integer',
+        // AI-generated transcription and audio fields
+        'transcriptions' => 'array',
+        'caption_urls' => 'array',
+        'audio_urls' => 'array',
+        'transcription_processed_at' => 'datetime',
     ];
 
     protected $appends = ['image_url'];

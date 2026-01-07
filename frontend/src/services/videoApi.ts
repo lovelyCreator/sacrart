@@ -175,6 +175,11 @@ export interface Video {
   processing_status: 'pending' | 'processing' | 'completed' | 'failed';
   processing_error: string | null;
   processed_at: string | null;
+  audio_urls?: { [key: string]: string } | null;
+  caption_urls?: { [key: string]: string } | null;
+  transcriptions?: any;
+  transcription_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  transcription_error?: string | null;
   created_at: string;
   updated_at: string;
   category?: Category;
@@ -531,6 +536,53 @@ export const videoApi = {
     }>(response);
   },
 
+  // Transcription API endpoints
+  async processTranscription(id: number, languages?: string[], sourceLanguage?: string) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}/process-transcription`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ languages, source_language: sourceLanguage }),
+    });
+    return handleResponse<{ 
+      success: boolean; 
+      message: string;
+      data?: {
+        transcriptions: Record<string, any>;
+        caption_urls: Record<string, string>;
+        languages_processed: string[];
+      };
+    }>(response);
+  },
+
+  async getTranscriptionStatus(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}/transcription-status`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ 
+      success: boolean; 
+      data: {
+        status: string;
+        processed_at: string | null;
+        error: string | null;
+        languages: string[];
+        caption_urls: Record<string, string>;
+      };
+    }>(response);
+  },
+
+  async reprocessLanguage(id: number, language: string, sourceLanguage?: string) {
+    const response = await fetch(`${API_BASE_URL}/admin/videos/${id}/reprocess-language`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ language, source_language: sourceLanguage }),
+    });
+    return handleResponse<{ 
+      success: boolean; 
+      message: string;
+      data?: any;
+    }>(response);
+  },
+
   async getCategoryVideos(categoryId: number) {
     const response = await fetch(`${API_BASE_URL}/categories/${categoryId}/videos`, {
       headers: getAuthHeaders(),
@@ -667,6 +719,9 @@ export interface Reel {
     description: { en: string; es: string; pt: string };
     short_description: { en: string; es: string; pt: string };
   };
+  audio_urls?: { [key: string]: string } | null;
+  caption_urls?: { [key: string]: string } | null;
+  transcriptions?: any;
   category_reels?: Reel[];
   created_at: string;
   updated_at: string;
@@ -708,6 +763,9 @@ export interface Rewind {
     description: { en: string; es: string; pt: string };
     short_description: { en: string; es: string; pt: string };
   };
+  audio_urls?: { [key: string]: string } | null;
+  caption_urls?: { [key: string]: string } | null;
+  transcriptions?: any;
   created_at: string;
   updated_at: string;
 }
