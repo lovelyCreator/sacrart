@@ -13,6 +13,7 @@ const getAuthHeaders = (localeOverride?: string): HeadersInit => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     'X-Locale': locale,
+    'Accept-Language': locale,
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

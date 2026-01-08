@@ -15,8 +15,8 @@ const SacrartKids = () => {
   const [products, setProducts] = useState<KidsProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { navigateWithLocale } = useLocale();
+  const { t, i18n } = useTranslation();
+  const { navigateWithLocale, locale } = useLocale();
   const { user } = useAuth();
 
   // Helper to get image URL
@@ -53,12 +53,18 @@ const SacrartKids = () => {
       try {
         const response = await kidsApi.getContent();
         
-        if (response.data.success) {
-          const content = response.data.data;
+        console.log('Kids content API response:', response);
+        
+        // apiCall returns the JSON directly, so response is { success: true, data: {...} }
+        if (response.success && response.data) {
+          const content = response.data;
           setHeroVideo(content.hero_video);
           setKidsVideos(content.videos || []);
           setPdfResources(content.resources || []);
           setProducts(content.products || []);
+        } else {
+          console.error('Invalid response structure:', response);
+          toast.error(t('kids.error_loading', 'Failed to load content'));
         }
       } catch (error) {
         console.error('Error fetching kids content:', error);
@@ -69,17 +75,17 @@ const SacrartKids = () => {
     };
 
     fetchKidsContent();
-  }, [t]);
+  }, [t, i18n.language, locale]);
 
   const handleVideoClick = (videoId: number) => {
-    navigateWithLocale(`/video/${videoId}`);
+    navigateWithLocale(`/episode/${videoId}`);
   };
 
   const handlePdfDownload = async (resource: KidsResource) => {
     try {
       const response = await kidsApi.downloadResource(resource.id);
-      if (response.data.success && response.data.data.url) {
-        window.open(response.data.data.url, '_blank');
+      if (response.success && response.data && response.data.url) {
+        window.open(response.data.url, '_blank');
         toast.success(t('kids.download_started', 'Download started'));
       }
     } catch (error) {
@@ -338,9 +344,13 @@ const SacrartKids = () => {
                       <p className="text-sm text-gray-400 mb-4 line-clamp-2">{product.description}</p>
                     )}
                     <div className="flex items-center gap-3 bg-white/5 rounded-lg p-2 backdrop-blur-sm border border-white/5">
-                      <span className="text-lg font-bold text-[#A05245]">{product.price.toFixed(2)} {product.currency}</span>
-                      {product.original_price && product.original_price > product.price && (
-                        <span className="text-sm text-gray-500 line-through">{product.original_price.toFixed(2)} {product.currency}</span>
+                      <span className="text-lg font-bold text-[#A05245]">
+                        {typeof product.price === 'number' ? product.price.toFixed(2) : parseFloat(product.price || 0).toFixed(2)} {product.currency}
+                      </span>
+                      {product.original_price && parseFloat(product.original_price || 0) > parseFloat(product.price || 0) && (
+                        <span className="text-sm text-gray-500 line-through">
+                          {typeof product.original_price === 'number' ? product.original_price.toFixed(2) : parseFloat(product.original_price || 0).toFixed(2)} {product.currency}
+                        </span>
                       )}
                     </div>
                   </div>

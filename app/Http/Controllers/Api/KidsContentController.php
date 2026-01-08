@@ -10,15 +10,23 @@ use App\Models\KidsProduct;
 use App\Models\Video;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\App;
 
 class KidsContentController extends Controller
 {
     /**
      * Get all kids content (videos, resources, products, settings)
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
+            // Set locale from request header or default to 'en'
+            $locale = $request->header('X-Locale', $request->header('Accept-Language', 'en'));
+            // Extract language code (e.g., 'en-US' -> 'en')
+            $locale = strtolower(substr($locale, 0, 2));
+            $locale = in_array($locale, ['en', 'es', 'pt']) ? $locale : 'en';
+            App::setLocale($locale);
+
             // Get hero settings
             $heroVideoId = KidsSetting::get('hero_video_id');
             $heroVideo = null;
@@ -41,12 +49,12 @@ class KidsContentController extends Controller
                     return $kidsVideo->video;
                 });
 
-            // Get resources
+            // Get resources (they use HasTranslations trait, so they'll automatically use the locale)
             $resources = KidsResource::active()
                 ->ordered()
                 ->get();
 
-            // Get products
+            // Get products (they use HasTranslations trait, so they'll automatically use the locale)
             $products = KidsProduct::active()
                 ->ordered()
                 ->get();
