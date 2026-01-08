@@ -111,6 +111,14 @@ class VideoTranscriptionService
             Log::info('Starting multi-language transcription with Deepgram', [
                 'model_id' => $model->id,
                 'languages' => $languages,
+                'source_language' => $sourceLanguage,
+            ]);
+
+            // Get Bunny.net HLS URL for the source language audio (original video audio)
+            $bunnyHlsUrl = $this->bunnyNetService->getHlsUrl($bunnyVideoId);
+            Log::info("Bunny.net HLS URL for original audio", [
+                'model_id' => $model->id,
+                'hls_url' => $bunnyHlsUrl,
             ]);
 
             foreach ($languages as $lang) {
@@ -118,6 +126,7 @@ class VideoTranscriptionService
                     Log::info("Transcribing video in {$lang}", [
                         'model_id' => $model->id,
                         'language' => $lang,
+                        'is_source_language' => $lang === $sourceLanguage,
                     ]);
 
                     // Transcribe the video directly in this language using Deepgram
@@ -187,34 +196,55 @@ class VideoTranscriptionService
                         ]);
                     }
 
-                    // Generate TTS audio for this language
-                    try {
-                        $ttsResult = $this->deepgramService->textToSpeech(
-                            $transcriptionResult['transcription'],
-                            $lang
-                        );
-
-                        if ($ttsResult['success']) {
-                            $audioUrls[$lang] = $ttsResult['audio_url'];
-                            $transcriptions[$lang]['audio_url'] = $ttsResult['audio_url'];
-                            $transcriptions[$lang]['audio_path'] = $ttsResult['audio_path'];
-                            
-                            Log::info("TTS audio generated for {$lang}", [
-                                'model_id' => $model->id,
-                                'audio_url' => $ttsResult['audio_url'],
-                            ]);
-                        } else {
-                            Log::warning("TTS failed for {$lang}", [
-                                'model_id' => $model->id,
-                                'error' => $ttsResult['error'] ?? 'Unknown TTS error',
-                            ]);
-                        }
-                    } catch (Exception $ttsError) {
-                        Log::warning("TTS generation failed for {$lang}", [
+                    // Handle audio: Use original for source language, TTS for others
+                    if ($lang === $sourceLanguage) {
+                        // For source language: Use original Bunny.net video audio (no TTS needed)
+                        $audioUrls[$lang] = 'original'; // Special marker to use video's original audio
+                        $transcriptions[$lang]['audio_url'] = 'original';
+                        $transcriptions[$lang]['audio_type'] = 'original';
+                        $transcriptions[$lang]['bunny_hls_url'] = $bunnyHlsUrl;
+                        
+                        Log::info("Using original video audio for source language: {$lang}", [
                             'model_id' => $model->id,
-                            'error' => $ttsError->getMessage(),
+                            'hls_url' => $bunnyHlsUrl,
                         ]);
-                        // Continue even if TTS fails - captions still work
+                    } else {
+                        // For other languages: Generate TTS audio
+                        try {
+                            Log::info("Generating TTS audio for {$lang}", [
+                                'model_id' => $model->id,
+                                'text_length' => strlen($transcriptionResult['transcription']),
+                            ]);
+
+                            $ttsResult = $this->deepgramService->textToSpeech(
+                                $transcriptionResult['transcription'],
+                                $lang
+                            );
+
+                            if ($ttsResult['success']) {
+                                $audioUrls[$lang] = $ttsResult['audio_url'];
+                                $transcriptions[$lang]['audio_url'] = $ttsResult['audio_url'];
+                                $transcriptions[$lang]['audio_path'] = $ttsResult['audio_path'];
+                                $transcriptions[$lang]['audio_type'] = 'tts';
+                                
+                                Log::info("TTS audio generated for {$lang}", [
+                                    'model_id' => $model->id,
+                                    'audio_url' => $ttsResult['audio_url'],
+                                    'file_size' => filesize($ttsResult['audio_path']),
+                                ]);
+                            } else {
+                                Log::warning("TTS failed for {$lang}", [
+                                    'model_id' => $model->id,
+                                    'error' => $ttsResult['error'] ?? 'Unknown TTS error',
+                                ]);
+                            }
+                        } catch (Exception $ttsError) {
+                            Log::warning("TTS generation failed for {$lang}", [
+                                'model_id' => $model->id,
+                                'error' => $ttsError->getMessage(),
+                            ]);
+                            // Continue even if TTS fails - captions still work
+                        }
                     }
 
                     Log::info("Completed processing language: {$lang}", [

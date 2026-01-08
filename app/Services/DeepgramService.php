@@ -564,9 +564,9 @@ class DeepgramService
 
             $audioContent = $response->body();
 
-            // Save audio file to storage
+            // Save audio file to public storage disk
             $filename = 'tts/' . uniqid() . '-' . $language . '.mp3';
-            Storage::put('public/' . $filename, $audioContent);
+            Storage::disk('public')->put($filename, $audioContent);
 
             $audioPath = storage_path('app/public/' . $filename);
             $audioUrl = asset('storage/' . $filename);

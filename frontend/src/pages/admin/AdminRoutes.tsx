@@ -14,6 +14,7 @@ import FeedbackSuggestions from './FeedbackSuggestions';
 import FaqManagement from './FaqManagement';
 import Settings from './Settings';
 import AnalyticsReports from './AnalyticsReports';
+import KidsManagement from './KidsManagement';
 
 const AdminRoutes = () => {
   const { locale } = useParams<{ locale: string }>();
@@ -41,7 +42,8 @@ const AdminRoutes = () => {
       {adminPath === 'faqs' && <FaqManagement />}
       {adminPath === 'settings' && <Settings />}
       {adminPath === 'analytics' && <AnalyticsReports />}
-      {adminPath && !['users', 'content', 'reels', 'rewinds', 'plans', 'payments', 'coupons', 'multilingual', 'support', 'feedback', 'faqs', 'settings', 'analytics'].includes(adminPath) && (
+      {adminPath === 'kids' && <KidsManagement />}
+      {adminPath && !['users', 'content', 'reels', 'rewinds', 'plans', 'payments', 'coupons', 'multilingual', 'support', 'feedback', 'faqs', 'settings', 'analytics', 'kids'].includes(adminPath) && (
         <Navigate to={`/${locale}/admin`} replace />
       )}
     </AdminLayout>

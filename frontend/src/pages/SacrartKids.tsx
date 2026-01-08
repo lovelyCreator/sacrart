@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Play, Download, ShoppingBag } from 'lucide-react';
-import { videoApi, Video } from '@/services/videoApi';
+import kidsApi, { KidsResource, KidsProduct } from '@/services/kidsApi';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const SacrartKids = () => {
-  const [kidsVideos, setKidsVideos] = useState<Video[]>([]);
-  const [pdfResources, setPdfResources] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [heroVideo, setHeroVideo] = useState<any>(null);
+  const [kidsVideos, setKidsVideos] = useState<any[]>([]);
+  const [pdfResources, setPdfResources] = useState<KidsResource[]>([]);
+  const [products, setProducts] = useState<KidsProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -44,111 +46,45 @@ const SacrartKids = () => {
     }
   };
 
-  // Fetch kids content
+  // Fetch kids content from API
   useEffect(() => {
     const fetchKidsContent = async () => {
       setLoading(true);
       try {
-        // Fetch videos tagged for kids (search for "kids" or filter by category)
-        const videosResponse = await videoApi.getPublic({
-          status: 'published',
-          search: 'kids',
-          per_page: 10,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        });
-
-        // Handle different response structures
-        let videosData: Video[] = [];
-        if (videosResponse.success && videosResponse.data) {
-          if (Array.isArray(videosResponse.data)) {
-            videosData = videosResponse.data;
-          } else if (videosResponse.data.data && Array.isArray(videosResponse.data.data)) {
-            videosData = videosResponse.data.data;
-          } else if (Array.isArray(videosResponse.data)) {
-            videosData = videosResponse.data;
-          }
+        const response = await kidsApi.getContent();
+        
+        if (response.data.success) {
+          const content = response.data.data;
+          setHeroVideo(content.hero_video);
+          setKidsVideos(content.videos || []);
+          setPdfResources(content.resources || []);
+          setProducts(content.products || []);
         }
-
-        setKidsVideos(videosData.slice(0, 6));
-
-        // Extract PDF resources from videos with downloadable_resources
-        const pdfs: any[] = [];
-        videosData.forEach((video: Video) => {
-          if (video.downloadable_resources) {
-            try {
-              const resources = typeof video.downloadable_resources === 'string'
-                ? JSON.parse(video.downloadable_resources)
-                : video.downloadable_resources;
-              
-              if (Array.isArray(resources)) {
-                resources.forEach((resource: any) => {
-                  if (resource.type === 'pdf' || resource.url?.endsWith('.pdf')) {
-                    pdfs.push({
-                      id: `${video.id}-${pdfs.length}`,
-                      title: resource.title || video.title,
-                      url: resource.url,
-                      thumbnail: video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail,
-                      video_id: video.id
-                    });
-                  }
-                });
-              }
-            } catch (e) {
-              console.error('Error parsing downloadable_resources:', e);
-            }
-          }
-        });
-        setPdfResources(pdfs.slice(0, 6));
-
-        // Mock products for now (can be replaced with actual products API later)
-        setProducts([
-          {
-            id: 1,
-            title: 'Pintando el Manto',
-            description: 'Incluye figurilla, pinturas y pinceles',
-            price: 24.99,
-            originalPrice: 29.99,
-            image: getImageUrl(videosData[0]?.intro_image_url || videosData[0]?.intro_image || videosData[0]?.thumbnail_url || videosData[0]?.thumbnail || ''),
-            badge: 'Kit Completo',
-            badgeColor: 'bg-[#A05245]'
-          },
-          {
-            id: 2,
-            title: 'Mi Primer Ángel',
-            description: 'Kit de modelado en arcilla',
-            price: 19.50,
-            image: getImageUrl(videosData[1]?.thumbnail_url || videosData[1]?.intro_image_url || ''),
-            badge: 'Principiantes',
-            badgeColor: 'bg-[#A05245]'
-          },
-          {
-            id: 3,
-            title: 'Set de Policromía',
-            description: 'Pinceles finos y óleos',
-            price: 32.00,
-            image: getImageUrl(videosData[2]?.thumbnail_url || videosData[2]?.intro_image_url || ''),
-            badge: 'Herramientas',
-            badgeColor: 'bg-gray-600'
-          }
-        ]);
       } catch (error) {
         console.error('Error fetching kids content:', error);
+        toast.error(t('kids.error_loading', 'Failed to load content'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchKidsContent();
-  }, []);
+  }, [t]);
 
   const handleVideoClick = (videoId: number) => {
     navigateWithLocale(`/video/${videoId}`);
   };
 
-  const handlePdfDownload = (pdf: any) => {
-    if (pdf.url) {
-      window.open(pdf.url, '_blank');
+  const handlePdfDownload = async (resource: KidsResource) => {
+    try {
+      const response = await kidsApi.downloadResource(resource.id);
+      if (response.data.success && response.data.data.url) {
+        window.open(response.data.data.url, '_blank');
+        toast.success(t('kids.download_started', 'Download started'));
+      }
+    } catch (error) {
+      console.error('Error downloading resource:', error);
+      toast.error(t('kids.download_failed', 'Download failed'));
     }
   };
 
@@ -199,14 +135,27 @@ const SacrartKids = () => {
           </p>
           <div className="animate-fade-in-up flex flex-wrap items-center gap-4 mt-6" style={{ animationDelay: '0.3s' }}>
             <Button
-              onClick={() => kidsVideos[0] && handleVideoClick(kidsVideos[0].id)}
+              onClick={() => {
+                const videoToPlay = heroVideo || kidsVideos[0];
+                if (videoToPlay) {
+                  handleVideoClick(videoToPlay.id);
+                }
+              }}
               className="flex items-center gap-3 bg-[#A05245] hover:bg-[#8e493e] text-white px-8 py-4 rounded-xl text-lg font-bold transition-all transform hover:scale-105 shadow-[0_10px_30px_-10px_rgba(160,82,69,0.5)] group"
+              disabled={!heroVideo && kidsVideos.length === 0}
             >
               <i className="fa-solid fa-play-circle text-xl group-hover:animate-pulse"></i>
               {t('kids.start_adventure', 'Comenzar Aventura')}
             </Button>
             <Button
               variant="outline"
+              onClick={() => {
+                // Scroll to "Pequeños Curiosos" section or show modal with info
+                const section = document.getElementById('little-curious-section');
+                if (section) {
+                  section.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
               className="flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/20 backdrop-blur-md text-white px-8 py-4 rounded-xl text-lg font-bold transition-all hover:border-white/40"
             >
               {t('kids.more_info', 'Más Información')}
@@ -216,7 +165,7 @@ const SacrartKids = () => {
       </div>
 
       {/* Pequeños Curiosos Section */}
-      <section className="relative z-10 -mt-20 pb-16 pl-4 md:pl-12 overflow-hidden">
+      <section id="little-curious-section" className="relative z-10 -mt-20 pb-16 pl-4 md:pl-12 overflow-hidden">
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
           <h2 className="text-2xl md:text-3xl font-bold text-white tracking-wide flex items-center gap-3">
             {t('kids.curious_ones', 'PEQUEÑOS CURIOSOS')}
@@ -282,18 +231,18 @@ const SacrartKids = () => {
         </div>
         <div className="flex overflow-x-auto gap-6 pb-12 pr-6 md:pr-12 hide-scrollbar snap-x">
           {pdfResources.length > 0 ? (
-            pdfResources.map((pdf, index) => (
+            pdfResources.map((resource) => (
               <div
-                key={pdf.id}
+                key={resource.id}
                 className="group relative shrink-0 w-[220px] md:w-[260px] snap-start cursor-pointer"
-                onClick={() => handlePdfDownload(pdf)}
+                onClick={() => handlePdfDownload(resource)}
               >
                 <div className="aspect-[3/4] w-full rounded-xl overflow-hidden relative shadow-xl border border-white/10 bg-[#f0f0f0] transition-transform duration-300 group-hover:-translate-y-2">
-                  {pdf.thumbnail ? (
+                  {resource.thumbnail_url ? (
                     <>
                       <div
                         className="absolute inset-0 bg-cover opacity-80 mix-blend-luminosity contrast-150 brightness-110"
-                        style={{ backgroundImage: `url(${getImageUrl(pdf.thumbnail)})` }}
+                        style={{ backgroundImage: `url(${resource.thumbnail_url})` }}
                       />
                       <div className="absolute inset-0 bg-white/40 mix-blend-overlay"></div>
                     </>
@@ -317,8 +266,13 @@ const SacrartKids = () => {
                 </div>
                 <div className="mt-4 text-center">
                   <h3 className="text-lg font-bold text-gray-200 group-hover:text-[#A05245] transition-colors">
-                    {pdf.title}
+                    {resource.title}
                   </h3>
+                  {resource.description && (
+                    <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                      {resource.description}
+                    </p>
+                  )}
                 </div>
               </div>
             ))
@@ -339,55 +293,65 @@ const SacrartKids = () => {
           <span className="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent mr-12"></span>
         </div>
         <div className="flex overflow-x-auto gap-6 pb-12 pr-6 md:pr-12 hide-scrollbar snap-x">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="group relative shrink-0 w-[280px] md:w-[320px] snap-start cursor-pointer"
-              onClick={() => handleProductClick(product.id)}
-            >
-              <div className="aspect-[4/5] w-full rounded-xl overflow-hidden relative shadow-2xl border border-white/10 bg-[#151515]">
-                {product.image ? (
-                  <>
-                    <div
-                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                      style={{ backgroundImage: `url(${product.image})` }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
-                  </>
-                ) : (
-                  <>
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#2a2a2a] to-[#151515]"></div>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-20">
-                      <i className="fa-solid fa-palette text-8xl text-white"></i>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
-                  </>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleProductClick(product.id);
-                  }}
-                  className="absolute top-4 right-4 bg-white text-[#A05245] p-3 rounded-full shadow-lg z-20 hover:bg-[#A05245] hover:text-white transition-colors"
-                >
-                  <ShoppingBag className="text-[22px]" />
-                </button>
-                <div className="absolute bottom-0 w-full p-5 transform translate-y-2 group-hover:translate-y-0 transition-transform">
-                  <span className={`inline-block px-2 py-0.5 rounded ${product.badgeColor} text-[10px] font-bold uppercase tracking-wider text-white mb-2 shadow-md`}>
-                    {product.badge}
-                  </span>
-                  <h3 className="text-2xl font-bold text-white leading-tight mb-1">{product.title}</h3>
-                  <p className="text-sm text-gray-400 mb-4">{product.description}</p>
-                  <div className="flex items-center gap-3 bg-white/5 rounded-lg p-2 backdrop-blur-sm border border-white/5">
-                    <span className="text-lg font-bold text-[#A05245]">{product.price}€</span>
-                    {product.originalPrice && (
-                      <span className="text-sm text-gray-500 line-through">{product.originalPrice}€</span>
+          {products.length > 0 ? (
+            products.map((product) => (
+              <div
+                key={product.id}
+                className="group relative shrink-0 w-[280px] md:w-[320px] snap-start cursor-pointer"
+                onClick={() => handleProductClick(product.id)}
+              >
+                <div className="aspect-[4/5] w-full rounded-xl overflow-hidden relative shadow-2xl border border-white/10 bg-[#151515]">
+                  {product.image_url ? (
+                    <>
+                      <div
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                        style={{ backgroundImage: `url(${product.image_url})` }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#2a2a2a] to-[#151515]"></div>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                        <i className="fa-solid fa-palette text-8xl text-white"></i>
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+                    </>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleProductClick(product.id);
+                    }}
+                    className="absolute top-4 right-4 bg-white text-[#A05245] p-3 rounded-full shadow-lg z-20 hover:bg-[#A05245] hover:text-white transition-colors"
+                  >
+                    <ShoppingBag className="text-[22px]" />
+                  </button>
+                  <div className="absolute bottom-0 w-full p-5 transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                    {product.badge_text && (
+                      <span className={`inline-block px-2 py-0.5 rounded ${product.badge_color || 'bg-[#A05245]'} text-[10px] font-bold uppercase tracking-wider text-white mb-2 shadow-md`}>
+                        {product.badge_text}
+                      </span>
                     )}
+                    <h3 className="text-2xl font-bold text-white leading-tight mb-1">{product.title}</h3>
+                    {product.description && (
+                      <p className="text-sm text-gray-400 mb-4 line-clamp-2">{product.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 bg-white/5 rounded-lg p-2 backdrop-blur-sm border border-white/5">
+                      <span className="text-lg font-bold text-[#A05245]">{product.price.toFixed(2)} {product.currency}</span>
+                      {product.original_price && product.original_price > product.price && (
+                        <span className="text-sm text-gray-500 line-through">{product.original_price.toFixed(2)} {product.currency}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="text-center py-12 text-gray-400 w-full">
+              {t('kids.no_products', 'No hay productos disponibles')}
             </div>
-          ))}
+          )}
         </div>
       </section>
     </main>

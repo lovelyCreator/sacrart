@@ -407,20 +407,29 @@ const RewindEpisodes = () => {
             )}
           </div>
 
-          {/* Multi-Language Audio Player */}
-          {currentVideo && currentVideo.audio_urls && Object.keys(currentVideo.audio_urls).length > 0 && (
-            <div className="mt-6" key={`audio-player-${currentVideo.id}-${i18n.language.substring(0, 2)}`}>
-              <MultiLanguageAudioPlayer
-                audioTracks={Object.entries(currentVideo.audio_urls).map(([lang, url]) => ({
-                  language: lang,
-                  url: url as string,
-                  label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
-                }))}
-                defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
-                videoRef={null}
-              />
-            </div>
-          )}
+          {/* Multi-Language Audio Player - Only for TTS audio (not original) */}
+          {currentVideo && currentVideo.audio_urls && Object.keys(currentVideo.audio_urls).length > 0 && (() => {
+            // Filter out 'original' audio (source language uses video's original audio)
+            const ttsAudioTracks = Object.entries(currentVideo.audio_urls)
+              .filter(([lang, url]) => url !== 'original')
+              .map(([lang, url]) => ({
+                language: lang,
+                url: url as string,
+                label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+              }));
+            
+            if (ttsAudioTracks.length === 0) return null;
+            
+            return (
+              <div className="mt-6" key={`audio-player-${currentVideo.id}-${i18n.language.substring(0, 2)}`}>
+                <MultiLanguageAudioPlayer
+                  audioTracks={ttsAudioTracks}
+                  defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
+                  videoRef={null}
+                />
+              </div>
+            );
+          })()}
         </div>
 
         {/* Content Section */}

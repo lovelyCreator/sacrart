@@ -87,6 +87,15 @@ Route::get('/reels/{reel}', [ReelController::class, 'show']);
 Route::get('/rewinds/public', [RewindController::class, 'getPublic']);
 Route::get('/rewinds/{rewind}', [RewindController::class, 'show']);
 
+// Public routes for Sacrart Kids (authentication optional)
+Route::get('/kids/content', [\App\Http\Controllers\Api\KidsContentController::class, 'index']);
+Route::get('/kids/videos', [\App\Http\Controllers\Api\KidsContentController::class, 'getVideos']);
+Route::get('/kids/resources', [\App\Http\Controllers\Api\KidsContentController::class, 'getResources']);
+Route::get('/kids/products', [\App\Http\Controllers\Api\KidsContentController::class, 'getProducts']);
+Route::get('/kids/products/{id}', [\App\Http\Controllers\Api\KidsContentController::class, 'getProduct']);
+Route::get('/kids/hero-video', [\App\Http\Controllers\Api\KidsContentController::class, 'getHeroVideo']);
+Route::get('/kids/resources/{id}/download', [\App\Http\Controllers\Api\KidsContentController::class, 'downloadResource']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Video Comments (require authentication to read)
@@ -274,6 +283,39 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/translations', [LanguageController::class, 'updateTranslation']);
         Route::post('/admin/translations/bulk', [LanguageController::class, 'bulkUpdateTranslations']);
         Route::delete('/admin/translations/{id}', [LanguageController::class, 'deleteTranslation']);
+
+        // Kids Content Management (Admin CRUD)
+        Route::prefix('admin/kids')->group(function () {
+            // Kids Settings
+            Route::get('/settings', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'getSettings']);
+            Route::put('/settings', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'updateSettings']);
+            Route::post('/settings/hero-video', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'setHeroVideo']);
+            
+            // Kids Videos
+            Route::get('/videos', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'getVideos']);
+            Route::post('/videos', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'addVideo']);
+            Route::delete('/videos/{kidsVideo}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'removeVideo']);
+            Route::put('/videos/{kidsVideo}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'updateVideo']);
+            Route::post('/videos/reorder', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'reorderVideos']);
+            
+            // Kids Resources
+            Route::get('/resources', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'getResources']);
+            Route::post('/resources', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'createResource']);
+            Route::get('/resources/{resource}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'getResource']);
+            Route::post('/resources/{resource}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'updateResource']); // POST for FormData
+            Route::put('/resources/{resource}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'updateResource']);
+            Route::delete('/resources/{resource}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'deleteResource']);
+            Route::post('/resources/reorder', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'reorderResources']);
+            
+            // Kids Products
+            Route::get('/products', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'getProducts']);
+            Route::post('/products', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'createProduct']);
+            Route::get('/products/{product}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'getProduct']);
+            Route::post('/products/{product}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'updateProduct']); // POST for FormData
+            Route::put('/products/{product}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'updateProduct']);
+            Route::delete('/products/{product}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'deleteProduct']);
+            Route::post('/products/reorder', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'reorderProducts']);
+        });
     });
 
     // Public read access to categories

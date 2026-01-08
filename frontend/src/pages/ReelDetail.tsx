@@ -560,20 +560,29 @@ const ReelDetail = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20"></div>
         </div>
 
-        {/* Multi-Language Audio Player */}
-        {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (
-          <div className="absolute top-4 right-4 left-4 z-20" key={`audio-player-mobile-${reel.id}-${i18n.language.substring(0, 2)}`}>
-            <MultiLanguageAudioPlayer
-              audioTracks={Object.entries(reel.audio_urls).map(([lang, url]) => ({
-                language: lang,
-                url: url as string,
-                label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
-              }))}
-              defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
-              videoRef={null}
-            />
-          </div>
-        )}
+        {/* Multi-Language Audio Player - Only for TTS audio (not original) */}
+        {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (() => {
+          // Filter out 'original' audio (source language uses video's original audio)
+          const ttsAudioTracks = Object.entries(reel.audio_urls)
+            .filter(([lang, url]) => url !== 'original')
+            .map(([lang, url]) => ({
+              language: lang,
+              url: url as string,
+              label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+            }));
+          
+          if (ttsAudioTracks.length === 0) return null;
+          
+          return (
+            <div className="absolute top-4 right-4 left-4 z-20" key={`audio-player-mobile-${reel.id}-${i18n.language.substring(0, 2)}`}>
+              <MultiLanguageAudioPlayer
+                audioTracks={ttsAudioTracks}
+                defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
+                videoRef={null}
+              />
+            </div>
+          );
+        })()}
 
         {/* Custom video controls hidden - using Bunny.net native controls */}
 
@@ -878,20 +887,29 @@ const ReelDetail = () => {
           </div> */}
         </div>
 
-        {/* Multi-Language Audio Player */}
-        {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (
-          <div className="mt-6" key={`audio-player-desktop-${reel.id}-${i18n.language.substring(0, 2)}`}>
-            <MultiLanguageAudioPlayer
-              audioTracks={Object.entries(reel.audio_urls).map(([lang, url]) => ({
-                language: lang,
-                url: url as string,
-                label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
-              }))}
-              defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
-              videoRef={null}
-            />
-          </div>
-        )}
+        {/* Multi-Language Audio Player - Only for TTS audio (not original) */}
+        {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (() => {
+          // Filter out 'original' audio (source language uses video's original audio)
+          const ttsAudioTracks = Object.entries(reel.audio_urls)
+            .filter(([lang, url]) => url !== 'original')
+            .map(([lang, url]) => ({
+              language: lang,
+              url: url as string,
+              label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+            }));
+          
+          if (ttsAudioTracks.length === 0) return null;
+          
+          return (
+            <div className="mt-6" key={`audio-player-desktop-${reel.id}-${i18n.language.substring(0, 2)}`}>
+              <MultiLanguageAudioPlayer
+                audioTracks={ttsAudioTracks}
+                defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
+                videoRef={null}
+              />
+            </div>
+          );
+        })()}
       </div>
 
       {/* Right Side - Content (60%) */}

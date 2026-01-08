@@ -1861,20 +1861,33 @@ const EpisodeDetail = () => {
         </div>
       </section>
 
-      {/* Multi-Language Audio Player */}
-      {video && video.audio_urls && Object.keys(video.audio_urls).length > 0 && hasAccess && (
-        <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-6" key={`audio-player-${video.id}-${locale.substring(0, 2)}`}>
-          <MultiLanguageAudioPlayer
-            audioTracks={Object.entries(video.audio_urls).map(([lang, url]) => ({
-              language: lang,
-              url: url as string,
-              label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
-            }))}
-            defaultLanguage={locale.substring(0, 2) as 'en' | 'es' | 'pt'}
-            videoRef={null}
-          />
-        </section>
-      )}
+      {/* Multi-Language Audio Player - Only for TTS audio (not original) */}
+      {video && video.audio_urls && Object.keys(video.audio_urls).length > 0 && hasAccess && (() => {
+        // Filter out 'original' audio (source language uses video's original audio)
+        const ttsAudioTracks = Object.entries(video.audio_urls)
+          .filter(([lang, url]) => url !== 'original')
+          .map(([lang, url]) => ({
+            language: lang,
+            url: url as string,
+            label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+          }));
+        
+        // Only show audio player if there are TTS tracks available
+        if (ttsAudioTracks.length === 0) {
+          console.log('No TTS audio tracks available (only original audio)');
+          return null;
+        }
+        
+        return (
+          <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-6" key={`audio-player-${video.id}-${locale.substring(0, 2)}`}>
+            <MultiLanguageAudioPlayer
+              audioTracks={ttsAudioTracks}
+              defaultLanguage={locale.substring(0, 2) as 'en' | 'es' | 'pt'}
+              videoRef={null}
+            />
+          </section>
+        );
+      })()}
 
       {/* Action Buttons Section */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-6 mb-12">

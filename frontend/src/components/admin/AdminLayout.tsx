@@ -19,7 +19,8 @@ import {
   X,
   LogOut,
   Film,
-  History
+  History,
+  Palette
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -59,6 +60,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin', icon: LayoutDashboard, label: t('admin.dashboard'), exact: true },
     { path: '/admin/users', icon: Users, label: t('admin.users_management') },
     { path: '/admin/content', icon: Video, label: t('admin.content_management') },
+    { path: '/admin/kids', icon: Palette, label: '🎨 Sacrart Kids' },
     { path: '/admin/reels', icon: Film, label: 'Reels Management' },
     { path: '/admin/rewinds', icon: History, label: 'Rewinds Management' },
     { path: '/admin/plans', icon: CreditCard, label: t('admin.subscription_plans') },

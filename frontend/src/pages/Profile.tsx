@@ -35,6 +35,9 @@ const Profile = () => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
   const [myList, setMyList] = useState<any[]>([]);
+  const [filteredContinueWatching, setFilteredContinueWatching] = useState<any[]>([]);
+  const [filteredMyList, setFilteredMyList] = useState<any[]>([]);
+  const [activitySearchTerm, setActivitySearchTerm] = useState('');
   const [subscriptionPlan, setSubscriptionPlan] = useState<any>(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
@@ -77,6 +80,34 @@ const Profile = () => {
       }
     }
   }, [user, activeTab]);
+
+  // Filter activity data based on search term
+  useEffect(() => {
+    if (activitySearchTerm.trim()) {
+      // Filter continue watching
+      const filteredWatching = continueWatching.filter((item: any) => {
+        const video = item.video || item;
+        const title = video.title || '';
+        const category = video.category?.name || video.series?.name || '';
+        return title.toLowerCase().includes(activitySearchTerm.toLowerCase()) ||
+               category.toLowerCase().includes(activitySearchTerm.toLowerCase());
+      });
+      setFilteredContinueWatching(filteredWatching);
+
+      // Filter my list
+      const filteredList = myList.filter((item: any) => {
+        const video = item.video || item;
+        const title = video.title || '';
+        const category = video.category?.name || video.series?.name || '';
+        return title.toLowerCase().includes(activitySearchTerm.toLowerCase()) ||
+               category.toLowerCase().includes(activitySearchTerm.toLowerCase());
+      });
+      setFilteredMyList(filteredList);
+    } else {
+      setFilteredContinueWatching(continueWatching);
+      setFilteredMyList(myList);
+    }
+  }, [activitySearchTerm, continueWatching, myList]);
   
   const loadSupportData = async () => {
     if (!user) return;
@@ -273,8 +304,22 @@ const Profile = () => {
     if (!dateString) return '';
     try {
       const date = new Date(dateString);
-      const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      return `${months[date.getMonth()]} ${date.getFullYear()}`;
+      const monthKeys = [
+        'common.month_names.january',
+        'common.month_names.february',
+        'common.month_names.march',
+        'common.month_names.april',
+        'common.month_names.may',
+        'common.month_names.june',
+        'common.month_names.july',
+        'common.month_names.august',
+        'common.month_names.september',
+        'common.month_names.october',
+        'common.month_names.november',
+        'common.month_names.december'
+      ];
+      const monthName = t(monthKeys[date.getMonth()]);
+      return `${monthName} ${date.getFullYear()}`;
     } catch {
       return '';
     }
@@ -284,12 +329,25 @@ const Profile = () => {
     if (!user?.created_at) return '';
     try {
       const date = new Date(user.created_at);
-      const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const monthName = months[date.getMonth()];
+      const monthKeys = [
+        'common.month_names.january',
+        'common.month_names.february',
+        'common.month_names.march',
+        'common.month_names.april',
+        'common.month_names.may',
+        'common.month_names.june',
+        'common.month_names.july',
+        'common.month_names.august',
+        'common.month_names.september',
+        'common.month_names.october',
+        'common.month_names.november',
+        'common.month_names.december'
+      ];
+      const monthName = t(monthKeys[date.getMonth()]);
       const year = date.getFullYear();
       const now = new Date();
       const diffMonths = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
-      return `${monthName} ${year} (${diffMonths} Meses)`;
+      return `${monthName} ${year} (${diffMonths} ${t('profile.months', 'Months')})`;
     } catch {
       return '';
     }
@@ -544,6 +602,29 @@ const Profile = () => {
             <>
               <div className="border-b border-white/10 mb-8">
                 <h1 className="text-3xl font-serif text-white mb-8">{t('profile.creative_progress', 'Tu Progreso Creativo')}</h1>
+                
+                {/* Search Bar */}
+                <div className="relative w-full mb-6">
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i className="fa-solid fa-search text-gray-500 text-lg"></i>
+                  </span>
+                  <input
+                    value={activitySearchTerm}
+                    onChange={(e) => setActivitySearchTerm(e.target.value)}
+                    className="w-full bg-[#151515] border border-white/10 rounded-lg py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                    placeholder={t('profile.search_activity', 'Search your videos...')}
+                    type="text"
+                  />
+                  {activitySearchTerm && (
+                    <button
+                      onClick={() => setActivitySearchTerm('')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-white transition-colors"
+                    >
+                      <i className="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex gap-8 overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setActivitySubTab('watching')}
@@ -584,18 +665,25 @@ const Profile = () => {
                   <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-red-600 rounded-full shadow-[0_0_8px_rgba(220,38,38,0.5)]"></span>
                     {t('profile.continue_watching', 'Continuar Viendo')}
+                    {activitySearchTerm && (
+                      <span className="ml-2 text-xs text-gray-400 font-normal">
+                        ({filteredContinueWatching.length} {t('common.results', 'results')})
+                      </span>
+                    )}
                   </h3>
                   {loadingProgress ? (
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
                     </div>
-                  ) : continueWatching.length === 0 ? (
+                  ) : filteredContinueWatching.length === 0 ? (
                     <div className="text-center py-8 text-gray-400">
-                      {t('profile.no_continue_watching', 'No hay videos en progreso')}
+                      {activitySearchTerm 
+                        ? t('profile.no_search_results', 'No videos match your search') 
+                        : t('profile.no_continue_watching', 'No hay videos en progreso')}
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {continueWatching.map((item: any) => {
+                      {filteredContinueWatching.map((item: any) => {
                         const video = item.video || item;
                         const progress = item.progress_percentage || 0;
                         const thumbnail = video.thumbnail_url || video.poster_url || '';
@@ -654,14 +742,21 @@ const Profile = () => {
                   <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
                     {t('profile.my_list', 'Mi Lista')}
+                    {activitySearchTerm && (
+                      <span className="ml-2 text-xs text-gray-400 font-normal">
+                        ({filteredMyList.length} {t('common.results', 'results')})
+                      </span>
+                    )}
                   </h3>
-                  {myList.length === 0 ? (
+                  {filteredMyList.length === 0 ? (
                     <div className="text-center py-8 text-gray-400">
-                      {t('profile.no_favorites', 'No hay videos en tu lista')}
+                      {activitySearchTerm 
+                        ? t('profile.no_search_results', 'No videos match your search') 
+                        : t('profile.no_favorites', 'No hay videos en tu lista')}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                      {myList.map((item: any) => {
+                      {filteredMyList.map((item: any) => {
                         const video = item.video || item;
                         const thumbnail = video.thumbnail_url || video.poster_url || '';
                         
