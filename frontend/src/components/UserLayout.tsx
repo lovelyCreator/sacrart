@@ -83,47 +83,10 @@ const UserLayout = () => {
     return category.name || '';
   };
 
-  // Handler for Directos - fetch latest directo and navigate to video page
-  const handleDirectosClick = async (e: React.MouseEvent) => {
+  // Handler for Directos - navigate to live page
+  const handleDirectosClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    try {
-      // Fetch latest directo video
-      const response = await videoApi.getPublic({
-        status: 'published',
-        per_page: 100,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
-
-      if (response.success && response.data) {
-        const videos = Array.isArray(response.data) 
-          ? response.data 
-          : response.data?.data || [];
-
-        // Filter for "directos" - videos with tags containing "directo", "live", "twitch"
-        const directosVideos = videos.filter((video) => {
-          const tags = video.tags || [];
-          const tagString = tags.join(' ').toLowerCase();
-          return tagString.includes('directo') || 
-                 tagString.includes('live') || 
-                 tagString.includes('twitch');
-        });
-
-        // Navigate to latest directo video, or default to video/1 if none found
-        if (directosVideos.length > 0) {
-          navigateWithLocale(`/video/${directosVideos[0].id}`);
-        } else {
-          navigateWithLocale('/video/1');
-        }
-      } else {
-        // Fallback to video/1 if API fails
-        navigateWithLocale('/video/1');
-      }
-    } catch (error) {
-      console.error('Error fetching latest directo:', error);
-      // Fallback to video/1 if error
-      navigateWithLocale('/video/1');
-    }
+    navigateWithLocale('/live');
   };
 
   // Fetch categories from backend
@@ -298,15 +261,14 @@ const UserLayout = () => {
                 {t('common.browse', 'Browse')}
               </Link>
               
-              <a
-                href="#"
-                onClick={handleDirectosClick}
+              <Link
+                to={getPathWithLocale("/live")}
                 className={`text-xs font-bold uppercase tracking-wider transition-colors ${
-                  isActive('/video') ? 'text-white' : 'text-gray-300 hover:text-white'
+                  isActive('/live') ? 'text-white' : 'text-gray-300 hover:text-white'
                 }`}
               >
                 {t('common.live', 'Directos')}
-              </a>
+              </Link>
               
               <Link 
                 to={getPathWithLocale("/kids")}
@@ -392,7 +354,7 @@ const UserLayout = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && searchQuery.trim()) {
-                      navigate(getPathWithLocale(`/browse?search=${encodeURIComponent(searchQuery.trim())}`));
+                      navigate(getPathWithLocale(`/my-list-search?search=${encodeURIComponent(searchQuery.trim())}`));
                     }
                   }}
                   className="bg-transparent border-none text-sm text-white focus:ring-0 placeholder:text-gray-500 w-full ml-2"
@@ -524,7 +486,7 @@ const UserLayout = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && searchQuery.trim()) {
-                      navigate(getPathWithLocale(`/browse?search=${encodeURIComponent(searchQuery.trim())}`));
+                      navigate(getPathWithLocale(`/my-list-search?search=${encodeURIComponent(searchQuery.trim())}`));
                       setSidebarOpen(false);
                     }
                   }}
@@ -636,22 +598,18 @@ const UserLayout = () => {
                 {t('common.browse', 'Browse')}
               </Link>
 
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSidebarOpen(false);
-                  handleDirectosClick(e);
-                }}
+              <Link
+                to={getPathWithLocale("/live")}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive('/video')
+                  isActive('/live')
                     ? 'bg-primary/20 text-white font-semibold'
                     : 'text-gray-300 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 <Play className="mr-3 h-5 w-5" />
                 {t('common.live', 'Directos')}
-              </a>
+              </Link>
 
               <Link 
                 to={getPathWithLocale("/kids")}

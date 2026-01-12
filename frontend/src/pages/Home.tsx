@@ -3168,57 +3168,22 @@ const Home = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {[
-              { title: 'Reels', subtitle: t('index.formats.reels', 'Técnica Rápida'), image: cover1 },
-              { title: 'Rewind', subtitle: t('index.formats.rewind', 'Archivo Histórico'), image: cover2 },
-              { title: 'Retos', subtitle: t('index.formats.challenges', 'Desafíos Creativos'), image: cover3 },
-              { title: 'Directos', subtitle: t('index.formats.live', 'Live Studio'), image: cover4, isLive: true }
+              { id: 'reels', title: t('index.formats.reels_title', 'Reels'), subtitle: t('index.formats.reels', 'Técnica Rápida'), image: cover1 },
+              { id: 'rewind', title: t('index.formats.rewind_title', 'Rewind'), subtitle: t('index.formats.rewind', 'Archivo Histórico'), image: cover2 },
+              { id: 'challenges', title: t('index.formats.challenges_title', 'Challenges'), subtitle: t('index.formats.challenges', 'Desafíos Creativos'), image: cover3 },
+              { id: 'live', title: t('index.formats.live_title', 'Live'), subtitle: t('index.formats.live', 'Live Studio'), image: cover4, isLive: true }
             ].map((format, index) => (
               <div
-                key={format.title}
+                key={format.id}
                 onClick={async () => {
-                  if (format.title === 'Reels') {
+                  if (format.id === 'reels') {
                     navigateWithLocale('/reels');
-                  } else if (format.title === 'Rewind') {
+                  } else if (format.id === 'rewind') {
                     navigateWithLocale('/rewind');
-                  } else if (format.title === 'Retos') {
-                    navigateWithLocale('/challenges');
-                  } else if (format.title === 'Directos') {
-                    try {
-                      // Fetch latest directo video
-                      const response = await videoApi.getPublic({
-                        status: 'published',
-                        per_page: 100,
-                        sort_by: 'created_at',
-                        sort_order: 'desc',
-                      });
-
-                      if (response.success && response.data) {
-                        const videos = Array.isArray(response.data) 
-                          ? response.data 
-                          : response.data?.data || [];
-
-                        // Filter for "directos" - videos with tags containing "directo", "live", "twitch"
-                        const directosVideos = videos.filter((video: any) => {
-                          const tags = video.tags || [];
-                          const tagString = tags.join(' ').toLowerCase();
-                          return tagString.includes('directo') || 
-                                 tagString.includes('live') || 
-                                 tagString.includes('twitch');
-                        });
-
-                        // Navigate to latest directo video, or default to video/1 if none found
-                        if (directosVideos.length > 0) {
-                          navigateWithLocale(`/video/${directosVideos[0].id}`);
-                        } else {
-                          navigateWithLocale('/video/1');
-                        }
-                      } else {
-                        navigateWithLocale('/video/1');
-                      }
-                    } catch (error) {
-                      console.error('Error fetching latest directo:', error);
-                      navigateWithLocale('/video/1');
-                    }
+                  } else if (format.id === 'challenges') {
+                    navigateWithLocale('/challenge-archive');
+                  } else if (format.id === 'live') {
+                    navigateWithLocale('/live');
                   } else {
                     navigateWithLocale('/browse');
                   }

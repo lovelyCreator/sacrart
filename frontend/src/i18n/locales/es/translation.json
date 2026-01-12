@@ -1,4 +1,23 @@
 {
+  "live": {
+    "live_now": "EN DIRECTO",
+    "not_streaming": "No estamos en directo ahora",
+    "check_archive": "Pero puedes ver nuestros directos anteriores en el archivo",
+    "subscribe_notification": "Suscríbete a nuestro canal de YouTube para recibir notificaciones cuando iniciemos un directo",
+    "visit_channel": "Visitar Canal de YouTube",
+    "view_archive": "Ver Archivo de Directos",
+    "back_home": "Volver al Inicio",
+    "watching_now": "Viendo ahora",
+    "stream_title": "Directo de SACRART",
+    "stream_description": "Únete a nuestro directo y aprende técnicas de arte sacro en tiempo real. Participa en el chat y haz tus preguntas.",
+    "view_past_streams": "Ver directos anteriores",
+    "subscribe": "Suscribirse",
+    "live_chat": "Chat en directo",
+    "missed_previous": "¿Te perdiste algún directo anterior?",
+    "archive_description": "Revive todos nuestros directos pasados en el archivo",
+    "explore_archive": "Explorar Archivo",
+    "error_loading": "Error al cargar el directo"
+  },
   "kids": {
     "hero_description": "Aprende, dibuja y crea tu primera colección de Arte Sacro.",
     "start_adventure": "Comenzar Aventura",
@@ -46,6 +65,7 @@
     "language": "Idioma",
     "reload": "Recargar Página",
     "results": "resultados",
+    "for": "para",
     "months": {
       "jan": "Ene",
       "feb": "Feb",
@@ -266,7 +286,12 @@
     "allow_messages": "Permitir Mensajes",
     "search_activity": "Busca tus videos...",
     "no_search_results": "No hay videos que coincidan con tu búsqueda",
-    "enter_current_new_password": "Ingresa tu contraseña actual y elige una nueva."
+    "enter_current_new_password": "Ingresa tu contraseña actual y elige una nueva.",
+    "try_different_search": "Prueba con un término de búsqueda diferente",
+    "add_videos_to_list": "Agrega videos a tu lista para verlos aquí",
+    "remove_from_list": "Eliminar de la lista",
+    "no_title": "Sin título",
+    "sign_in_required": "Se requiere iniciar sesión"
   },
   "library": {
     "title": "Mi Biblioteca",
@@ -958,6 +983,7 @@
     "content_edit": "Editar",
     "content_delete": "Eliminar",
     "content_label_name": "Nombre",
+    "content_label_category": "Categoría",
     "content_label_color": "Color",
     "content_label_icon": "Icono",
     "content_label_image": "Imagen",
@@ -1038,6 +1064,7 @@
     "content_table_views": "Visualizaciones",
     "content_table_episode": "Episodio",
     "content_table_actions": "Acciones",
+    "content_table_homepage": "Página de Inicio",
     "content_total_series": "Total de Series",
     "content_total_episodes": "Total de Episodios",
     "content_total_views": "Total de Visualizaciones",
@@ -1057,6 +1084,7 @@
     "content_label_status": "Estado",
     "content_label_short_description": "Descripción Corta",
     "content_label_select_series": "Seleccionar una serie",
+    "content_select_category": "Seleccionar una categoría",
     "content_placeholder_intro": "Texto de introducción breve para el video",
     "support_manage_requests": "Gestionar preguntas de usuarios y solicitudes de soporte",
     "support_create_ticket": "Crear Ticket",

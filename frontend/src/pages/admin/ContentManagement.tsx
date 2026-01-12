@@ -69,6 +69,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { seriesApi, videoApi, categoryApi, Series, Video, Category } from '@/services/videoApi';
 import FileUpload from '@/components/admin/FileUpload';
 import LanguageTabs from '@/components/admin/LanguageTabs';
+import TranslateButton from '@/components/admin/TranslateButton';
 
 // Using types from videoApi
 
@@ -2557,137 +2558,160 @@ const ContentManagement = () => {
           });
         }
       }}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedCategory?.id ? t('admin.content_edit_category', 'Edit Category') : t('admin.content_create_category', 'Create Category')}</DialogTitle>
             <DialogDescription>
               {selectedCategory?.id ? t('admin.content_edit_category_desc', 'Make changes to the category here.') : t('admin.content_create_category_desc', 'Fill in the details to create a new category.')}
             </DialogDescription>
           </DialogHeader>
-          {selectedCategory && (
-            <div className="grid gap-4 py-4">
-              {/* Language Tabs */}
+          <div className="grid gap-4 py-4">
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
               <LanguageTabs 
                 activeLanguage={contentLocale} 
                 onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
               />
-              
-              {/* Name - Multilingual */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="categoryName" className="text-right">
-                  {t('admin.content_label_name', 'Name')} <span className="text-red-500">*</span>
-                </Label>
+              <TranslateButton
+                fields={{
+                  name: categoryMultilingual.name[contentLocale] || '',
+                  description: categoryMultilingual.description[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, only updating fields that have translations
+                  setCategoryMultilingual(prev => ({
+                    name: {
+                      en: translations.name?.en !== undefined ? translations.name.en : prev.name.en,
+                      es: translations.name?.es !== undefined ? translations.name.es : prev.name.es,
+                      pt: translations.name?.pt !== undefined ? translations.name.pt : prev.name.pt,
+                    },
+                    description: {
+                      en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                      es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                      pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
+            
+            {/* Name - Multilingual */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryName" className="text-right">
+                {t('admin.content_label_name', 'Name')} <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="categoryName"
+                value={categoryMultilingual.name[contentLocale] || ''}
+                onChange={(e) => setCategoryMultilingual({
+                  ...categoryMultilingual,
+                  name: { ...categoryMultilingual.name, [contentLocale]: e.target.value }
+                })}
+                className="col-span-3"
+                placeholder={`Enter category name in ${contentLocale.toUpperCase()}`}
+              />
+            </div>
+            
+            {/* Description - Multilingual */}
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="categoryDescription" className="text-right pt-2">
+                {t('admin.content_label_description', 'Description')}
+              </Label>
+              <Textarea
+                id="categoryDescription"
+                value={categoryMultilingual.description[contentLocale] || ''}
+                onChange={(e) => setCategoryMultilingual({
+                  ...categoryMultilingual,
+                  description: { ...categoryMultilingual.description, [contentLocale]: e.target.value }
+                })}
+                className="col-span-3"
+                placeholder={`Enter category description in ${contentLocale.toUpperCase()}`}
+                rows={4}
+              />
+            </div>
+            
+            {/* Color */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryColor" className="text-right">
+                {t('admin.content_label_color', 'Color')}
+              </Label>
+              <div className="col-span-3 flex items-center gap-2">
                 <Input
-                  id="categoryName"
-                  value={categoryMultilingual.name[contentLocale]}
-                  onChange={(e) => setCategoryMultilingual({
-                    ...categoryMultilingual,
-                    name: { ...categoryMultilingual.name, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter category name in ${contentLocale.toUpperCase()}`}
+                  id="categoryColor"
+                  type="color"
+                  value={selectedCategory?.color || '#000000'}
+                  onChange={(e) => selectedCategory && setSelectedCategory({...selectedCategory, color: e.target.value})}
+                  className="w-20 h-10"
                 />
-              </div>
-              
-              {/* Description - Multilingual */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="categoryDescription" className="text-right pt-2">
-                  {t('admin.content_label_description', 'Description')}
-                </Label>
-                <Textarea
-                  id="categoryDescription"
-                  value={categoryMultilingual.description[contentLocale]}
-                  onChange={(e) => setCategoryMultilingual({
-                    ...categoryMultilingual,
-                    description: { ...categoryMultilingual.description, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter category description in ${contentLocale.toUpperCase()}`}
-                  rows={4}
-                />
-              </div>
-              
-              {/* Color */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="categoryColor" className="text-right">
-                  {t('admin.content_label_color', 'Color')}
-                </Label>
-                <div className="col-span-3 flex items-center gap-2">
-                  <Input
-                    id="categoryColor"
-                    type="color"
-                    value={selectedCategory.color || '#000000'}
-                    onChange={(e) => setSelectedCategory({...selectedCategory, color: e.target.value})}
-                    className="w-20 h-10"
-                  />
-                  <Input
-                    type="text"
-                    value={selectedCategory.color || ''}
-                    onChange={(e) => setSelectedCategory({...selectedCategory, color: e.target.value})}
-                    placeholder="#000000"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-              
-              {/* Icon */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="categoryIcon" className="text-right">
-                  {t('admin.content_label_icon', 'Icon')}
-                </Label>
                 <Input
-                  id="categoryIcon"
-                  value={selectedCategory.icon || ''}
-                  onChange={(e) => setSelectedCategory({...selectedCategory, icon: e.target.value})}
-                  className="col-span-3"
-                  placeholder={t('admin.content_category_icon_placeholder', 'Icon name or class')}
+                  type="text"
+                  value={selectedCategory?.color || ''}
+                  onChange={(e) => selectedCategory && setSelectedCategory({...selectedCategory, color: e.target.value})}
+                  placeholder="#000000"
+                  className="flex-1"
                 />
               </div>
-              
-              {/* Image Upload */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="categoryImage" className="text-right">
-                  {t('admin.content_label_image', 'Image')}
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <FileUpload
-                    type="image"
-                    accept="image/*"
-                    onFileSelect={(file) => {
+            </div>
+            
+            {/* Icon */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryIcon" className="text-right">
+                {t('admin.content_label_icon', 'Icon')}
+              </Label>
+              <Input
+                id="categoryIcon"
+                value={selectedCategory?.icon || ''}
+                onChange={(e) => selectedCategory && setSelectedCategory({...selectedCategory, icon: e.target.value})}
+                className="col-span-3"
+                placeholder={t('admin.content_category_icon_placeholder', 'Icon name or class')}
+              />
+            </div>
+            
+            {/* Image Upload */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryImage" className="text-right">
+                {t('admin.content_label_image', 'Image')}
+              </Label>
+              <div className="col-span-3 space-y-2">
+                <FileUpload
+                  type="image"
+                  accept="image/*"
+                  onFileSelect={(file) => {
+                    if (selectedCategory) {
                       if (file) {
                         setSelectedCategory({...selectedCategory, image: { file } as any});
                       } else {
                         setSelectedCategory({...selectedCategory, image: null});
                       }
-                    }}
-                    label={t('admin.content_upload_image', 'Upload Image')}
-                    currentFile={typeof selectedCategory.image === 'string' ? getImageUrl(selectedCategory.image) : null}
-                  />
-                  {selectedCategory.image && typeof selectedCategory.image === 'string' && getImageUrl(selectedCategory.image) && (
-                    <div className="mt-2">
-                      <img src={getImageUrl(selectedCategory.image)!} alt={selectedCategory.name} className="w-32 h-32 object-cover rounded-lg" />
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Sort Order */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="categorySortOrder" className="text-right">
-                  {t('admin.content_label_sort_order', 'Sort Order')}
-                </Label>
-                <Input
-                  id="categorySortOrder"
-                  type="number"
-                  value={selectedCategory.sort_order || 0}
-                  onChange={(e) => setSelectedCategory({...selectedCategory, sort_order: parseInt(e.target.value) || 0})}
-                  className="col-span-3"
-                  min="0"
+                    }
+                  }}
+                  label={t('admin.content_upload_image', 'Upload Image')}
+                  currentFile={selectedCategory && typeof selectedCategory.image === 'string' ? getImageUrl(selectedCategory.image) : null}
                 />
+                {selectedCategory?.image && typeof selectedCategory.image === 'string' && getImageUrl(selectedCategory.image) && (
+                  <div className="mt-2">
+                    <img src={getImageUrl(selectedCategory.image)!} alt={selectedCategory.name || 'Category'} className="w-32 h-32 object-cover rounded-lg" />
+                  </div>
+                )}
               </div>
             </div>
-          )}
+            
+            {/* Sort Order */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categorySortOrder" className="text-right">
+                {t('admin.content_label_sort_order', 'Sort Order')}
+              </Label>
+              <Input
+                id="categorySortOrder"
+                type="number"
+                value={selectedCategory?.sort_order || 0}
+                onChange={(e) => selectedCategory && setSelectedCategory({...selectedCategory, sort_order: parseInt(e.target.value) || 0})}
+                className="col-span-3"
+                min="0"
+              />
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)} disabled={isSubmitting}>
               {t('admin.common_cancel', 'Cancel')}
@@ -2712,171 +2736,198 @@ const ContentManagement = () => {
           });
         }
       }}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedSeries?.id ? t('admin.content_edit_series') : t('admin.content_create_series')}</DialogTitle>
             <DialogDescription>
               {selectedSeries?.id ? t('admin.content_edit_series_desc') : t('admin.content_create_series_desc')} {t('admin.content_series_save_desc')}
             </DialogDescription>
           </DialogHeader>
-          {selectedSeries && (
-            <div className="grid gap-4 py-4">
-              {/* Language Tabs */}
+          <div className="grid gap-4 py-4">
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
               <LanguageTabs 
                 activeLanguage={contentLocale} 
                 onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
               />
-              
-              {/* Title - Multilingual */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">
-                  {t('admin.content_label_title')} <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="title"
-                  value={seriesMultilingual.title[contentLocale]}
-                  onChange={(e) => setSeriesMultilingual({
-                    ...seriesMultilingual,
-                    title: { ...seriesMultilingual.title, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
-                />
-              </div>
-              
-              {/* Description - Multilingual */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="description" className="text-right pt-2">
-                  {t('admin.content_label_description')}
-                </Label>
-                <Textarea
-                  id="description"
-                  value={seriesMultilingual.description[contentLocale]}
-                  onChange={(e) => setSeriesMultilingual({
-                    ...seriesMultilingual,
-                    description: { ...seriesMultilingual.description, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
-                  rows={4}
-                />
-              </div>
-              
-              {/* Short Description - Multilingual */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="short_description" className="text-right pt-2">
-                  Short Description
-                </Label>
-                <Textarea
-                  id="short_description"
-                  value={seriesMultilingual.short_description[contentLocale]}
-                  onChange={(e) => setSeriesMultilingual({
-                    ...seriesMultilingual,
-                    short_description: { ...seriesMultilingual.short_description, [contentLocale]: e.target.value }
-                  })}
-                  className="col-span-3"
-                  placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
-                  rows={2}
-                />
-              </div>
-              {/* Category Selection - Required */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">
-                  {t('admin.content_label_category', 'Category')} <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={selectedSeries.category_id?.toString() || ''}
-                  onValueChange={(value) => setSelectedSeries({...selectedSeries, category_id: parseInt(value)})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder={t('admin.content_select_category', 'Select a category')} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {categories.length === 0 ? (
-                      <SelectItem value="" disabled>
-                        {t('admin.content_no_categories_available', 'No categories available. Please create a category first.')}
+              <TranslateButton
+                fields={{
+                  title: seriesMultilingual.title[contentLocale] || '',
+                  description: seriesMultilingual.description[contentLocale] || '',
+                  short_description: seriesMultilingual.short_description[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, only updating fields that have translations
+                  setSeriesMultilingual(prev => ({
+                    title: {
+                      en: translations.title?.en !== undefined ? translations.title.en : prev.title.en,
+                      es: translations.title?.es !== undefined ? translations.title.es : prev.title.es,
+                      pt: translations.title?.pt !== undefined ? translations.title.pt : prev.title.pt,
+                    },
+                    description: {
+                      en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                      es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                      pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                    },
+                    short_description: {
+                      en: translations.short_description?.en !== undefined ? translations.short_description.en : prev.short_description.en,
+                      es: translations.short_description?.es !== undefined ? translations.short_description.es : prev.short_description.es,
+                      pt: translations.short_description?.pt !== undefined ? translations.short_description.pt : prev.short_description.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
+            
+            {/* Title - Multilingual */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                {t('admin.content_label_title')} <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="title"
+                value={seriesMultilingual.title[contentLocale] || ''}
+                onChange={(e) => setSeriesMultilingual({
+                  ...seriesMultilingual,
+                  title: { ...seriesMultilingual.title, [contentLocale]: e.target.value }
+                })}
+                className="col-span-3"
+                placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
+              />
+            </div>
+            
+            {/* Description - Multilingual */}
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="description" className="text-right pt-2">
+                {t('admin.content_label_description')}
+              </Label>
+              <Textarea
+                id="description"
+                value={seriesMultilingual.description[contentLocale] || ''}
+                onChange={(e) => setSeriesMultilingual({
+                  ...seriesMultilingual,
+                  description: { ...seriesMultilingual.description, [contentLocale]: e.target.value }
+                })}
+                className="col-span-3"
+                placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
+                rows={4}
+              />
+            </div>
+            
+            {/* Short Description - Multilingual */}
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="short_description" className="text-right pt-2">
+                Short Description
+              </Label>
+              <Textarea
+                id="short_description"
+                value={seriesMultilingual.short_description[contentLocale] || ''}
+                onChange={(e) => setSeriesMultilingual({
+                  ...seriesMultilingual,
+                  short_description: { ...seriesMultilingual.short_description, [contentLocale]: e.target.value }
+                })}
+                className="col-span-3"
+                placeholder={`Enter short description in ${contentLocale.toUpperCase()}`}
+                rows={2}
+              />
+            </div>
+            {/* Category Selection - Required */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="category" className="text-right">
+                {t('admin.content_label_category', 'Category')} <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={selectedSeries?.category_id?.toString() || ''}
+                onValueChange={(value) => selectedSeries && setSelectedSeries({...selectedSeries, category_id: parseInt(value)})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder={t('admin.content_select_category', 'Select a category')} />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {categories.length === 0 ? (
+                    <SelectItem value="" disabled>
+                      {t('admin.content_no_categories_available', 'No categories available. Please create a category first.')}
+                    </SelectItem>
+                  ) : (
+                    categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id.toString()} className="focus:bg-accent">
+                        {getCategoryName(category)}
                       </SelectItem>
-                    ) : (
-                      categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()} className="focus:bg-accent">
-                          {getCategoryName(category)}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="visibility" className="text-right">
-                  {t('admin.content_label_visibility')}
-                </Label>
-                <Select
-                  value={selectedSeries.visibility || 'freemium'}
-                  onValueChange={(value) => setSelectedSeries({...selectedSeries, visibility: value as 'freemium' | 'basic' | 'premium'})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select visibility" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    <SelectItem value="freemium" className="focus:bg-accent">Freemium</SelectItem>
-                    <SelectItem value="basic" className="focus:bg-accent">Basic</SelectItem>
-                    <SelectItem value="premium" className="focus:bg-accent">Premium</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">
-                  {t('admin.content_label_status')}
-                </Label>
-                <Select
-                  value={selectedSeries.status || 'draft'}
-                  onValueChange={(value) => setSelectedSeries({...selectedSeries, status: value as 'draft' | 'published' | 'archived'})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    <SelectItem value="draft" className="focus:bg-accent">Draft</SelectItem>
-                    <SelectItem value="published" className="focus:bg-accent">Published</SelectItem>
-                    <SelectItem value="archived" className="focus:bg-accent">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="thumbnail" className="text-right">
-                  Thumbnail URL (Bunny.net)
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="thumbnail"
-                    value={(selectedSeries as any)?.thumbnail || ''}
-                    onChange={(e) => setSelectedSeries({...selectedSeries, thumbnail: e.target.value} as Series)}
-                    placeholder="https://vz-xxx.b-cdn.net/thumbnail.jpg"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Paste the Bunny.net thumbnail URL from your dashboard.
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="coverImage" className="text-right">
-                  Cover Image URL (Bunny.net)
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="coverImage"
-                    value={(selectedSeries as any)?.cover_image || ''}
-                    onChange={(e) => setSelectedSeries({...selectedSeries, cover_image: e.target.value} as Series)}
-                    placeholder="https://vz-xxx.b-cdn.net/cover.jpg"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Paste the Bunny.net cover image URL from your dashboard.
-                  </p>
-                </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="visibility" className="text-right">
+                {t('admin.content_label_visibility')}
+              </Label>
+              <Select
+                value={selectedSeries?.visibility || 'freemium'}
+                onValueChange={(value) => selectedSeries && setSelectedSeries({...selectedSeries, visibility: value as 'freemium' | 'basic' | 'premium'})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select visibility" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="freemium" className="focus:bg-accent">Freemium</SelectItem>
+                  <SelectItem value="basic" className="focus:bg-accent">Basic</SelectItem>
+                  <SelectItem value="premium" className="focus:bg-accent">Premium</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                {t('admin.content_label_status')}
+              </Label>
+              <Select
+                value={selectedSeries?.status || 'draft'}
+                onValueChange={(value) => selectedSeries && setSelectedSeries({...selectedSeries, status: value as 'draft' | 'published' | 'archived'})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="draft" className="focus:bg-accent">Draft</SelectItem>
+                  <SelectItem value="published" className="focus:bg-accent">Published</SelectItem>
+                  <SelectItem value="archived" className="focus:bg-accent">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="thumbnail" className="text-right">
+                Thumbnail URL (Bunny.net)
+              </Label>
+              <div className="col-span-3 space-y-2">
+                <Input
+                  id="thumbnail"
+                  value={(selectedSeries as any)?.thumbnail || ''}
+                  onChange={(e) => selectedSeries && setSelectedSeries({...selectedSeries, thumbnail: e.target.value} as Series)}
+                  placeholder="https://vz-xxx.b-cdn.net/thumbnail.jpg"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Paste the Bunny.net thumbnail URL from your dashboard.
+                </p>
               </div>
             </div>
-          )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="coverImage" className="text-right">
+                Cover Image URL (Bunny.net)
+              </Label>
+              <div className="col-span-3 space-y-2">
+                <Input
+                  id="coverImage"
+                  value={(selectedSeries as any)?.cover_image || ''}
+                  onChange={(e) => selectedSeries && setSelectedSeries({...selectedSeries, cover_image: e.target.value} as Series)}
+                  placeholder="https://vz-xxx.b-cdn.net/cover.jpg"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Paste the Bunny.net cover image URL from your dashboard.
+                </p>
+              </div>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsSeriesDialogOpen(false)} disabled={isSubmitting}>
               Cancel
@@ -2911,12 +2962,47 @@ const ContentManagement = () => {
           </DialogHeader>
           {selectedVideo && (
             <div className="grid gap-4 py-4">
-              {/* Language Tabs */}
-              <LanguageTabs 
-                activeLanguage={contentLocale} 
-                onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
-              />
+              {/* Language Tabs with Translate Button */}
+              <div className="flex items-center justify-between mb-4">
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                />
+                <TranslateButton
+                  fields={{
+                    title: videoMultilingual.title[contentLocale] || '',
+                    description: videoMultilingual.description[contentLocale] || '',
+                    short_description: videoMultilingual.short_description[contentLocale] || '',
+                    intro_description: videoMultilingual.intro_description[contentLocale] || '',
+                  }}
+                  sourceLanguage={contentLocale}
+                  onTranslate={(translations) => {
+                    // Merge translations with existing state, only updating fields that have translations
+                    setVideoMultilingual(prev => ({
+                      title: {
+                        en: translations.title?.en !== undefined ? translations.title.en : prev.title.en,
+                        es: translations.title?.es !== undefined ? translations.title.es : prev.title.es,
+                        pt: translations.title?.pt !== undefined ? translations.title.pt : prev.title.pt,
+                      },
+                      description: {
+                        en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                        es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                        pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                      },
+                      short_description: {
+                        en: translations.short_description?.en !== undefined ? translations.short_description.en : prev.short_description.en,
+                        es: translations.short_description?.es !== undefined ? translations.short_description.es : prev.short_description.es,
+                        pt: translations.short_description?.pt !== undefined ? translations.short_description.pt : prev.short_description.pt,
+                      },
+                      intro_description: {
+                        en: translations.intro_description?.en !== undefined ? translations.intro_description.en : prev.intro_description.en,
+                        es: translations.intro_description?.es !== undefined ? translations.intro_description.es : prev.intro_description.es,
+                        pt: translations.intro_description?.pt !== undefined ? translations.intro_description.pt : prev.intro_description.pt,
+                      },
+                    }));
+                  }}
+                />
+              </div>
               
               {/* Two Column Layout: Left - Text Fields, Right - Images */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

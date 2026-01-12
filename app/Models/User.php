@@ -146,6 +146,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get user's challenges
+     */
+    public function userChallenges(): HasMany
+    {
+        return $this->hasMany(UserChallenge::class);
+    }
+
+    /**
      * Check if user is admin
      */
     public function isAdmin(): bool

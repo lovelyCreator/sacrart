@@ -16,6 +16,7 @@ import Subscription from "./pages/Subscription";
 import SignupSubscription from "./pages/SignupSubscription";
 import Home from "./pages/Home";
 import Explore from "./pages/Explore";
+import MyListSearch from "./pages/MyListSearch";
 import SeriesDetail from "./pages/SeriesDetail";
 import CategoryDetail from "./pages/CategoryDetail";
 import VideoPlayer from "./pages/VideoPlayer";
@@ -32,7 +33,10 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Reels from "./pages/Reels";
 import ReelDetail from "./pages/ReelDetail";
 import DirectosArchive from "./pages/DirectosArchive";
+import Live from "./pages/Live";
 import ChallengeArchive from "./pages/ChallengeArchive";
+import Challenges from "./pages/Challenges";
+import Tool from "./pages/Tool";
 import Rewind from "./pages/Rewind";
 import RewindEpisodes from "./pages/RewindEpisodes";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -142,6 +146,11 @@ const App = () => (
                     <Library />
                   </ProtectedRoute>
                 } />
+                <Route path="my-list-search" element={
+                  <ProtectedRoute>
+                    <MyListSearch />
+                  </ProtectedRoute>
+                } />
                 <Route path="profile" element={
                   <ProtectedRoute>
                     <Profile />
@@ -172,6 +181,11 @@ const App = () => (
                     <ReelDetail />
                   </ProtectedRoute>
                 } />
+                <Route path="live" element={
+                  <ProtectedRoute>
+                    <Live />
+                  </ProtectedRoute>
+                } />
                 <Route path="directos" element={
                   <ProtectedRoute>
                     <DirectosArchive />
@@ -179,7 +193,17 @@ const App = () => (
                 } />
                 <Route path="challenges" element={
                   <ProtectedRoute>
+                    <Challenges />
+                  </ProtectedRoute>
+                } />
+                <Route path="challenge-archive" element={
+                  <ProtectedRoute>
                     <ChallengeArchive />
+                  </ProtectedRoute>
+                } />
+                <Route path="tool" element={
+                  <ProtectedRoute>
+                    <Tool />
                   </ProtectedRoute>
                 } />
                 <Route path="rewind" element={
@@ -219,14 +243,18 @@ const App = () => (
               <Route path="/episode/:id" element={<RedirectWithParams />} />
               <Route path="/episode-shop/:id" element={<RedirectWithParams />} />
               <Route path="/library" element={<Navigate to="/en/library" replace />} />
+              <Route path="/my-list-search" element={<Navigate to="/en/my-list-search" replace />} />
               <Route path="/profile" element={<Navigate to="/en/profile" replace />} />
               <Route path="/support" element={<Navigate to="/en/support" replace />} />
               <Route path="/subscription" element={<Navigate to="/en/subscription" replace />} />
               <Route path="/kids" element={<Navigate to="/en/kids" replace />} />
               <Route path="/reels" element={<Navigate to="/en/reels" replace />} />
               <Route path="/reel/:id" element={<RedirectWithParams />} />
+              <Route path="/live" element={<Navigate to="/en/live" replace />} />
               <Route path="/directos" element={<Navigate to="/en/directos" replace />} />
               <Route path="/challenges" element={<Navigate to="/en/challenges" replace />} />
+              <Route path="/challenge-archive" element={<Navigate to="/en/challenge-archive" replace />} />
+              <Route path="/tool" element={<Navigate to="/en/tool" replace />} />
               <Route path="/rewind" element={<Navigate to="/en/rewind" replace />} />
               <Route path="/rewind/:id" element={<RedirectWithParams />} />
               <Route path="/politica-de-cookies" element={<Navigate to="/en/politica-de-cookies" replace />} />

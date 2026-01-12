@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
-import { videoApi, Video } from '@/services/videoApi';
+import { useAuth } from '@/contexts/AuthContext';
+import challengeApi, { Challenge } from '@/services/challengeApi';
 import { toast } from 'sonner';
-import { Camera, Play, ChevronLeft, ChevronRight, Filter, Trophy, X, Timer, Construction } from 'lucide-react';
-import ChallengeUploadModal from '@/components/ChallengeUploadModal';
-
-interface Challenge {
-  id: number;
-  title: string;
-  month: string;
-  thumbnail: string;
-  isActive: boolean;
-  isCompleted: boolean;
-  endDate?: string;
-  description?: string;
-}
+import { Camera, ChevronLeft, ChevronRight, Filter, Construction, CheckCircle2, Image as ImageIcon } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Submission {
   id: number;
@@ -27,13 +23,15 @@ interface Submission {
 const ChallengeArchive = () => {
   const { t } = useTranslation();
   const { navigateWithLocale } = useLocale();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'popular'>('all');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageDialog, setShowImageDialog] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
@@ -47,7 +45,8 @@ const ChallengeArchive = () => {
     return `${baseUrl.replace('/api', '')}${src.startsWith('/') ? '' : '/'}${src}`;
   };
 
-  const calculateDaysRemaining = (endDate: string): number => {
+  const calculateDaysRemaining = (endDate: string | null | undefined): number => {
+    if (!endDate) return 0;
     const end = new Date(endDate);
     const now = new Date();
     const diff = end.getTime() - now.getTime();
@@ -60,134 +59,21 @@ const ChallengeArchive = () => {
       try {
         setLoading(true);
         
-        // Fetch videos with "challenge" or "reto" tags
-        const response = await videoApi.getPublic({
-          status: 'published',
-          per_page: 1000,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-
+        // Fetch challenges from API
+        const response = await challengeApi.getAll();
+        
         if (response.success && response.data) {
-          const videos = Array.isArray(response.data) 
-            ? response.data 
-            : response.data?.data || [];
-
-          // Filter for challenges
-          const challengeVideos = videos.filter((video: Video) => {
-            const tags = video.tags || [];
-            const tagString = tags.join(' ').toLowerCase();
-            return tagString.includes('challenge') || 
-                   tagString.includes('reto') ||
-                   tagString.includes('desafio');
-          });
-
-          // Create challenge objects from videos
-          const challengeList: Challenge[] = challengeVideos.slice(0, 12).map((video: Video, index: number) => {
-            const createdDate = new Date(video.created_at || Date.now());
-            const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-            const month = monthNames[createdDate.getMonth()];
-            
-            // Calculate end date (30 days from creation)
-            const endDate = new Date(createdDate);
-            endDate.setDate(endDate.getDate() + 30);
-            
-            return {
-              id: video.id,
-              title: video.title || `Reto ${index + 1}`,
-              month,
-              thumbnail: getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || ''),
-              isActive: index === 0, // First one is active
-              isCompleted: index > 0,
-              endDate: endDate.toISOString(),
-              description: video.description || video.short_description || '',
-            };
-          });
-
-          // Set active challenge (first one)
-          if (challengeList.length > 0) {
-            setActiveChallenge(challengeList[0]);
-          } else {
-            // Add sample active challenge if no challenges found
-            const sampleActiveChallenge: Challenge = {
-              id: 999,
-              title: 'Reto del Mes: Expresividad y Tensión Muscular',
-              month: 'Enero',
-              thumbnail: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-              isActive: true,
-              isCompleted: false,
-              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              description: 'Este mes nos centramos en la expresividad y tensión muscular. Ana Rey te guiará en el proceso de construcción anatómica. Participa enviando tu propuesta y comparte tu proceso creativo con la comunidad.',
-            };
-            setActiveChallenge(sampleActiveChallenge);
-            challengeList.unshift(sampleActiveChallenge);
-          }
-
-          // Add placeholder for upcoming challenges
-          const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-          const currentMonth = new Date().getMonth();
+          const challengeList = Array.isArray(response.data) ? response.data : [];
           
-          // Add sample challenges if list is empty or too short
-          if (challengeList.length === 0 || (challengeList.length === 1 && challengeList[0].id === 999)) {
-            const sampleChallenges: Challenge[] = [
-              {
-                id: 998,
-                title: 'Reto de Diciembre: Policromía Tradicional',
-                month: 'Diciembre',
-                thumbnail: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                isActive: false,
-                isCompleted: true,
-                endDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-                description: 'Exploración de técnicas tradicionales de policromía y dorado.',
-              },
-              {
-                id: 997,
-                title: 'Reto de Noviembre: Modelado de Texturas',
-                month: 'Noviembre',
-                thumbnail: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-                isActive: false,
-                isCompleted: true,
-                endDate: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
-                description: 'Trabajo con diferentes texturas y superficies en el modelado.',
-              },
-              {
-                id: 996,
-                title: 'Reto de Octubre: Anatomía Expresiva',
-                month: 'Octubre',
-                thumbnail: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                isActive: false,
-                isCompleted: true,
-                endDate: new Date(Date.now() - 70 * 24 * 60 * 60 * 1000).toISOString(),
-                description: 'Estudio de la anatomía humana en expresiones y gestos.',
-              },
-            ];
-            
-            // Add sample challenges after the active one
-            if (challengeList.length > 0 && challengeList[0].id === 999) {
-              challengeList.push(...sampleChallenges);
-            } else {
-              challengeList.push(...sampleChallenges);
-            }
+          // Set active challenge (first active/pending challenge, or first challenge)
+          const firstActive = challengeList.find((c: Challenge) => !c.is_completed) || challengeList[0];
+          if (firstActive) {
+            setActiveChallenge(firstActive);
           }
-
-          // Fill remaining slots with placeholders
-          while (challengeList.length < 4) {
-            const monthIndex = (currentMonth + challengeList.length) % 12;
-            challengeList.push({
-              id: -challengeList.length,
-              title: 'Próximamente...',
-              month: months[monthIndex],
-              thumbnail: '',
-              isActive: false,
-              isCompleted: false,
-            });
-          }
-
+          
           setChallenges(challengeList);
 
-          // Sample submissions (replace with real API call)
+          // Sample submissions (replace with real API call later)
           const sampleSubmissions: Submission[] = [
             { id: 1, image: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop', username: '@artesacro_juan' },
             { id: 2, image: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop', username: '@elena_talla' },
@@ -199,21 +85,29 @@ const ChallengeArchive = () => {
             { id: 8, image: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop', username: '@fran.imaginero' },
           ];
           setSubmissions(sampleSubmissions);
+        } else {
+          setChallenges([]);
         }
       } catch (error: any) {
         console.error('Error loading challenges:', error);
         toast.error(error.message || t('challenges.error_load', 'Error al cargar los retos'));
+        setChallenges([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchChallenges();
-  }, [t, selectedYear]);
+  }, [t, selectedYear, user]);
 
   const handleChallengeClick = (challenge: Challenge) => {
-    if (challenge.id > 0) {
-      navigateWithLocale(`/video/${challenge.id}`);
+    if (challenge.is_completed && challenge.generated_image_url) {
+      // Show generated image for completed challenges
+      setSelectedImage(challenge.generated_image_url);
+      setShowImageDialog(true);
+    } else if (!challenge.is_completed) {
+      // Navigate to AI Drawing Tool with challenge context
+      navigateWithLocale(`/tool?challenge=${challenge.id}&title=${encodeURIComponent(challenge.title)}`);
     }
   };
 
@@ -225,8 +119,9 @@ const ChallengeArchive = () => {
     );
   }
 
-  const daysRemaining = activeChallenge?.endDate ? calculateDaysRemaining(activeChallenge.endDate) : 0;
-  const activeThumbnail = activeChallenge ? getImageUrl(activeChallenge.thumbnail) : '';
+  const daysRemaining = activeChallenge?.end_date ? calculateDaysRemaining(activeChallenge.end_date) : 0;
+  const activeThumbnail = activeChallenge ? getImageUrl(activeChallenge.thumbnail_url || activeChallenge.image_url || '') : '';
+  const isActiveCompleted = activeChallenge?.is_completed || false;
 
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased">
@@ -250,11 +145,18 @@ const ChallengeArchive = () => {
             {activeChallenge ? (
               <>
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                    Reto Activo
-                  </span>
-                  {daysRemaining > 0 && (
+                  {isActiveCompleted ? (
+                    <span className="inline-flex items-center gap-1.5 bg-green-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-green-900/20">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Reto Completado
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                      Reto Activo
+                    </span>
+                  )}
+                  {!isActiveCompleted && daysRemaining > 0 && (
                     <span className="text-gray-300 text-xs font-medium tracking-wide">
                       {daysRemaining} días restantes
                     </span>
@@ -267,20 +169,26 @@ const ChallengeArchive = () => {
                   {activeChallenge.description || 'Este mes nos centramos en la expresividad y tensión muscular. Ana Rey te guiará en el proceso de construcción anatómica.'}
                 </p>
                 <div className="flex flex-wrap gap-4">
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="group bg-[#A05245] hover:bg-red-700 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:shadow-[#A05245]/20 hover:-translate-y-0.5"
-                  >
-                    <Camera className="h-5 w-5" />
-                    <span>Subir mi Propuesta</span>
-                  </button>
-                  {activeChallenge.id > 0 && (
+                  {isActiveCompleted ? (
                     <button
-                      onClick={() => navigateWithLocale(`/video/${activeChallenge.id}`)}
-                      className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 hover:-translate-y-0.5"
+                      onClick={() => {
+                        if (activeChallenge.generated_image_url) {
+                          setSelectedImage(activeChallenge.generated_image_url);
+                          setShowImageDialog(true);
+                        }
+                      }}
+                      className="group bg-green-600/90 hover:bg-green-700 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:shadow-green-600/20 hover:-translate-y-0.5"
                     >
-                      <Play className="h-5 w-5 fill-white" />
-                      <span>Ver Briefing del Reto</span>
+                      <ImageIcon className="h-5 w-5" />
+                      <span>{t('challenges.see_my_drawing', 'Ver mi Dibujo')}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => navigateWithLocale(`/tool?challenge=${activeChallenge.id}&title=${encodeURIComponent(activeChallenge.title)}`)}
+                      className="group bg-[#A05245] hover:bg-red-700 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:shadow-[#A05245]/20 hover:-translate-y-0.5"
+                    >
+                      <Camera className="h-5 w-5" />
+                      <span>{t('challenges.start_challenge', 'Comenzar Reto')}</span>
                     </button>
                   )}
                 </div>
@@ -339,77 +247,89 @@ const ChallengeArchive = () => {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {challenges.map((challenge) => (
-              <div
-                key={challenge.id}
-                onClick={() => handleChallengeClick(challenge)}
-                className={`group cursor-pointer ${challenge.id < 0 ? 'select-none' : ''}`}
-              >
+            {challenges.map((challenge) => {
+              const isCompleted = challenge.is_completed || false;
+              const thumbnail = getImageUrl(challenge.thumbnail_url || challenge.image_url || '');
+              
+              return (
                 <div
-                  className={`relative aspect-[4/3] rounded-[4px] overflow-hidden mb-4 border transition-all bg-[#121212] ${
-                    challenge.isActive
-                      ? 'border-[#A05245]/50 shadow-[0_0_15px_rgba(160,82,69,0.2)]'
-                      : challenge.id < 0
-                      ? 'border-dashed border-white/10'
-                      : 'border-white/5 group-hover:border-white/20'
+                  key={challenge.id}
+                  onClick={() => handleChallengeClick(challenge)}
+                  className={`group cursor-pointer ${
+                    isCompleted ? 'opacity-90' : ''
                   }`}
                 >
-                  {challenge.thumbnail ? (
-                    <>
-                      <img
-                        alt={challenge.title}
-                        className={`w-full h-full object-cover transition-all duration-500 transform group-hover:scale-105 ${
-                          challenge.isActive
-                            ? ''
-                            : challenge.id < 0
-                            ? ''
-                            : 'opacity-80 group-hover:opacity-100 grayscale-[30%] group-hover:grayscale-0'
-                        }`}
-                        src={challenge.thumbnail}
-                      />
-                      <div className={`absolute inset-0 ${
-                        challenge.isActive
-                          ? 'bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60'
-                          : 'bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80'
-                      }`}></div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Construction className="h-12 w-12 text-gray-700 group-hover:text-gray-600 transition-colors" />
-                    </div>
-                  )}
-                  
-                  {challenge.isActive && (
-                    <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wide flex items-center gap-1 shadow-lg">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                      Activo
-                    </div>
-                  )}
-                  
-                  {challenge.isCompleted && challenge.id > 0 && (
-                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm border border-white/10 rounded-full w-8 h-8 flex items-center justify-center text-lg shadow-lg">
-                      🏆
-                    </div>
-                  )}
+                  <div
+                    className={`relative aspect-[4/3] rounded-[4px] overflow-hidden mb-4 border transition-all bg-[#121212] ${
+                      isCompleted
+                        ? 'border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]'
+                        : challenge.id === activeChallenge?.id
+                        ? 'border-[#A05245]/50 shadow-[0_0_15px_rgba(160,82,69,0.2)]'
+                        : 'border-white/5 group-hover:border-white/20'
+                    }`}
+                  >
+                    {thumbnail ? (
+                      <>
+                        <img
+                          alt={challenge.title}
+                          className={`w-full h-full object-cover transition-all duration-500 transform group-hover:scale-105 ${
+                            isCompleted
+                              ? 'opacity-75'
+                              : challenge.id === activeChallenge?.id
+                              ? ''
+                              : 'opacity-80 group-hover:opacity-100 grayscale-[30%] group-hover:grayscale-0'
+                          }`}
+                          src={thumbnail}
+                        />
+                        <div className={`absolute inset-0 ${
+                          isCompleted
+                            ? 'bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-70'
+                            : challenge.id === activeChallenge?.id
+                            ? 'bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60'
+                            : 'bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80'
+                        }`}></div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Construction className="h-12 w-12 text-gray-700 group-hover:text-gray-600 transition-colors" />
+                      </div>
+                    )}
+                    
+                    {challenge.id === activeChallenge?.id && !isCompleted && (
+                      <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wide flex items-center gap-1 shadow-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                        Activo
+                      </div>
+                    )}
+                    
+                    {isCompleted && (
+                      <div className="absolute top-3 right-3 bg-green-600/90 backdrop-blur-sm border border-green-400/30 rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
+                        <CheckCircle2 className="h-5 w-5 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className={`text-[10px] font-bold tracking-widest uppercase ${
+                      isCompleted
+                        ? 'text-yellow-500'
+                        : challenge.id === activeChallenge?.id
+                        ? 'text-white'
+                        : 'text-[#A05245]'
+                    }`}>
+                      {challenge.start_date 
+                        ? new Date(challenge.start_date).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+                        : 'Reto'
+                      }
+                    </span>
+                    <h3 className={`text-lg font-bold group-hover:text-[#A05245] transition-colors ${
+                      isCompleted ? 'text-yellow-400' : 'text-white'
+                    }`}>
+                      {challenge.title}
+                    </h3>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className={`text-[10px] font-bold tracking-widest uppercase ${
-                    challenge.isActive
-                      ? 'text-white'
-                      : challenge.id < 0
-                      ? 'text-gray-500'
-                      : 'text-[#A05245]'
-                  }`}>
-                    {challenge.month}
-                  </span>
-                  <h3 className={`text-lg font-bold group-hover:text-[#A05245] transition-colors ${
-                    challenge.id < 0 ? 'text-gray-400 opacity-50' : 'text-white'
-                  }`}>
-                    {challenge.title}
-                  </h3>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -466,18 +386,26 @@ const ChallengeArchive = () => {
         </div>
       </section>
 
-      {/* Upload Modal */}
-      {showUploadModal && activeChallenge && (
-        <ChallengeUploadModal
-          challenge={activeChallenge}
-          onClose={() => setShowUploadModal(false)}
-          onSuccess={() => {
-            setShowUploadModal(false);
-            toast.success(t('challenges.upload_success', 'Propuesta enviada correctamente'));
-            // Refresh submissions
-          }}
-        />
-      )}
+      {/* Image Viewer Dialog for Completed Challenges */}
+      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{t('challenges.my_drawing', 'Mi Dibujo')}</DialogTitle>
+            <DialogDescription>
+              {t('challenges.completed_challenge_image', 'Tu dibujo completado para este reto')}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedImage && (
+            <div className="mt-4">
+              <img
+                src={getImageUrl(selectedImage)}
+                alt={t('challenges.my_drawing', 'Mi Dibujo')}
+                className="w-full h-auto rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };

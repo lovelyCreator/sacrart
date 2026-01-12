@@ -1134,12 +1134,35 @@ const KidsManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Language Tabs */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  title: resourceMultilingual.title[contentLocale] || '',
+                  description: resourceMultilingual.description[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, preserving existing values
+                  setResourceMultilingual(prev => ({
+                    title: {
+                      en: translations.title?.en ?? prev.title.en,
+                      es: translations.title?.es ?? prev.title.es,
+                      pt: translations.title?.pt ?? prev.title.pt,
+                    },
+                    description: {
+                      en: translations.description?.en ?? prev.description.en,
+                      es: translations.description?.es ?? prev.description.es,
+                      pt: translations.description?.pt ?? prev.description.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
             
             <div>
               <Label>Title * (English required)</Label>
@@ -1221,12 +1244,35 @@ const KidsManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Language Tabs */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  title: resourceMultilingual.title[contentLocale] || '',
+                  description: resourceMultilingual.description[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, preserving existing values
+                  setResourceMultilingual(prev => ({
+                    title: {
+                      en: translations.title?.en ?? prev.title.en,
+                      es: translations.title?.es ?? prev.title.es,
+                      pt: translations.title?.pt ?? prev.title.pt,
+                    },
+                    description: {
+                      en: translations.description?.en ?? prev.description.en,
+                      es: translations.description?.es ?? prev.description.es,
+                      pt: translations.description?.pt ?? prev.description.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
             
             <div>
               <Label>Title * (English required)</Label>
@@ -1310,12 +1356,47 @@ const KidsManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Language Tabs */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  title: productMultilingual.title[contentLocale] || '',
+                  description: productMultilingual.description[contentLocale] || '',
+                  long_description: productMultilingual.long_description[contentLocale] || '',
+                  badge_text: productMultilingual.badge_text[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, preserving existing values
+                  setProductMultilingual(prev => ({
+                    title: {
+                      en: translations.title?.en ?? prev.title.en,
+                      es: translations.title?.es ?? prev.title.es,
+                      pt: translations.title?.pt ?? prev.title.pt,
+                    },
+                    description: {
+                      en: translations.description?.en ?? prev.description.en,
+                      es: translations.description?.es ?? prev.description.es,
+                      pt: translations.description?.pt ?? prev.description.pt,
+                    },
+                    long_description: {
+                      en: translations.long_description?.en ?? prev.long_description.en,
+                      es: translations.long_description?.es ?? prev.long_description.es,
+                      pt: translations.long_description?.pt ?? prev.long_description.pt,
+                    },
+                    badge_text: {
+                      en: translations.badge_text?.en ?? prev.badge_text.en,
+                      es: translations.badge_text?.es ?? prev.badge_text.es,
+                      pt: translations.badge_text?.pt ?? prev.badge_text.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
             
             <div>
               <Label>Title * (English required)</Label>
@@ -1466,12 +1547,47 @@ const KidsManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Language Tabs */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  title: productMultilingual.title[contentLocale] || '',
+                  description: productMultilingual.description[contentLocale] || '',
+                  long_description: productMultilingual.long_description[contentLocale] || '',
+                  badge_text: productMultilingual.badge_text[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, preserving existing values
+                  setProductMultilingual(prev => ({
+                    title: {
+                      en: translations.title?.en ?? prev.title.en,
+                      es: translations.title?.es ?? prev.title.es,
+                      pt: translations.title?.pt ?? prev.title.pt,
+                    },
+                    description: {
+                      en: translations.description?.en ?? prev.description.en,
+                      es: translations.description?.es ?? prev.description.es,
+                      pt: translations.description?.pt ?? prev.description.pt,
+                    },
+                    long_description: {
+                      en: translations.long_description?.en ?? prev.long_description.en,
+                      es: translations.long_description?.es ?? prev.long_description.es,
+                      pt: translations.long_description?.pt ?? prev.long_description.pt,
+                    },
+                    badge_text: {
+                      en: translations.badge_text?.en ?? prev.badge_text.en,
+                      es: translations.badge_text?.es ?? prev.badge_text.es,
+                      pt: translations.badge_text?.pt ?? prev.badge_text.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
             
             <div>
               <Label>Title * (English required)</Label>

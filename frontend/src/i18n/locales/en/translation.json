@@ -1,4 +1,23 @@
 {
+  "live": {
+    "live_now": "LIVE NOW",
+    "not_streaming": "We're not streaming right now",
+    "check_archive": "But you can watch our previous streams in the archive",
+    "subscribe_notification": "Subscribe to our YouTube channel to get notified when we go live",
+    "visit_channel": "Visit YouTube Channel",
+    "view_archive": "View Stream Archive",
+    "back_home": "Back to Home",
+    "watching_now": "Watching now",
+    "stream_title": "SACRART Live Stream",
+    "stream_description": "Join our live stream and learn sacred art techniques in real time. Participate in the chat and ask your questions.",
+    "view_past_streams": "View past streams",
+    "subscribe": "Subscribe",
+    "live_chat": "Live Chat",
+    "missed_previous": "Missed a previous stream?",
+    "archive_description": "Relive all our past live streams in the archive",
+    "explore_archive": "Explore Archive",
+    "error_loading": "Failed to load live stream"
+  },
   "kids": {
     "hero_description": "Learn, draw and create your first collection of Sacred Art.",
     "start_adventure": "Start Adventure",
@@ -46,6 +65,7 @@
     "language": "Language",
     "reload": "Reload Page",
     "results": "results",
+    "for": "for",
     "months": {
       "jan": "Jan",
       "feb": "Feb",
@@ -298,7 +318,12 @@
     "allow_messages": "Allow Messages",
     "search_activity": "Search your videos...",
     "no_search_results": "No videos match your search",
-    "enter_current_new_password": "Enter your current password and choose a new one."
+    "enter_current_new_password": "Enter your current password and choose a new one.",
+    "try_different_search": "Try a different search term",
+    "add_videos_to_list": "Add videos to your list to see them here",
+    "remove_from_list": "Remove from list",
+    "no_title": "Sin título",
+    "sign_in_required": "Sign in required"
   },
   "library": {
     "title": "My Library",
@@ -935,6 +960,7 @@
     "content_series": "Series",
     "content_videos": "Videos",
     "content_categories_tab": "Categories",
+    "content_add_category": "Add Category",
     "content_add_series": "Add Series",
     "content_add_video": "Add Video",
     "content_search_placeholder": "Search content...",
@@ -1017,6 +1043,7 @@
     "content_table_views": "Views",
     "content_table_episode": "Episode",
     "content_table_actions": "Actions",
+    "content_table_homepage": "Homepage",
     "content_total_series": "Total Series",
     "content_total_episodes": "Total Episodes",
     "content_total_views": "Total Views",
@@ -1034,6 +1061,7 @@
     "content_create_series_desc": "Fill in the details to create a new series.",
     "content_series_save_desc": "Click save when you're done.",
     "content_label_name": "Name",
+    "content_label_category": "Category",
     "content_label_title": "Title",
     "content_label_description": "Description",
     "content_label_color": "Color",
@@ -1044,6 +1072,7 @@
     "content_label_status": "Status",
     "content_label_short_description": "Short Description",
     "content_label_select_series": "Select a series",
+    "content_select_category": "Select a category",
     "content_category_name_placeholder": "Enter category name",
     "content_category_description_placeholder": "Enter category description",
     "content_category_icon_placeholder": "Icon name or class",

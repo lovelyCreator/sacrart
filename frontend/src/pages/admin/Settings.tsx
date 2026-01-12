@@ -25,7 +25,8 @@ import {
   Folder,
   Languages,
   Play,
-  Upload
+  Upload,
+  Radio
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +44,7 @@ import FileUpload from '@/components/admin/FileUpload';
 import { heroBackgroundApi } from '@/services/heroBackgroundApi';
 import axios from 'axios';
 import LanguageTabs from '@/components/admin/LanguageTabs';
+import TranslateButton from '@/components/admin/TranslateButton';
 
 // Multilingual data structure
 interface MultilingualData {
@@ -828,6 +830,34 @@ const Settings = () => {
                 group: 'hero',
                 label: setting.label || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 description: setting.description || '',
+              });
+            }
+          }
+        });
+      }
+      
+      // Handle live settings
+      if (groupName === 'live') {
+        // Handle all live settings (non-translatable)
+        const liveKeys = ['youtube_live_video_url', 'youtube_channel_id', 'youtube_channel_url', 'youtube_live_enabled'];
+        liveKeys.forEach(key => {
+          const existingInUpdate = updateData.find(s => s.key === key);
+          if (!existingInUpdate) {
+            const existingInSettings = groupSettings.find(s => s && s.key === key);
+            const currentValue = settings.live?.find(s => s && s.key === key)?.value || '';
+            if (currentValue || existingInSettings || key === 'youtube_live_enabled') {
+              // Always include youtube_live_enabled even if empty (default to '0')
+              const value = currentValue || existingInSettings?.value || (key === 'youtube_live_enabled' ? '0' : '');
+              updateData.push({
+                key: key,
+                value: value,
+                type: key === 'youtube_live_enabled' ? 'boolean' : 'text',
+                group: 'live',
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                description: key === 'youtube_live_enabled' ? 'Enable/disable the live stream' : 
+                            key === 'youtube_live_video_url' ? 'Enter the YouTube video URL or ID for the current live stream' :
+                            key === 'youtube_channel_id' ? 'Your YouTube channel ID or handle' :
+                            'Your full YouTube channel URL',
               });
             }
           }
@@ -1958,7 +1988,7 @@ const Settings = () => {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="flex w-full overflow-x-auto gap-1 flex-wrap">
           {/* Hero tab retained for general text settings; background images managed via About only */}
           <TabsTrigger value="hero" className="flex items-center">
             <Home className="mr-2 h-4 w-4" />
@@ -1983,6 +2013,10 @@ const Settings = () => {
           <TabsTrigger value="faq" className="flex items-center">
             <HelpCircle className="mr-2 h-4 w-4" />
             {t('admin.settings_page.tabs.faq')}
+          </TabsTrigger>
+          <TabsTrigger value="live" className="flex items-center">
+            <Radio className="mr-2 h-4 w-4" />
+            Live
           </TabsTrigger>
           <TabsTrigger value="general" className="flex items-center">
             <Globe className="mr-2 h-4 w-4" />
@@ -4239,6 +4273,284 @@ const Settings = () => {
           </Dialog>
         </TabsContent>
 
+        {/* Live Settings */}
+        <TabsContent value="live" className="mt-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-6">YouTube Live Stream Settings</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure your YouTube live streaming settings. When you start a live stream, enable it here and enter the video URL.
+            </p>
+            
+            {/* Initialize live settings if they don't exist */}
+            {!settings.live || settings.live.length === 0 ? (
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-sm text-blue-900 dark:text-blue-100 mb-4">
+                  Live settings will be created automatically when you save. Click the button below to initialize them now.
+                </p>
+                <Button
+                  onClick={async () => {
+                    try {
+                      // Initialize all live settings with default values
+                      const initialSettings = [
+                        {
+                          key: 'youtube_live_video_url',
+                          value: '',
+                          type: 'text',
+                          group: 'live',
+                          label: 'YouTube Live Video URL',
+                          description: 'Enter the YouTube video URL or ID for the current live stream',
+                        },
+                        {
+                          key: 'youtube_channel_id',
+                          value: '',
+                          type: 'text',
+                          group: 'live',
+                          label: 'YouTube Channel ID',
+                          description: 'Your YouTube channel ID or handle',
+                        },
+                        {
+                          key: 'youtube_channel_url',
+                          value: '',
+                          type: 'text',
+                          group: 'live',
+                          label: 'YouTube Channel URL',
+                          description: 'Your full YouTube channel URL',
+                        },
+                        {
+                          key: 'youtube_live_enabled',
+                          value: '0',
+                          type: 'boolean',
+                          group: 'live',
+                          label: 'YouTube Live Enabled',
+                          description: 'Enable/disable the live stream',
+                        },
+                      ];
+                      
+                      await settingsApi.bulkUpdate(initialSettings);
+                      toast.success('Live settings initialized');
+                      await fetchSettings();
+                    } catch (error: any) {
+                      console.error('Error initializing live settings:', error);
+                      toast.error('Failed to initialize live settings');
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Initialize Live Settings
+                </Button>
+              </div>
+            ) : null}
+            
+            <div className="space-y-6">
+              {/* YouTube Live Enabled Toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="youtube_live_enabled" className="text-base font-medium">
+                    YouTube Live Enabled
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const liveEnabledSetting = settings.live?.find(s => s.key === 'youtube_live_enabled');
+                        if (liveEnabledSetting) {
+                          const currentValue = liveEnabledSetting.value;
+                          let isEnabled = false;
+                          if (currentValue === null || currentValue === undefined) {
+                            isEnabled = false;
+                          } else if (typeof currentValue === 'boolean') {
+                            isEnabled = currentValue === true;
+                          } else {
+                            isEnabled = currentValue === '1' || String(currentValue).toLowerCase() === 'true';
+                          }
+                          const newValue = isEnabled ? '0' : '1';
+                          setSettings(prev => ({
+                            ...prev,
+                            live: prev.live?.map(s => 
+                              s.key === 'youtube_live_enabled' 
+                                ? { ...s, value: newValue }
+                                : s
+                            ) || []
+                          }));
+                        } else {
+                          // Create new setting
+                          setSettings(prev => ({
+                            ...prev,
+                            live: [
+                              ...(prev.live || []),
+                              {
+                                key: 'youtube_live_enabled',
+                                value: '1',
+                                type: 'boolean',
+                                group: 'live',
+                                label: 'YouTube Live Enabled',
+                                description: 'Enable/disable the live stream',
+                                is_active: true,
+                                sort_order: 4,
+                              } as SiteSetting
+                            ]
+                          }));
+                        }
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        (() => {
+                          const value = settings.live?.find(s => s.key === 'youtube_live_enabled')?.value;
+                          if (value === null || value === undefined) return false;
+                          if (typeof value === 'boolean') return value === true;
+                          return value === '1' || String(value).toLowerCase() === 'true';
+                        })()
+                          ? 'bg-primary' 
+                          : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          (() => {
+                            const value = settings.live?.find(s => s.key === 'youtube_live_enabled')?.value;
+                            if (value === null || value === undefined) return false;
+                            if (typeof value === 'boolean') return value === true;
+                            return value === '1' || String(value).toLowerCase() === 'true';
+                          })()
+                            ? 'translate-x-6' 
+                            : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Turn this ON when you are streaming live on YouTube. Turn it OFF when the stream ends.
+                </p>
+              </div>
+
+              {/* YouTube Live Video URL */}
+              <div className="space-y-2">
+                <Label htmlFor="youtube_live_video_url">YouTube Live Video URL</Label>
+                <Input
+                  id="youtube_live_video_url"
+                  value={settings.live?.find(s => s.key === 'youtube_live_video_url')?.value || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSettings(prev => ({
+                      ...prev,
+                      live: prev.live?.map(s => 
+                        s.key === 'youtube_live_video_url' 
+                          ? { ...s, value }
+                          : s
+                      ) || (value ? [{
+                        key: 'youtube_live_video_url',
+                        value,
+                        type: 'text',
+                        group: 'live',
+                        label: 'YouTube Live Video URL',
+                        description: 'Enter the YouTube video URL or ID for the current live stream',
+                        is_active: true,
+                        sort_order: 1,
+                      } as SiteSetting] : [])
+                    }));
+                  }}
+                  placeholder="https://youtube.com/watch?v=abc123 or just abc123"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter the full YouTube video URL (e.g., https://youtube.com/watch?v=VIDEO_ID) or just the video ID.
+                  Leave empty when not streaming.
+                </p>
+              </div>
+
+              {/* YouTube Channel ID */}
+              <div className="space-y-2">
+                <Label htmlFor="youtube_channel_id">YouTube Channel ID</Label>
+                <Input
+                  id="youtube_channel_id"
+                  value={settings.live?.find(s => s.key === 'youtube_channel_id')?.value || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSettings(prev => ({
+                      ...prev,
+                      live: prev.live?.map(s => 
+                        s.key === 'youtube_channel_id' 
+                          ? { ...s, value }
+                          : s
+                      ) || (value ? [{
+                        key: 'youtube_channel_id',
+                        value,
+                        type: 'text',
+                        group: 'live',
+                        label: 'YouTube Channel ID',
+                        description: 'Your YouTube channel ID or handle',
+                        is_active: true,
+                        sort_order: 2,
+                      } as SiteSetting] : [])
+                    }));
+                  }}
+                  placeholder="UCxxxxx or @yourhandle"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your YouTube channel ID (e.g., UCxxxxx) or handle (e.g., @yourhandle).
+                </p>
+              </div>
+
+              {/* YouTube Channel URL */}
+              <div className="space-y-2">
+                <Label htmlFor="youtube_channel_url">YouTube Channel URL</Label>
+                <Input
+                  id="youtube_channel_url"
+                  value={settings.live?.find(s => s.key === 'youtube_channel_url')?.value || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSettings(prev => ({
+                      ...prev,
+                      live: prev.live?.map(s => 
+                        s.key === 'youtube_channel_url' 
+                          ? { ...s, value }
+                          : s
+                      ) || (value ? [{
+                        key: 'youtube_channel_url',
+                        value,
+                        type: 'text',
+                        group: 'live',
+                        label: 'YouTube Channel URL',
+                        description: 'Your full YouTube channel URL',
+                        is_active: true,
+                        sort_order: 3,
+                      } as SiteSetting] : [])
+                    }));
+                  }}
+                  placeholder="https://youtube.com/@yourhandle"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your full YouTube channel URL (e.g., https://youtube.com/@yourhandle).
+                  This link will be shown to users when not streaming.
+                </p>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex justify-end pt-4">
+                <Button
+                  onClick={() => handleSaveSettings('live')}
+                  disabled={saving}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {saving ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      {t('admin.common_save')}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
         {/* General Settings */}
         <TabsContent value="general" className="mt-6">
           <Card className="p-6">
@@ -4247,12 +4559,36 @@ const Settings = () => {
               Configure general site information. For contact details, use the Contact tab.
             </p>
             
-            {/* Language Tabs - Only show for translatable fields */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  site_name: settingsMultilingual.site_name?.[contentLocale] || settings.general?.find(s => s && s.key === 'site_name')?.value || '',
+                  site_tagline: settingsMultilingual.site_tagline?.[contentLocale] || settings.general?.find(s => s && s.key === 'site_tagline')?.value || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, preserving existing values
+                  setSettingsMultilingual(prev => ({
+                    ...prev,
+                    site_name: {
+                      en: translations.site_name?.en ?? prev.site_name?.en ?? '',
+                      es: translations.site_name?.es ?? prev.site_name?.es ?? '',
+                      pt: translations.site_name?.pt ?? prev.site_name?.pt ?? '',
+                    },
+                    site_tagline: {
+                      en: translations.site_tagline?.en ?? prev.site_tagline?.en ?? '',
+                      es: translations.site_tagline?.es ?? prev.site_tagline?.es ?? '',
+                      pt: translations.site_tagline?.pt ?? prev.site_tagline?.pt ?? '',
+                    },
+                  }));
+                }}
+              />
+            </div>
             
             {/* General site settings */}
             <div className="space-y-4">
@@ -4322,12 +4658,36 @@ const Settings = () => {
                 Configure footer settings. Copyright and social media links are shared between both footers. The description field is only shown in the authenticated user footer.
               </p>
               
-              {/* Language Tabs */}
-              <LanguageTabs 
-                activeLanguage={contentLocale} 
-                onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
-              />
+              {/* Language Tabs with Translate Button */}
+              <div className="flex items-center justify-between mb-4">
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                />
+                <TranslateButton
+                  fields={{
+                    footer_after_login_description: settingsMultilingual.footer_after_login_description?.[contentLocale] || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_description')?.value || '',
+                    footer_copyright: settingsMultilingual.footer_copyright?.[contentLocale] || settings.footer?.find(s => s && s.key === 'footer_copyright')?.value || settings.footer_after_login?.find(s => s && s.key === 'footer_after_login_copyright')?.value || '',
+                  }}
+                  sourceLanguage={contentLocale}
+                  onTranslate={(translations) => {
+                    // Merge translations with existing state, preserving existing values
+                    setSettingsMultilingual(prev => ({
+                      ...prev,
+                      footer_after_login_description: {
+                        en: translations.footer_after_login_description?.en ?? prev.footer_after_login_description?.en ?? '',
+                        es: translations.footer_after_login_description?.es ?? prev.footer_after_login_description?.es ?? '',
+                        pt: translations.footer_after_login_description?.pt ?? prev.footer_after_login_description?.pt ?? '',
+                      },
+                      footer_copyright: {
+                        en: translations.footer_copyright?.en ?? prev.footer_copyright?.en ?? '',
+                        es: translations.footer_copyright?.es ?? prev.footer_copyright?.es ?? '',
+                        pt: translations.footer_copyright?.pt ?? prev.footer_copyright?.pt ?? '',
+                      },
+                    }));
+                  }}
+                />
+              </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -4461,12 +4821,30 @@ const Settings = () => {
               Configure contact information displayed on the website.
             </p>
             
-            {/* Language Tabs - Only show for translatable fields */}
-            <LanguageTabs 
-              activeLanguage={contentLocale} 
-              onLanguageChange={(lang) => setContentLocale(lang)}
-              className="mb-4"
-            />
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  contact_address: settingsMultilingual.contact_address?.[contentLocale] || settings.contact?.find(s => s && s.key === 'contact_address')?.value || settings.general?.find(s => s && s.key === 'contact_address')?.value || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  // Merge translations with existing state, preserving existing values
+                  setSettingsMultilingual(prev => ({
+                    ...prev,
+                    contact_address: {
+                      en: translations.contact_address?.en ?? prev.contact_address?.en ?? '',
+                      es: translations.contact_address?.es ?? prev.contact_address?.es ?? '',
+                      pt: translations.contact_address?.pt ?? prev.contact_address?.pt ?? '',
+                    },
+                  }));
+                }}
+              />
+            </div>
             
             {/* Contact settings */}
             <div className="space-y-4">

@@ -269,6 +269,11 @@ class SettingsController extends Controller
                 'footer_social_instagram',
                 'footer_social_twitter',
                 'footer_social_youtube',
+                // YouTube Live settings
+                'youtube_live_video_url',
+                'youtube_channel_id',
+                'youtube_channel_url',
+                'youtube_live_enabled',
             ])
             ->get();
         

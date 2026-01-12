@@ -23,6 +23,8 @@ use App\Http\Controllers\Api\LanguageController;
 use App\Http\Controllers\Api\ReelController;
 use App\Http\Controllers\Api\RewindController;
 use App\Http\Controllers\Api\ReelCategoryController;
+use App\Http\Controllers\Api\ChallengeController;
+use App\Http\Controllers\Api\TranslationController;
 
 // Preflight CORS for all API routes (avoid auth/csrf on OPTIONS)
 Route::options('/{any}', function () {
@@ -96,6 +98,10 @@ Route::get('/kids/products/{id}', [\App\Http\Controllers\Api\KidsContentControll
 Route::get('/kids/hero-video', [\App\Http\Controllers\Api\KidsContentController::class, 'getHeroVideo']);
 Route::get('/kids/resources/{id}/download', [\App\Http\Controllers\Api\KidsContentController::class, 'downloadResource']);
 
+// Public routes for Challenges (authentication optional)
+Route::get('/challenges', [ChallengeController::class, 'index']);
+Route::get('/challenges/{id}', [ChallengeController::class, 'show']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Video Comments (require authentication to read)
@@ -125,6 +131,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/video/{video}/rate', [UserProgressController::class, 'rateVideo']);
         Route::get('/favorites/list', [UserProgressController::class, 'getFavorites']);
     });
+
+    // User Challenges
+    Route::prefix('challenges')->group(function () {
+        Route::get('/my-challenges', [ChallengeController::class, 'getUserChallenges']);
+        Route::post('/{id}/complete', [ChallengeController::class, 'completeChallenge']);
+    });
+
+    // Translation routes (authenticated)
+    Route::post('/translate', [TranslationController::class, 'translate']);
+    Route::post('/translate/fields', [TranslationController::class, 'translateFields']);
 
     // Admin routes
     Route::middleware('admin')->group(function () {
@@ -283,6 +299,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/translations', [LanguageController::class, 'updateTranslation']);
         Route::post('/admin/translations/bulk', [LanguageController::class, 'bulkUpdateTranslations']);
         Route::delete('/admin/translations/{id}', [LanguageController::class, 'deleteTranslation']);
+
+        // Challenges Management (Admin CRUD)
+        Route::prefix('admin/challenges')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Admin\ChallengeManagementController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\Admin\ChallengeManagementController::class, 'store']);
+            Route::get('/{id}', [\App\Http\Controllers\Api\Admin\ChallengeManagementController::class, 'show']);
+            Route::put('/{id}', [\App\Http\Controllers\Api\Admin\ChallengeManagementController::class, 'update']);
+            Route::delete('/{id}', [\App\Http\Controllers\Api\Admin\ChallengeManagementController::class, 'destroy']);
+            Route::get('/{id}/stats', [\App\Http\Controllers\Api\Admin\ChallengeManagementController::class, 'getStats']);
+        });
 
         // Kids Content Management (Admin CRUD)
         Route::prefix('admin/kids')->group(function () {
