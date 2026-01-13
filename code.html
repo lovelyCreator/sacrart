@@ -2,334 +2,401 @@
 <html class="dark" lang="es"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Página de Directo - SACRART</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<title>Sacrart Kids Shop Episode Page</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#A05245",
-                        "background-light": "#f8f6f6",
-                        "background-dark": "#0A0A0A","surface-dark": "#221016",
-                        "chat-bg": "#1A1A1A",
-                        "text-subtle": "#b99da6",
+                        "primary": "#a15145",
+                        "terracotta": "#A05245",
+                        "background-light": "#f7f6f6",
+                        "background-dark": "#161313",
+                        "surface-dark": "#1d1615",
+                        "border-dark": "#342e2d",
+                        "text-secondary": "#b2a6a4"
                     },
                     fontFamily: {
-                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                        "display": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
                     },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem", 
-                        "lg": "0.5rem", 
-                        "xl": "0.75rem", 
-                        "full": "9999px"
-                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
                 },
             },
         }
     </script>
 <style>
-        .hide-scrollbar::-webkit-scrollbar {
+        body {
+            font-family: "Plus Jakarta Sans", "Noto Sans", sans-serif;
+            background-color: #161313;
+            color: white;
+        }.no-scrollbar::-webkit-scrollbar {
             display: none;
         }
-        .hide-scrollbar {
+        .no-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
+        }.custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1A1A1A; 
+            background: #1d1615;
+            border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #333; 
-            border-radius: 3px;
+            background-color: #A05245;
+            border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #555; 
+            background-color: #b56053;
+        }.btn-icon-toggle:focus {
+            color: #A05245 !important;
+        }
+        .btn-icon-toggle:focus span {
+             font-variation-settings: 'FILL' 1;
         }
     </style>
 </head>
-<body class="bg-[#0A0A0A] font-display text-white overflow-x-hidden min-h-screen flex flex-col">
-<nav class="fixed top-0 z-50 w-full bg-gradient-to-b from-black/95 to-transparent transition-all duration-300 px-4 md:px-10 py-4 flex items-center justify-between border-b border-[#39282e]/30 backdrop-blur-md">
-<div class="flex items-center gap-8">
-<div class="flex items-center cursor-pointer h-10 md:h-12 w-auto shrink-0">
-<img alt="SACRART Logo" class="h-full w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYg5xWLesEIspZ7FjRlqxOE2pq5I_DpVWnaVfHv55iNP-cyZWH321GqxswaeUw9f9RcfJ3yuzX8WzT8UEN3WrwQXkyeEkAsRCS-8HzxDndChh1Qp0SG2IcplZGJVX5YnrgrgvkS6lhYAPK3psuqIMFtqzekNQgBYvj4RbnIOdTlqWBP0RbqJblIaIW002bOeHQ8AT9S_LO4axT9-1l2hpip2WaA8OWLJ2tMK9QP7I8uu3u2B7EyEMPK23UYnO5_nvSwCELj7ARrF0"/>
+<body class="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-[#161313] text-white">
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#342e2d] bg-[#161313]/95 backdrop-blur-sm px-6 md:px-10 py-4">
+<div class="flex items-center gap-10">
+<div class="flex items-center gap-3 text-white">
+<div class="size-8 text-[#a15145]">
+<svg class="h-full w-full" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M24 4C12.95 4 4 12.95 4 24C4 35.05 12.95 44 24 44C35.05 44 44 35.05 44 24C44 12.95 35.05 4 24 4ZM24 40C15.16 40 8 32.84 8 24C8 15.16 15.16 8 24 8C32.84 8 40 15.16 40 24C40 32.84 32.84 40 24 40Z" fill="currentColor"></path>
+<path d="M24 14C18.48 14 14 18.48 14 24C14 29.52 18.48 34 24 34C29.52 34 34 29.52 34 24C34 18.48 29.52 14 24 14ZM22 29V19L29 24L22 29Z" fill="currentColor"></path>
+</svg>
 </div>
-<div class="hidden xl:flex items-center gap-6">
-<a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors" href="#">Inicio</a>
-<div class="relative group">
-<button class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors flex items-center gap-1">
-                    Categorías
-                    <span class="material-symbols-outlined text-[16px]">expand_more</span>
-</button>
-<div class="absolute top-full left-0 mt-2 w-56 bg-[#181113] border border-white/10 rounded-lg shadow-xl py-2 hidden group-hover:block">
-<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Dibujo</a>
-<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Modelado</a>
-<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Talla en Madera</a>
-<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Policromía</a>
-<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Dorado y Estofado</a>
-<a class="block px-4 py-2 text-sm text-gray-300 hover:text-primary hover:bg-white/5" href="#">Restauración</a>
+<h2 class="text-white text-lg font-serif font-bold uppercase tracking-[0.1em]">Sacrart</h2>
 </div>
+<nav class="flex items-center gap-8 hidden lg:flex">
+<a class="text-white text-[11px] font-bold uppercase tracking-widest hover:text-[#a15145] transition-colors" href="#">Inicio</a>
+<div class="group relative flex items-center gap-1 cursor-pointer">
+<span class="text-white text-[11px] font-bold uppercase tracking-widest hover:text-[#a15145] transition-colors">Categorías</span>
+<span class="material-symbols-outlined text-[16px] text-white group-hover:text-[#a15145]">expand_more</span>
 </div>
-<a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors" href="#">Seguir Viendo</a>
-<a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors" href="#">Browse</a>
-<a class="text-white text-xs font-bold uppercase tracking-wider hover:text-primary transition-colors flex items-center gap-1" href="#">
-                Directos
-                <span class="size-1.5 bg-red-500 rounded-full animate-pulse ml-0.5"></span>
+<a class="text-white text-[11px] font-bold uppercase tracking-widest hover:text-[#a15145] transition-colors" href="#">Seguir viendo</a>
+<a class="text-white text-[11px] font-bold uppercase tracking-widest hover:text-[#a15145] transition-colors" href="#">Browse</a>
+<a class="text-white text-[11px] font-bold uppercase tracking-widest hover:text-[#a15145] transition-colors" href="#">Directos</a>
+<a class="text-white text-[11px] font-bold uppercase tracking-widest hover:text-[#a15145] transition-colors flex items-center gap-1" href="#">
+                Sacrart Kids 
+                <span class="material-symbols-outlined text-[14px]">lock</span>
 </a>
-<a class="text-gray-300 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors flex items-center gap-1" href="#">
-                Sacrart Kids
-                <span class="material-symbols-outlined text-[16px]">child_care</span>
-</a>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<button class="flex items-center gap-2 border border-primary/50 text-white hover:bg-primary/20 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all">
-            Tienda
-        </button>
-<div class="hidden md:flex items-center bg-[#39282e]/50 rounded-full border border-white/10 px-3 py-1.5 w-64 focus-within:bg-black/80 focus-within:border-primary transition-all">
-<span class="material-symbols-outlined text-gray-400 text-[20px]">search</span>
-<input class="bg-transparent border-none text-sm text-white focus:ring-0 placeholder:text-gray-500 w-full" placeholder="Buscar..." type="text"/>
-</div>
-<button class="md:hidden text-white p-1">
-<span class="material-symbols-outlined">search</span>
-</button>
-<div class="size-9 rounded-full bg-gradient-to-br from-primary to-[#783e34] p-[2px] cursor-pointer group shrink-0">
-<div class="size-full rounded-full bg-gray-900 flex items-center justify-center overflow-hidden">
-<div class="w-full h-full bg-cover bg-center" data-alt="User profile avatar" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAHbpxRTYbvdOJFqIYhB3o9YdeuCp2BXocSfRQ6gfp0ysP_BImwDxqJTak-zxL30w3Ymq3LJv5BAecvBKDEVQJkoFadmrkUJW_CboqsBzj_qYnHrl9NBdO_Is3zaJxGZ6oolLLLoeST150BAAbrZeeELzjwpI4sNmsb3_e0071UEwW_6nM_HWlwkYCEHXkjphxXsMCtqORwOSPKo9kXmxpjwahNbGuB1-t0jCA3e0Iwv7oJ6ilMX2BaCWlME78aulZU_8xQ0zFyfO0')"></div>
-</div>
-</div>
-</div>
 </nav>
-<main class="pt-24 pb-8 px-4 md:px-8 max-w-[1800px] mx-auto w-full flex-1 flex flex-col h-full min-h-[calc(100vh-80px)]">
-<div class="grid grid-cols-1 lg:grid-cols-10 gap-6 flex-1 h-full">
-<div class="lg:col-span-7 flex flex-col gap-6 h-full">
-<div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 group">
-<div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCNnGEVq436RV9hwjD5fOjJt63oDA0v2hvxZepCorxpePxjtZ7uoolr2uxBfH42NscZJ-8kKREewha1rKu43ZSUSAIYeJKRjoa0rTfCkDp9agdMQDbev7saJbXoy_xGrEmgjqqb4cJ8ULkY-Xhl2fE1La-g2VChBWElDf4RBfPhJ6j4KKBK4u3RyVlGpmAYIIfGhmuQ3OnfStYd0_716bZv1kOPSQYVxo7ElX6CFfXZPRsT0sSMsCtBHj9YY6EhaZKav3Pl7Ta-r_0');"></div>
-<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 opacity-80"></div>
-<div class="absolute top-6 left-6 z-20">
-<div class="flex items-center gap-2 bg-red-600/90 backdrop-blur-md text-white px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider shadow-lg shadow-red-900/20">
-<span class="relative flex h-2.5 w-2.5">
-<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-</span>
-                        En Vivo
-                    </div>
-</div>
-<div class="absolute top-6 right-6 z-20 flex items-center gap-2 text-white/80 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md text-xs font-medium">
-<span class="material-symbols-outlined text-[16px]">visibility</span>
-                    1.2k espectadores
-                </div>
-<div class="absolute bottom-0 left-0 w-full z-20 p-6 pt-12 bg-gradient-to-t from-black to-transparent">
-<div class="w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer group/progress">
-<div class="h-full bg-primary w-[98%] rounded-full relative">
-<div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity shadow"></div>
-</div>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-4">
-<button class="text-white hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-[32px]">pause</span>
-</button>
-<div class="flex items-center gap-2 group/vol">
-<button class="text-white hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-[24px]">volume_up</span>
-</button>
-<div class="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300">
-<div class="h-1 bg-white/30 rounded-full w-16 ml-2 cursor-pointer">
-<div class="h-full bg-white w-[70%] rounded-full"></div>
-</div>
-</div>
-</div>
-<span class="text-xs font-medium text-white/80 ml-2">LIVE</span>
 </div>
 <div class="flex items-center gap-4">
-<button class="text-white hover:text-primary transition-colors" title="Subtítulos">
-<span class="material-symbols-outlined text-[24px]">closed_caption</span>
+<a class="hidden md:block px-4 py-1.5 border border-[#342e2d] rounded text-[10px] font-bold uppercase tracking-wider hover:bg-white hover:text-black transition-colors" href="#">
+            Tienda
+        </a>
+<div class="hidden md:flex items-center relative">
+<span class="absolute left-3 text-[#b2a6a4] material-symbols-outlined text-[18px]">search</span>
+<input class="bg-[#1d1615] border border-[#342e2d] rounded-full py-1.5 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-[#a15145] w-48 transition-colors" placeholder="Buscar..." type="text"/>
+</div>
+<div class="size-8 rounded-full overflow-hidden border border-[#342e2d] cursor-pointer">
+<div class="w-full h-full bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCN7UJrq_QYu5InfAtARsqyOGW9qwdpjz0NrQCY-5Wz2fR_Y0n7KO4Z5LcVd9cLPLHxq5MYa1ZV_2B3thkVkU6OXeMVWMP2NtHvd2jjSJoxn4kiy_37DUTIanVqeL735pk1GsZBj0FIOrvILEkuZj9HvcyVDHuZlVOpbU3-uSdlEXGMQSi6yOmg5S4i6tpRPBkS_uUh8odNWzUMdYGbT7r6Pye3nKnPj4SFN-trrjIUKX6-k8xokG7H4iNl_t-U2aEJxMKiLQcDmwE");'></div>
+</div>
+</div>
+</header>
+<main class="flex-1 px-4 md:px-10 py-8 w-full max-w-[1600px] mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+<div class="lg:col-span-8 flex flex-col gap-6">
+<div class="relative w-full aspect-video rounded-none overflow-hidden group shadow-2xl bg-[#1d1615] border-b-2 border-[#a15145]">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" data-alt="Close up of child's hands carefully painting a 3D resin Jesus figurine" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAq9l1mMQTLxILJbydSLa6dBnggDQyqXfwNojfS-ijBn_WqlWBTzPPV3ccf4r1K3lrr1yG9VCqVXzsUqV4Y-bA9FmGjX1u7KwWSSIzSjfCvq2TK-jCvxzCd5j_eBnYCe174B2Na-jh0YIn0uEVrds7LJn4q_ktg6CtE-bSXhNzuEfV9nRtvc18EsDsZKP5lO9gm2mybPgJ0v_yVHhL8TSLXZgi8X4rOydniiToqhn-3oFS0VuM1Zs59tOl9_AHFP8pshHZx1r0L23w");'>
+<div class="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors"></div>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+<div class="h-full w-[0%] bg-[#a15145]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pb-4 border-b border-[#342e2d]">
+<div class="flex items-stretch gap-4">
+<button class="flex items-center justify-center rounded bg-[#a15145] text-white hover:bg-[#b56053] hover:scale-105 transition-all duration-300 shadow-lg shadow-black/50 px-8 py-3 gap-2">
+<span class="material-symbols-outlined text-[28px] fill-current">play_arrow</span>
+<span class="font-bold text-sm tracking-widest uppercase">Reproducir</span>
 </button>
-<button class="text-white hover:text-primary transition-colors" title="Configuración">
-<span class="material-symbols-outlined text-[24px]">settings</span>
+<button class="flex items-center justify-center rounded border border-[#A05245] text-[#A05245] hover:bg-[#A05245] hover:text-white transition-all duration-300 px-6 gap-2">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span class="font-bold text-xs tracking-widest uppercase">Descargar Materiales</span>
 </button>
-<button class="text-white hover:text-primary transition-colors" title="Pantalla completa">
-<span class="material-symbols-outlined text-[24px]">fullscreen</span>
+<button class="flex items-center justify-center rounded border border-[#A05245] text-[#A05245] hover:bg-[#A05245] hover:text-white transition-all duration-300 px-6 gap-2">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span class="font-bold text-xs tracking-widest uppercase">Transcripción</span>
+</button>
+</div>
+<div class="flex items-center gap-6 pr-2">
+<button class="btn-icon-toggle flex items-center justify-center text-white hover:text-[#A05245] transition-colors focus:outline-none">
+<span class="material-symbols-outlined text-[32px]">thumb_up</span>
+</button>
+<button class="btn-icon-toggle flex items-center justify-center text-white hover:text-[#A05245] transition-colors focus:outline-none">
+<span class="material-symbols-outlined text-[32px]">thumb_down</span>
 </button>
 </div>
 </div>
-</div>
-</div>
-<div class="flex flex-col gap-2 px-2">
-<div class="flex items-start justify-between gap-4">
+<div class="flex flex-col gap-6">
 <div>
-<h1 class="text-2xl md:text-3xl font-black text-white leading-tight mb-2">
-                            DIRECTO EXCLUSIVO: TÉCNICAS DE ESTOFADO
-                        </h1>
-<p class="text-gray-400 text-sm md:text-base leading-relaxed max-w-3xl">
-                            Acompaña a Ana Rey en el proceso de aplicación del oro y las técnicas tradicionales de estofado al temple. Aprende cómo revelar los colores subyacentes rascando el oro con precisión milimétrica. Haz tus preguntas en el chat para que Ana las responda en tiempo real.
-                        </p>
+<h1 class="text-white text-4xl md:text-5xl font-serif font-bold leading-tight tracking-tight mb-3">
+                        Taller: Pintando el Kit de Jesús y San Juan
+                    </h1>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[#b2a6a4] text-[11px] font-bold uppercase tracking-widest mb-6">
+<span>2025</span>
+<span class="text-[#342e2d]">•</span>
+<span>15 MIN</span>
+<span class="text-[#342e2d]">•</span>
+<span class="border border-white/20 px-1.5 py-0.5 rounded text-[10px]">Tutorial Kids</span>
 </div>
-<div class="flex items-center gap-3 shrink-0">
-<button class="flex items-center gap-2 bg-[#A05245] hover:bg-[#8e493e] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-<span class="material-symbols-outlined text-[20px] filled">thumb_up</span>
-<span>450</span>
+<p class="text-[#b2a6a4] text-base leading-relaxed max-w-4xl mb-6">
+                        Aprende paso a paso a dar color a tu figura con nuestro kit oficial. En este episodio especial, descubriremos las técnicas básicas de mezcla de acrílicos y cómo aplicar las primeras capas para dar vida a las vestimentas sagradas. ¡Ideal para pequeños artistas!
+                    </p>
+</div>
+<div class="mt-4">
+<h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        Comentarios <span class="text-[#b2a6a4] text-sm font-normal">12</span>
+</h3>
+<div class="flex gap-4 mb-6">
+<div class="size-8 rounded-full bg-[#342e2d] flex-shrink-0" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCN7UJrq_QYu5InfAtARsqyOGW9qwdpjz0NrQCY-5Wz2fR_Y0n7KO4Z5LcVd9cLPLHxq5MYa1ZV_2B3thkVkU6OXeMVWMP2NtHvd2jjSJoxn4kiy_37DUTIanVqeL735pk1GsZBj0FIOrvILEkuZj9HvcyVDHuZlVOpbU3-uSdlEXGMQSi6yOmg5S4i6tpRPBkS_uUh8odNWzUMdYGbT7r6Pye3nKnPj4SFN-trrjIUKX6-k8xokG7H4iNl_t-U2aEJxMKiLQcDmwE"); background-size: cover;'></div>
+<div class="flex-1">
+<input class="w-full bg-transparent border-b border-[#342e2d] focus:border-[#a15145] outline-none pb-2 text-sm text-white placeholder-[#b2a6a4] transition-colors" placeholder="Añade un comentario..." type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+<div class="flex gap-4">
+<div class="size-8 rounded-full bg-[#251e1d] flex items-center justify-center text-xs font-bold text-[#a15145]">JM</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold">Juan Manuel</span>
+<span class="text-[10px] text-[#b2a6a4]">hace 2 horas</span>
+</div>
+<p class="text-sm text-[#b2a6a4]">¡Me ha encantado el tutorial! Mi hijo está deseando empezar.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="size-8 rounded-full bg-[#251e1d] flex items-center justify-center text-xs font-bold text-[#a15145]">MR</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold">María Ruiz</span>
+<span class="text-[10px] text-[#b2a6a4]">hace 5 horas</span>
+</div>
+<p class="text-sm text-[#b2a6a4]">¿Dónde puedo conseguir más pinceles de ese tamaño?</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="size-8 rounded-full bg-[#251e1d] flex items-center justify-center text-xs font-bold text-[#a15145]">PD</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold">Pedro Dominguez</span>
+<span class="text-[10px] text-[#b2a6a4]">hace 1 día</span>
+</div>
+<p class="text-sm text-[#b2a6a4]">Excelente calidad de vídeo, gracias por los detalles.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="size-8 rounded-full bg-[#251e1d] flex items-center justify-center text-xs font-bold text-[#a15145]">LA</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold">Laura A.</span>
+<span class="text-[10px] text-[#b2a6a4]">hace 2 días</span>
+</div>
+<p class="text-sm text-[#b2a6a4]">Muy didáctico para los niños.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="size-8 rounded-full bg-[#251e1d] flex items-center justify-center text-xs font-bold text-[#a15145]">CR</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold">Carlos R.</span>
+<span class="text-[10px] text-[#b2a6a4]">hace 3 días</span>
+</div>
+<p class="text-sm text-[#b2a6a4]">Esperando el siguiente episodio con ganas.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="size-8 rounded-full bg-[#251e1d] flex items-center justify-center text-xs font-bold text-[#a15145]">SP</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold">Sofía P.</span>
+<span class="text-[10px] text-[#b2a6a4]">hace 4 días</span>
+</div>
+<p class="text-sm text-[#b2a6a4]">¿El kit incluye barniz final?</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-4 flex flex-col h-full">
+<div class="bg-[#1d1615] border border-[#342e2d] rounded-xl overflow-hidden sticky top-24 shadow-xl">
+<div class="px-6 py-4 border-b border-[#342e2d] bg-[#251e1d]">
+<h3 class="text-white text-xs font-bold tracking-widest uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-[#a15145] text-lg">palette</span>
+                        Materiales de este taller
+                    </h3>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<div class="aspect-square w-full rounded-lg bg-[#2a2423] relative overflow-hidden group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Product shot of unpainted 3D resin figurines of Jesus and Saint John with paint pots" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDUy7yFXlPKoe6IueuPCVpT0mWPmXfyyiROYxziYe97zS1e8zaqy07HwKE2sZAXPiZNuHclaIt_oo5L57PNehU4e2R3tD71i-8SST6RwqBEFIlLhiB9c8G_RGwCKgh8tX_vysbVbSUUheHhulKdBuiPMzZgxngdqnVY_mZPkLmV-LPYJoMaq9zx727JsLluhvCMBfg2JH-za6SXaCeLD3wx05XlPt5VjMvXZR1cEqCBDIdnr3c0cOBJ584pwRaRlTO0TXqiiXLlyUE");'>
+</div>
+<div class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded text-[10px] font-bold border border-white/10 tracking-wider uppercase">
+                            Kit Completo
+                        </div>
+</div>
+<div class="space-y-1">
+<h4 class="text-xl font-bold text-white leading-tight">Kit Jesús y San Juan</h4>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold text-white">24.99€</span>
+<span class="text-sm text-[#b2a6a4] line-through decoration-white/30">29.99€</span>
+</div>
+</div>
+<div class="bg-black/20 rounded-lg p-4 border border-[#342e2d]/50">
+<p class="text-sm text-[#b2a6a4] leading-relaxed">
+<strong class="text-white block mb-2 text-xs uppercase tracking-wider">Incluye:</strong>
+<span class="block mb-1">• 2 Figuras de resina de alta calidad</span>
+<span class="block mb-1">• Set de 5 pinturas acrílicas (Colores base)</span>
+<span class="block mb-1">• 2 Pinceles (Detalle y relleno)</span>
+<span class="block">• Guía impresa paso a paso</span>
+</p>
+</div>
+<button class="w-full flex items-center justify-center gap-2 bg-[#a15145] hover:bg-[#b56053] text-white py-4 rounded-lg font-bold text-sm uppercase tracking-widest transition-all shadow-lg hover:shadow-[#a15145]/20 group">
+<span class="material-symbols-outlined group-hover:-translate-y-0.5 group-hover:rotate-[-10deg] transition-transform">shopping_cart</span>
+                        Ir a tienda
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-16 lg:mt-24 border-t border-[#342e2d] pt-8 mb-20">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xl font-serif font-bold text-white tracking-tight uppercase">Vídeos Relacionados</h3>
+<div class="flex gap-4">
+<button class="size-8 flex items-center justify-center text-white hover:text-[#a15145] transition-colors">
+<span class="material-symbols-outlined text-sm">arrow_back_ios_new</span>
 </button>
-<div class="flex gap-2">
-</div>
-</div>
-</div>
-<div class="flex items-center gap-4 mt-4 pt-4 border-t border-white/5">
-<div class="flex items-center gap-3">
-<div class="size-10 rounded-full bg-gray-700 bg-cover bg-center border border-white/20" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDip4_NGYMwjRcmshjBPbqo82FxGLVSem9f3FsRjR5KGg4SR-B3BZJJsmJ8_MGsHByPeAsxaw4W3k6qhbFQWfz7WSUcB4r9uObsVAqEj5hhPExx00yqa1cVyVOMjlIuTxoMOyoLKqOd3DX9n9cfJ0Rc222J6QRur39qZOqV1VB7558XebsRZTJaa2HhEEWhcYsqiKSliAovDJFqzYhVXV3GClV5ntv7AVxo5THOSyYNHEHkQiK3NAVu_sSwBifm_lMp-Oqd1XtbhpY')"></div>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-white">Ana Rey</span>
-<span class="text-xs text-primary font-medium uppercase tracking-wide">Maestra Doradora</span>
-</div>
-</div>
-<div class="h-8 w-px bg-white/10 mx-2"></div>
-<div class="flex gap-2">
-<span class="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-gray-400 uppercase tracking-wider font-bold">Policromía</span>
-<span class="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-gray-400 uppercase tracking-wider font-bold">Oro Fino</span>
-<span class="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-gray-400 uppercase tracking-wider font-bold">Masterclass</span>
-</div>
-</div>
-</div>
-</div>
-<div class="lg:col-span-3 h-[600px] lg:h-auto flex flex-col bg-[#1A1A1A] rounded-xl border border-white/10 overflow-hidden shadow-2xl">
-<div class="px-4 py-3 bg-[#151515] border-b border-white/5 flex items-center justify-between shadow-md z-10">
-<h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    Chat en Directo
-                    <span class="size-1.5 bg-green-500 rounded-full"></span>
-</h2>
-<button class="text-gray-500 hover:text-white transition-colors">
-<span class="material-symbols-outlined text-[20px]">more_vert</span>
-</button>
-</div>
-<div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[#1A1A1A] flex flex-col-reverse">
-<div class="flex items-start gap-2 animate-fade-in-up">
-<div class="size-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">LM</div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-indigo-400">Luis Miguel</span>
-<p class="text-sm text-gray-200 leading-snug">¿Qué tipo de punzón está usando para el rascado?</p>
-</div>
-</div>
-<div class="flex items-start gap-2 opacity-80">
-<div class="size-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-white shrink-0">SR</div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-primary flex items-center gap-1">
-                            SACRART Oficial
-                            <span class="material-symbols-outlined text-[10px] text-white bg-primary rounded-full p-[1px]">check</span>
-</span>
-<p class="text-sm text-white leading-snug">Luis, es un punzón de ágata bruñida n° 4.</p>
-</div>
-</div>
-<div class="flex items-start gap-2 opacity-70">
-<div class="size-6 rounded-full bg-emerald-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">MT</div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-emerald-400">María Teresa</span>
-<p class="text-sm text-gray-200 leading-snug">Increíble la precisión... parece fácil pero no lo es.</p>
-</div>
-</div>
-<div class="flex items-start gap-2 opacity-70">
-<div class="size-6 rounded-full bg-yellow-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">JP</div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-yellow-500">Juan Pedro</span>
-<p class="text-sm text-gray-200 leading-snug">Saludos desde Sevilla! 👋</p>
-</div>
-</div>
-<div class="flex items-start gap-2 opacity-60">
-<div class="size-6 rounded-full bg-purple-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">AR</div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-purple-400">Antonio R.</span>
-<p class="text-sm text-gray-200 leading-snug">¿El temple lleva algún aditivo especial hoy?</p>
-</div>
-</div>
-<div class="flex items-start gap-2 opacity-50">
-<div class="size-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">CL</div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-blue-400">Carmen L.</span>
-<p class="text-sm text-gray-200 leading-snug">La iluminación permite ver muy bien el detalle.</p>
-</div>
-</div>
-<div class="text-center py-4">
-<span class="text-[10px] font-medium text-gray-600 uppercase tracking-widest bg-[#151515] px-2 py-1 rounded">Chat iniciado 19:00</span>
-</div>
-</div>
-<div class="p-4 bg-[#151515] border-t border-white/5 z-10">
-<div class="flex flex-col gap-2">
-<div class="flex gap-2 mb-1">
-<span class="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-gray-400 hover:text-white cursor-pointer transition-colors">🔥 Increíble</span>
-<span class="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-gray-400 hover:text-white cursor-pointer transition-colors">👏 Bravo</span>
-<span class="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-gray-400 hover:text-white cursor-pointer transition-colors">❤️ Me encanta</span>
-</div>
-<div class="relative group">
-<input class="w-full bg-[#0A0A0A] border border-white/10 rounded-lg py-3 pl-4 pr-12 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all" placeholder="Escribe algo..." type="text"/>
-<button class="absolute right-2 top-1/2 -translate-y-1/2 text-primary p-1 hover:bg-white/5 rounded transition-colors disabled:opacity-50">
-<span class="material-symbols-outlined text-[20px]">send</span>
-</button>
-</div>
-<div class="flex justify-between items-center px-1">
-<span class="text-[10px] text-gray-600">Modo lento activado</span>
-<button class="text-gray-500 hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-[18px]">sentiment_satisfied</span>
+<button class="size-8 flex items-center justify-center text-white hover:text-[#a15145] transition-colors">
+<span class="material-symbols-outlined text-sm">arrow_forward_ios</span>
 </button>
 </div>
 </div>
+<div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4 md:mx-0 md:px-0">
+<a class="group min-w-[300px] w-[300px] flex flex-col gap-3" href="#">
+<div class="relative aspect-video rounded-sm overflow-hidden bg-[#1d1615]">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Child painting a wooden cross" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCcyyrrUZ3qoLoavZXTp6qEZ6ZoUdaD34gE-I-bIkMg4_5jYDpy0JaMlY22z-wf6GaasLrqqRvBs57Odn0p52JUQ9PD7i2-28zRypRrTaNx6OKYj56M69-aYMXnvRACKbmTxgHKDaPqStQ4XTfznpUHyVJyTgKtQi0I9kmnbxCjWBStpFqO5F9tHMD1A3k4IGmZT7WFPGWo3HaR63i8vE50_pS_qtQEXp6wVHSVXMEOVrkQDaQyYrwAYm9kcuEn9RW_nI5o-x_6Fqc");'>
 </div>
+<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-white drop-shadow-lg text-4xl">play_circle</span>
+</div>
+<div class="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">12:30</div>
+</div>
+<div>
+<h4 class="text-white font-bold leading-tight group-hover:text-[#a15145] transition-colors line-clamp-2 text-sm">Pintando tu primera Cruz</h4>
+<p class="text-[#b2a6a4] text-[11px] mt-1 uppercase tracking-wide">Tutorial Kids • Episodio 4</p>
+</div>
+</a>
+<a class="group min-w-[300px] w-[300px] flex flex-col gap-3" href="#">
+<div class="relative aspect-video rounded-sm overflow-hidden bg-[#1d1615]">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Close up of mixing acrylic paints on a palette" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA2lkgyCKv5KfUhWNw4y0idcoVRX6Eacew46L5FcXeT27UtKO-e-ry_AHogmiu51EbR0XVyCSLs62LI4VvJ5kG0fMcyAdLUuQLlQdcEPnpqOeZoN7yDK5mawC5sPO5TooEKm23VLZVJIDtGnr7refDQGCmFm6L_3yrzoxDUlBDh_FNFCDPt22u6_sVcsY2OkLfrR3LzY3Yq7gg56EOzd2VUf0okzNEI8mD0fj9u57TWofUElX24XEWPtOAbS1huf2Pqp8TLMPuHKA4");'>
+</div>
+<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-white drop-shadow-lg text-4xl">play_circle</span>
+</div>
+<div class="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">08:45</div>
+</div>
+<div>
+<h4 class="text-white font-bold leading-tight group-hover:text-[#a15145] transition-colors line-clamp-2 text-sm">Mezclando Colores Sagrados</h4>
+<p class="text-[#b2a6a4] text-[11px] mt-1 uppercase tracking-wide">Técnica Básica</p>
+</div>
+</a>
+<a class="group min-w-[300px] w-[300px] flex flex-col gap-3" href="#">
+<div class="relative aspect-video rounded-sm overflow-hidden bg-[#1d1615]">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Finished resin angel figurine on a table" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDtYOnrXXWV3BlNBx6Pkam3aip1x5m1NHkne6GtCai84rNQGpbXJs4-J2XszfQtuzBUrDno0oCRAZkdBkWkR9CHW6xDJx2QaOsTykJAaysdt7KismMxY32bBOH_L3WNHinpCCWQYakBIXV5e6ocX5dN4Vxt4RiRb4LEApKDQ4R7C4TwR5Se3bioXksTQlRJNtWhmk_AsHkYaoXyB0RIpgXpsNAAlvqJt94yQSnZzitiYTblmeoRQGIhiei3Pme1UBC0Rr1AauOqumE");'>
+</div>
+<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-white drop-shadow-lg text-4xl">play_circle</span>
+</div>
+<div class="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">22:15</div>
+</div>
+<div>
+<h4 class="text-white font-bold leading-tight group-hover:text-[#a15145] transition-colors line-clamp-2 text-sm">Detalles del Ángel Custodio</h4>
+<p class="text-[#b2a6a4] text-[11px] mt-1 uppercase tracking-wide">Tutorial Kids • Episodio 7</p>
+</div>
+</a>
+<a class="group min-w-[300px] w-[300px] flex flex-col gap-3" href="#">
+<div class="relative aspect-video rounded-sm overflow-hidden bg-[#1d1615]">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Children smiling while holding paint brushes" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAIupZRtFCsdku-h3J9BpNDqZBYDJoZRCy60SezIytmuQHbHeGWlY6jbXTx3qlRBXzmOmHKolTtqtnIzWry4zVmx1KsL1-TvpuZfByrLm_X5e6WUDronRhyL2KHCJTe47XMr2UO-qitcJjYM-OU58S8_MuEJTnmOyRMt8TTeXj7LGhfykjCymUO_fxZa3-Sc_4iGI8AzS5rU2YF2-5H0kYE1unBBkEmXUongbziqMmaZ_YyJy_hY_yqRSJtVxE2-UwuyqHhGY9ikIA");'>
+</div>
+<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-white drop-shadow-lg text-4xl">play_circle</span>
+</div>
+<div class="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">10:00</div>
+</div>
+<div>
+<h4 class="text-white font-bold leading-tight group-hover:text-[#a15145] transition-colors line-clamp-2 text-sm">Introducción al Arte Sacro para Niños</h4>
+<p class="text-[#b2a6a4] text-[11px] mt-1 uppercase tracking-wide">Documental Kids</p>
+</div>
+</a>
 </div>
 </div>
 </main>
-<footer class="bg-[#0f0b0c] border-t border-white/5 pt-16 pb-8 px-4 md:px-16 mt-auto">
-<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-12">
-<div class="flex flex-col gap-4 max-w-xs">
-<div class="flex items-center gap-2">
-<div class="h-8 w-auto">
-<img alt="SACRART Logo" class="h-full w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCooOzz4SzkWPXOldhFtdGi69JkB4crJrsfs1m8I7efxjqW6g3TgYQqozQnXvTYsjFD1EenwJbyLrG9woQsfLc5UVoNZArAPTDpLy333QchTWsnp6hXqtdmKHH17c3dYGl1sMYlbhBJt0l-7W3KimAONQeRLnChnRRkzourEM3lWdViVSPrmCHKYVTUU_ff8EWmtjt6MzqBSnwpvfoaFiv6r3WKOzkTsZd6ROuxwlk9pWUYxpJziFbpQwtLe3ImrzGCbiZgqHKvMa0"/>
+<footer class="border-t border-[#342e2d] bg-[#161313] py-16 px-4 md:px-10">
+<div class="w-full max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+<div class="col-span-1 flex flex-col gap-4">
+<div class="size-10 text-[#a15145]">
+<svg class="h-full w-full" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M24 4C12.95 4 4 12.95 4 24C4 35.05 12.95 44 24 44C35.05 44 44 35.05 44 24C44 12.95 35.05 4 24 4ZM24 40C15.16 40 8 32.84 8 24C8 15.16 15.16 8 24 8C32.84 8 40 15.16 40 24C40 32.84 32.84 40 24 40Z" fill="currentColor"></path>
+<path d="M24 14C18.48 14 14 18.48 14 24C14 29.52 18.48 34 24 34C29.52 34 34 29.52 34 24C34 18.48 29.52 14 24 14ZM22 29V19L29 24L22 29Z" fill="currentColor"></path>
+</svg>
+</div>
+<p class="text-[#b2a6a4] text-xs leading-relaxed max-w-[250px]">
+                La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.
+            </p>
+<div class="flex gap-4 mt-2">
+<a class="text-white hover:text-[#a15145] transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">photo_camera</span></a>
+<a class="text-white hover:text-[#a15145] transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">social_leaderboard</span></a>
+<a class="text-white hover:text-[#a15145] transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">music_note</span></a>
+<a class="text-white hover:text-[#a15145] transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">play_circle</span></a>
 </div>
 </div>
-<p class="text-sm text-gray-500">La primera plataforma de streaming dedicada exclusivamente a la enseñanza y difusión del arte sacro.</p>
-<div class="flex gap-4 text-gray-400 mt-2">
-<a class="hover:text-white transition-colors" href="#"><i class="fa-brands fa-instagram text-xl"></i></a>
-<a class="hover:text-white transition-colors" href="#"><i class="fa-brands fa-facebook text-xl"></i></a>
-<a class="hover:text-white transition-colors" href="#"><i class="fa-brands fa-tiktok text-xl"></i></a>
-<a class="hover:text-white transition-colors" href="#"><i class="fa-brands fa-youtube text-xl"></i></a>
+<div class="col-span-1">
+<h4 class="text-white text-[11px] font-bold uppercase tracking-widest mb-6">Explorar</h4>
+<ul class="flex flex-col gap-3 text-xs text-[#b2a6a4]">
+<li><a class="hover:text-white transition-colors" href="#">Modelado</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Talla</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Policromía</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Materiales</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="text-white text-[11px] font-bold uppercase tracking-widest mb-6">Cuenta</h4>
+<ul class="flex flex-col gap-3 text-xs text-[#b2a6a4]">
+<li><a class="hover:text-white transition-colors" href="#">Mi Perfil</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Mi Lista</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Certificados</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Suscripción</a></li>
+</ul>
+</div>
+<div class="col-span-1 grid grid-cols-2 gap-8">
+<div>
+<h4 class="text-white text-[11px] font-bold uppercase tracking-widest mb-6">Ayuda</h4>
+<ul class="flex flex-col gap-3 text-xs text-[#b2a6a4]">
+<li><a class="hover:text-white transition-colors" href="#">Soporte</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Preguntas Frecuentes</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Contacto</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-white text-[11px] font-bold uppercase tracking-widest mb-6">Legal</h4>
+<ul class="flex flex-col gap-3 text-xs text-[#b2a6a4]">
+<li><a class="hover:text-white transition-colors" href="#">Términos</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Privacidad</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Cookies</a></li>
+</ul>
 </div>
 </div>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-8 w-full md:w-auto">
-<div class="flex flex-col gap-3">
-<h4 class="font-bold text-white text-sm uppercase tracking-wider mb-1">Explorar</h4>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Modelado</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Talla</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Policromia</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Materiales</a>
 </div>
-<div class="flex flex-col gap-3">
-<h4 class="font-bold text-white text-sm uppercase tracking-wider mb-1">Cuenta</h4>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Mi Perfil</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Mi Lista</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Certificados</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Suscripción</a>
+<div class="w-full max-w-[1600px] mx-auto mt-16 pt-8 border-t border-[#342e2d]">
+<p class="text-[#4e4544] text-[10px]">© 2023 SACRART. Todos los derechos reservados.</p>
 </div>
-<div class="flex flex-col gap-3">
-<h4 class="font-bold text-white text-sm uppercase tracking-wider mb-1">Ayuda</h4>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Soporte</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Preguntas Frecuentes</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Contacto</a>
-</div>
-<div class="flex flex-col gap-3">
-<h4 class="font-bold text-white text-sm uppercase tracking-wider mb-1">Legal</h4>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Términos</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Privacidad</a>
-<a class="text-gray-400 hover:text-primary text-sm transition-colors" href="#">Cookies</a>
-</div>
-</div>
-</div>
-<div class="text-center text-xs text-gray-600 mt-16 pt-8 border-t border-white/5">
-        © 2023 SACRART. Todos los derechos reservados.
-    </div>
 </footer>
 </body></html>

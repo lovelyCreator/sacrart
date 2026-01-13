@@ -31,8 +31,8 @@ const EpisodeDetail = () => {
   const [relatedVideos, setRelatedVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showVideoPlayer, setShowVideoPlayer] = useState(true); // Always show video player initially
-  const [videoStarted, setVideoStarted] = useState(true); // Video starts automatically
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false); // Show thumbnail initially, video on click
+  const [videoStarted, setVideoStarted] = useState(false); // Video starts when user clicks play
   const [videoEnded, setVideoEnded] = useState(false); // Track if video has ended
   const [userProgress, setUserProgress] = useState<any>(null);
   const [isLiked, setIsLiked] = useState(false);
@@ -647,20 +647,29 @@ const EpisodeDetail = () => {
           loadTranscription(videoData.id, videoData);
         }
 
-        // Fetch related videos
-        if (videoData.category_id) {
+        // Fetch related videos from the same series
+        const seriesId = videoData.series_id || (videoData.series?.id);
+        if (seriesId) {
           try {
             const relatedResponse = await videoApi.getPublic({ 
-              category_id: videoData.category_id, 
-              per_page: 5 
+              series_id: seriesId, 
+              per_page: 100,
+              status: 'published'
             });
             const relatedData = Array.isArray(relatedResponse.data) 
               ? relatedResponse.data 
               : relatedResponse.data?.data || [];
-            setRelatedVideos(relatedData.filter((v: any) => v.id !== videoData.id).slice(0, 4));
+            // Filter out current video and limit to 4
+            const filtered = relatedData.filter((v: any) => v.id !== videoData.id && v.status === 'published').slice(0, 4);
+            setRelatedVideos(filtered);
+            console.log('Related videos from series:', filtered.length, 'series_id:', seriesId);
           } catch (error) {
             console.error('Failed to fetch related videos:', error);
+            setRelatedVideos([]);
           }
+        } else {
+          console.log('No series_id found for video, cannot fetch related videos');
+          setRelatedVideos([]);
         }
         
         // Set user progress - always fetch latest to ensure like/dislike status is current
@@ -1907,11 +1916,28 @@ const EpisodeDetail = () => {
       {/* Video Player Section */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-8">
         <div 
-          className={`relative w-full rounded-lg overflow-hidden shadow-2xl border border-border-dark/50 bg-black aspect-video md:aspect-[21/9]`}
+          className="relative w-full aspect-video md:aspect-[21/9] rounded-lg overflow-hidden shadow-2xl group cursor-pointer border border-border-dark/50"
         >
           {hasAccess ? (
             <>
-              {!videoEnded && (video.bunny_embed_url || video.bunny_player_url) ? (
+              {!showVideoPlayer && thumbnailUrl ? (
+                <>
+                  <img
+                    alt={video.title}
+                    src={thumbnailUrl}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 duration-300">
+                    <div className="w-16 h-16 bg-primary/90 rounded-full flex items-center justify-center backdrop-blur-sm shadow-lg transform scale-90 group-hover:scale-100 transition-all">
+                      <Play className="h-8 w-8 text-white ml-1" />
+                    </div>
+                  </div>
+                </>
+              ) : !videoEnded && (video.bunny_embed_url || video.bunny_player_url) ? (
                 <div className="w-full h-full relative">
                   {playbackError && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-50 p-4">
@@ -2128,48 +2154,35 @@ const EpisodeDetail = () => {
               )}
             </>
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              {!hasAccess && (
-                <div className="text-center">
-                  <Lock className="h-16 w-16 text-text-dim mx-auto mb-4" />
-                  <p className="text-text-dim">{t('video.premium_content')}</p>
+            <>
+              {thumbnailUrl ? (
+                <>
+                  <img
+                  alt={video.title}
+                  src={thumbnailUrl}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 duration-300">
+                  <div className="w-16 h-16 bg-primary/90 rounded-full flex items-center justify-center backdrop-blur-sm shadow-lg transform scale-90 group-hover:scale-100 transition-all">
+                    <Play className="h-8 w-8 text-white ml-1" />
+                  </div>
+                </div>
+                </>
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                  {!hasAccess && (
+                    <div className="text-center">
+                      <Lock className="h-16 w-16 text-text-dim mx-auto mb-4" />
+                      <p className="text-text-dim">{t('video.premium_content')}</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
-          {/* Show thumbnail image only when video has ended */}
-          {videoEnded && hasAccess && thumbnailUrl && (
-            <div className="absolute inset-0 z-10">
-              <img
-                alt={video.title}
-                src={thumbnailUrl}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                }}
-              />
-              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                <Button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Restart video
-                    setVideoEnded(false);
-                    setShowVideoPlayer(true);
-                    setVideoStarted(true);
-                    if (bunnyPlayerRef.current) {
-                      bunnyPlayerRef.current.play();
-                      setIsPlaying(true);
-                    }
-                  }}
-                  className="h-16 w-16 rounded-full bg-primary hover:bg-primary-hover text-white font-bold shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
-                  size="lg"
-                >
-                  <Play className="h-8 w-8 ml-1" />
-                </Button>
-              </div>
-            </div>
+            </>
           )}
           
           {/* Progress Bar - Shows real-time video progress */}
@@ -2230,127 +2243,84 @@ const EpisodeDetail = () => {
 
       {/* Action Buttons Section */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-6 mb-12">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!showVideoPlayer) {
+                setShowVideoPlayer(true);
+                setVideoStarted(true);
+              }
+              handlePlay();
+            }}
+            disabled={!hasAccess || !video}
+            className="flex items-center gap-3 px-8 py-3 bg-primary hover:bg-primary-hover text-white font-bold tracking-wide rounded transition-all shadow-lg hover:shadow-primary/30 w-full md:w-auto justify-center md:justify-start uppercase text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Play className="h-6 w-6" />
+            {t('video.play', 'REPRODUCIR')}
+          </Button>
+          <div className="flex flex-wrap gap-4 w-full md:w-auto md:ml-auto">
             <Button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handlePlay();
-              }}
-              disabled={!hasAccess || !video}
-              className="h-12 flex items-center gap-3 px-8 bg-primary hover:bg-primary-hover text-white font-bold tracking-wide rounded transition-all shadow-lg hover:shadow-primary/30 w-full sm:w-auto justify-center sm:justify-start uppercase text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleDownloadMaterials}
+              variant="outline"
+              className="flex-1 md:flex-none items-center gap-2 px-6 py-3 border border-primary/40 hover:bg-primary/10 text-primary font-semibold tracking-wide rounded transition-all flex justify-center uppercase text-xs"
             >
-              {!videoStarted ? (
-                <>
-                  <Play className="h-5 w-5" />
-                  {t('video.play', 'REPRODUCIR')}
-                </>
-              ) : isPlaying ? (
-                <>
-                  <i className="fa-solid fa-pause text-2xl"></i>
-                  {t('video.pause', 'PAUSAR')}
-                </>
-              ) : (
-                <>
-                  <i className="fa-solid fa-play text-2xl"></i>
-                  {t('video.play', 'REPRODUCIR')}
-                </>
-              )}
+              <Download className="h-5 w-5 text-primary" />
+              {t('video.download_materials', 'DESCARGAR MATERIALES')}
             </Button>
-            <div className="flex gap-4 w-full sm:w-auto">
-              <Button
-                onClick={handleDownloadMaterials}
-                variant="outline"
-                className="h-12 flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 border border-primary hover:bg-primary/10 text-primary font-bold tracking-widest text-[11px] uppercase rounded transition-all whitespace-nowrap"
-              >
-                <Download className="text-lg" />
-                {t('video.download_materials', 'DESCARGAR MATERIALES')}
-              </Button>
-              <Button
-                onClick={handleTranscription}
-                variant="outline"
-                className="h-12 flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 border border-primary hover:bg-primary/10 text-primary font-bold tracking-widest text-[11px] uppercase rounded transition-all whitespace-nowrap"
-              >
-                <FileText className="text-lg" />
-                {t('video.transcription', 'TRANSCRIPCIÓN')}
-              </Button>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 ml-auto self-end lg:self-center">
-            <button
-              onClick={handleToggleFavorite}
-              className="transition-colors focus:outline-none"
-              title={isFavorite ? t('video.removed_from_favorites', 'Remove from favorites') : t('video.added_to_favorites', 'Add to favorites')}
+            <Button
+              onClick={handleTranscription}
+              variant="outline"
+              className="flex-1 md:flex-none items-center gap-2 px-6 py-3 border border-primary/40 hover:bg-primary/10 text-primary font-semibold tracking-wide rounded transition-all flex justify-center uppercase text-xs"
             >
-              <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
-                isFavorite 
-                  ? 'border-primary bg-primary/10' 
-                  : 'border-white/30 hover:border-white bg-transparent'
-              }`}>
-                <Plus className={`h-5 w-5 transition-colors ${
-                  isFavorite ? 'text-primary' : 'text-white'
-                }`} />
-              </div>
-            </button>
-            <button
-              onClick={handleLike}
-              className="transition-colors focus:outline-none"
-              title={isLiked ? t('video.like_removed', 'Remove like') : t('video.video_liked', 'Like video')}
-            >
-              <i className={`fa-solid fa-thumbs-up text-3xl transition-colors ${
-                isLiked ? 'text-primary' : 'text-white hover:text-primary'
-              }`}></i>
-            </button>
-            <button
-              onClick={handleDislike}
-              className="transition-colors focus:outline-none"
-              title={isDisliked ? t('video.dislike_removed', 'Remove dislike') : t('video.video_disliked', 'Dislike video')}
-            >
-              <i className={`fa-solid fa-thumbs-down text-3xl transition-colors ${
-                isDisliked ? 'text-primary' : 'text-white hover:text-primary'
-              }`}></i>
-            </button>
+              <FileText className="h-5 w-5 text-primary" />
+              {t('video.transcription', 'TRANSCRIPCIÓN')}
+            </Button>
           </div>
         </div>
       </section>
 
       {/* Video Info and Comments Section */}
-      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mb-12">
+      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mb-16">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="space-y-6">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-tight">
-                {video.title}
-              </h1>
-              <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-text-muted-dark uppercase tracking-wide">
-                <span>{getYear(video.created_at || video.published_at)}</span>
-                <span className="w-1 h-1 bg-current rounded-full"></span>
-                <span>{formatDuration(video.duration || 0)}</span>
-                <span className="w-1 h-1 bg-current rounded-full"></span>
-                <span className="border border-current px-1 rounded text-[10px] font-bold">{t('video.transcription_badge', 'T')}</span>
-                {series && (
-                  <>
-                    <span className="w-1 h-1 bg-current rounded-full"></span>
-                    <span>{getSeriesTitle(series)}</span>
-                  </>
-                )}
-                {series && category && (
-                  <>
-                    <span className="w-1 h-1 bg-current rounded-full"></span>
-                    <span>{getCategoryName(category)}</span>
-                  </>
-                )}
-                {!series && category && (
-                  <>
-                    <span className="w-1 h-1 bg-current rounded-full"></span>
-                    <span>{getCategoryName(category)}</span>
-                  </>
-                )}
-              </div>
-              {/* Transcription Content - Only shown when button is pressed */}
-              {activeTab === 'transcription' && (
+          <div className="lg:col-span-2 space-y-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-text-main-light dark:text-white leading-tight">
+              {video.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-text-muted-light dark:text-text-muted-dark uppercase tracking-wide">
+              <span>{getYear(video.created_at || video.published_at)}</span>
+              <span className="w-1 h-1 bg-current rounded-full"></span>
+              <span>{formatDuration(video.duration || 0)}</span>
+              <span className="w-1 h-1 bg-current rounded-full"></span>
+              <span className="border border-current px-1 rounded text-[10px] font-bold">{t('video.transcription_badge', 'T')}</span>
+              {series && (
+                <>
+                  <span className="w-1 h-1 bg-current rounded-full"></span>
+                  <span>{getSeriesTitle(series)}</span>
+                </>
+              )}
+              {series && category && (
+                <>
+                  <span className="w-1 h-1 bg-current rounded-full"></span>
+                  <span>{getCategoryName(category)}</span>
+                </>
+              )}
+              {!series && category && (
+                <>
+                  <span className="w-1 h-1 bg-current rounded-full"></span>
+                  <span>{getCategoryName(category)}</span>
+                </>
+              )}
+            </div>
+            <div className="prose dark:prose-invert max-w-none">
+              <p className="text-lg leading-relaxed text-text-main-light dark:text-gray-300 font-light">
+                {video.description || video.short_description || ''}
+              </p>
+            </div>
+            {/* Transcription Content - Only shown when button is pressed */}
+            {activeTab === 'transcription' && (
                 <div data-transcription-section className="py-6 space-y-6 max-w-3xl">
                   {transcriptionSegments.length > 0 ? (
                     transcriptionSegments.map((segment, index) => (
@@ -2409,97 +2379,95 @@ const EpisodeDetail = () => {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Comments Section */}
-            <div className="mt-12 pt-8 border-t border-border-dark">
-              <h3 className="text-xl font-bold text-white mb-6">
-                {t('video.comments', 'Comentarios')} <span className="text-sm font-normal text-text-muted-dark ml-2">{comments.length}</span>
-              </h3>
-              {user && (
-                <div className="flex gap-4 mb-8">
-                  <div className="w-10 h-10 bg-zinc-700 rounded-full flex-shrink-0 overflow-hidden">
-                    {(user as any).avatar ? (
-                      <img src={(user as any).avatar} alt={user.name || t('video.user', 'User')} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-                        {getInitials(user.name || user.email)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-grow">
-                    <Input
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSubmitComment();
-                        }
-                      }}
-                      className="w-full bg-transparent border-b border-border-dark focus:border-primary px-2 py-2 text-sm text-white focus:ring-0 placeholder-text-muted-dark transition-colors"
-                      placeholder={t('video.add_comment', 'Añade un comentario...')}
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="space-y-6 max-h-[400px] overflow-y-auto comments-scroll pr-4">
-                {comments.length === 0 ? (
-                  <p className="text-sm text-text-muted-dark text-center py-4">
-                    {t('video.no_comments', 'No hay comentarios aún')}
-                  </p>
-                ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-4">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
-                        {getInitials(comment.user?.name || comment.user?.email)}
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-2 mb-1">
-                          <span className="text-sm font-bold text-white">
-                            {comment.user?.name || t('video.anonymous', 'Anónimo')}
-                          </span>
-                          <span className="text-xs text-text-muted-dark">
-                            {formatTimeAgo(comment.created_at)}
-                          </span>
+            {/* Comments Section - Hidden for now to match code.html design */}
+            {false && (
+              <div className="mt-12 pt-8 border-t border-border-dark">
+                <h3 className="text-xl font-bold text-white mb-6">
+                  {t('video.comments', 'Comentarios')} <span className="text-sm font-normal text-text-muted-dark ml-2">{comments.length}</span>
+                </h3>
+                {user && (
+                  <div className="flex gap-4 mb-8">
+                    <div className="w-10 h-10 bg-zinc-700 rounded-full flex-shrink-0 overflow-hidden">
+                      {(user as any).avatar ? (
+                        <img src={(user as any).avatar} alt={user.name || t('video.user', 'User')} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                          {getInitials(user.name || user.email)}
                         </div>
-                        <p className="text-sm text-gray-300">{comment.comment}</p>
-                      </div>
+                      )}
                     </div>
-                  ))
+                    <div className="flex-grow">
+                      <Input
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmitComment();
+                          }
+                        }}
+                        className="w-full bg-transparent border-b border-border-dark focus:border-primary px-2 py-2 text-sm text-white focus:ring-0 placeholder-text-muted-dark transition-colors"
+                        placeholder={t('video.add_comment', 'Añade un comentario...')}
+                      />
+                    </div>
+                  </div>
                 )}
+                <div className="space-y-6 max-h-[400px] overflow-y-auto comments-scroll pr-4">
+                  {comments.length === 0 ? (
+                    <p className="text-sm text-text-muted-dark text-center py-4">
+                      {t('video.no_comments', 'No hay comentarios aún')}
+                    </p>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-4">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
+                          {getInitials(comment.user?.name || comment.user?.email)}
+                        </div>
+                        <div>
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="text-sm font-bold text-white">
+                              {comment.user?.name || t('video.anonymous', 'Anónimo')}
+                            </span>
+                            <span className="text-xs text-text-muted-dark">
+                              {formatTimeAgo(comment.created_at)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-300">{comment.comment}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Sidebar - Participants/Instructors */}
-          <div className="lg:col-span-1 space-y-8">
-            <div className="border-l border-border-dark pl-0 lg:pl-12 pt-6 lg:pt-2">
-              <h3 className="text-sm font-bold text-text-muted-dark uppercase tracking-widest mb-6">
-                {t('video.participants', 'Intervienen')}
-              </h3>
-              <ul className="space-y-4 text-text-muted-dark text-sm leading-relaxed">
-                {video.instructor ? (
-                  <li className="group">
-                    <span className="block text-white font-bold text-base group-hover:text-primary transition-colors">
-                      {typeof video.instructor === 'object' ? video.instructor.name : video.instructor}
-                    </span>
-                    <span className="text-xs uppercase tracking-wide opacity-80">
-                      {typeof video.instructor === 'object' ? video.instructor.title || t('video.instructor', 'Instructor') : t('video.instructor', 'Instructor')}
-                    </span>
-                  </li>
-                ) : (
-                  <li className="group">
-                    <span className="block text-white font-bold text-base group-hover:text-primary transition-colors">
-                      Ana Rey
-                    </span>
-                    <span className="text-xs uppercase tracking-wide opacity-80">
-                      {t('video.master_sculptor', 'Maestro tallista Invitado')}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </div>
+          <div className="lg:col-span-1 border-l border-border-light dark:border-border-dark pl-0 lg:pl-12 pt-6 lg:pt-2">
+            <h3 className="text-sm font-bold text-text-muted-dark uppercase tracking-widest mb-6">
+              {t('video.participants', 'Intervienen')}
+            </h3>
+            <ul className="space-y-4 text-text-muted-light dark:text-text-muted-dark text-sm leading-relaxed">
+              {video.instructor ? (
+                <li className="group">
+                  <span className="block text-text-main-light dark:text-white font-bold text-base group-hover:text-primary transition-colors">
+                    {typeof video.instructor === 'object' ? video.instructor.name : video.instructor}
+                  </span>
+                  <span className="text-xs uppercase tracking-wide opacity-80">
+                    {typeof video.instructor === 'object' ? video.instructor.title || t('video.instructor', 'Instructor') : t('video.instructor', 'Instructor')}
+                  </span>
+                </li>
+              ) : (
+                <li className="group">
+                  <span className="block text-text-main-light dark:text-white font-bold text-base group-hover:text-primary transition-colors">
+                    Ana Rey
+                  </span>
+                  <span className="text-xs uppercase tracking-wide opacity-80">
+                    {t('video.master_sculptor', 'Maestro tallista Invitado')}
+                  </span>
+                </li>
+              )}
+            </ul>
           </div>
         </div>
       </section>
@@ -2562,11 +2530,11 @@ const EpisodeDetail = () => {
                       </div>
                     )}
                   </div>
-                  <h4 className="text-gray-200 font-bold text-sm group-hover:text-primary transition-colors line-clamp-2 leading-tight">
+                  <h4 className="text-text-main-light dark:text-gray-200 font-bold text-sm group-hover:text-primary transition-colors line-clamp-2 leading-tight">
                     {relatedVideo.title}
                   </h4>
                   <p className="text-xs text-text-muted-dark mt-1">
-                    {relatedVideo.category?.name || t('video.category', 'Categoría')}
+                    {relatedVideo.series ? getSeriesTitle(relatedVideo.series) : (relatedVideo.series?.name || t('video.series', 'Serie'))}
                   </p>
                 </div>
               );
