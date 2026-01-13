@@ -33,6 +33,14 @@ interface ShopProduct {
   shop_url?: string;
 }
 
+interface TranscriptionSegment {
+  time: string;
+  startTime: number;
+  endTime: number;
+  text: string;
+  isActive?: boolean;
+}
+
 const EpisodeShop = () => {
   const { id } = useParams<{ id: string }>();
   const [video, setVideo] = useState<any | null>(null);
@@ -50,8 +58,12 @@ const EpisodeShop = () => {
   const [shopProduct, setShopProduct] = useState<ShopProduct | null>(null);
   const [downloadableResources, setDownloadableResources] = useState<any[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
+  const [transcriptionSegments, setTranscriptionSegments] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'transcription' | null>(null);
+  const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const bunnyPlayerRef = useRef<any>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -105,12 +117,9 @@ const EpisodeShop = () => {
           }
         }
 
-        // Check for transcription
-        if (videoData.description && videoData.description.includes('TRANSCRIPCIÓN:')) {
-          const transcriptionMatch = videoData.description.match(/TRANSCRIPCIÓN:\s*(.+)/i);
-          if (transcriptionMatch) {
-            setTranscription(transcriptionMatch[1]);
-          }
+        // Load transcription from video data or API
+        if (videoData.id) {
+          loadTranscription(videoData.id, videoData);
         }
 
         // Fetch related videos from the same series
@@ -367,6 +376,463 @@ const EpisodeShop = () => {
     }
   };
 
+  // Helper function to convert WebVTT time to seconds
+  const vttTimeToSeconds = (vttTime: string): number => {
+    const parts = vttTime.split(':');
+    if (parts.length === 3) {
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10);
+      const secondsParts = parts[2].split('.');
+      const seconds = parseInt(secondsParts[0], 10);
+      const milliseconds = parseInt(secondsParts[1] || '0', 10);
+      return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+    }
+    return 0;
+  };
+
+  // Helper function to format seconds to display time (MM:SS)
+  const formatDisplayTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Parse WebVTT format with proper time ranges
+  const parseWebVTT = (vtt: string): TranscriptionSegment[] => {
+    const segments: TranscriptionSegment[] = [];
+    const lines = vtt.split('\n');
+    let currentStartTime = '';
+    let currentEndTime = '';
+    let currentText = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '') {
+        continue;
+      }
+      
+      const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
+      if (timeMatch) {
+        if (currentStartTime && currentText) {
+          const startSeconds = vttTimeToSeconds(currentStartTime);
+          const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
+          segments.push({
+            time: formatDisplayTime(startSeconds),
+            startTime: startSeconds,
+            endTime: endSeconds,
+            text: currentText.trim(),
+            isActive: false,
+          });
+        }
+        currentStartTime = timeMatch[1];
+        currentEndTime = timeMatch[2];
+        currentText = '';
+      } else if (line && currentStartTime) {
+        const cleanLine = line.replace(/<[^>]*>/g, '').trim();
+        if (cleanLine) {
+          currentText += (currentText ? ' ' : '') + cleanLine;
+        }
+      }
+    }
+    
+    if (currentStartTime && currentText) {
+      const startSeconds = vttTimeToSeconds(currentStartTime);
+      const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
+      segments.push({
+        time: formatDisplayTime(startSeconds),
+        startTime: startSeconds,
+        endTime: endSeconds,
+        text: currentText.trim(),
+        isActive: false,
+      });
+    }
+    
+    return segments;
+  };
+
+  // Parse transcription text into segments
+  const parseTranscription = (text: string, duration: number): TranscriptionSegment[] => {
+    if (!text || !text.trim()) return [];
+    
+    if (text.includes('WEBVTT') || text.includes('-->')) {
+      return parseWebVTT(text);
+    }
+    
+    const lines = text.split('\n').filter(line => line.trim());
+    const segments: TranscriptionSegment[] = [];
+    let currentTime = 0;
+    const estimatedSegmentDuration = duration / Math.max(lines.length, 1);
+    
+    lines.forEach((line) => {
+      const timestampMatch = line.match(/(\d{1,2}):(\d{2}):?(\d{2})?/);
+      if (timestampMatch) {
+        const parts = timestampMatch[0].split(':');
+        let seconds = 0;
+        if (parts.length === 2) {
+          seconds = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        } else if (parts.length === 3) {
+          seconds = parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+        }
+        currentTime = seconds;
+        const textPart = line.replace(timestampMatch[0], '').trim();
+        if (textPart) {
+          segments.push({
+            time: formatDisplayTime(seconds),
+            startTime: seconds,
+            endTime: Math.min(seconds + estimatedSegmentDuration, duration),
+            text: textPart,
+            isActive: false,
+          });
+        }
+      } else if (line.trim()) {
+        if (segments.length === 0) {
+          segments.push({
+            time: formatDisplayTime(0),
+            startTime: 0,
+            endTime: estimatedSegmentDuration,
+            text: line.trim(),
+            isActive: false,
+          });
+        } else {
+          const lastSegment = segments[segments.length - 1];
+          if (lastSegment.text.length < 200) {
+            lastSegment.text += ' ' + line.trim();
+            lastSegment.endTime = Math.min(lastSegment.startTime + estimatedSegmentDuration * (segments.length + 1), duration);
+          } else {
+            const newStartTime = lastSegment.endTime;
+            segments.push({
+              time: formatDisplayTime(newStartTime),
+              startTime: newStartTime,
+              endTime: Math.min(newStartTime + estimatedSegmentDuration, duration),
+              text: line.trim(),
+              isActive: false,
+            });
+          }
+        }
+      }
+    });
+    
+    if (segments.length === 0) {
+      return [{
+        time: formatDisplayTime(0),
+        startTime: 0,
+        endTime: duration || 0,
+        text: text.trim(),
+        isActive: false,
+      }];
+    }
+    
+    return segments;
+  };
+
+  // Load transcription from video data or API
+  const loadTranscription = async (videoId: number, videoData?: any) => {
+    try {
+      const currentLocale = (locale || 'en').substring(0, 2);
+      const finalLocale = ['en', 'es', 'pt'].includes(currentLocale) ? currentLocale : 'en';
+      
+      let transcriptionText: string | null = null;
+      
+      if (videoData && videoData.transcriptions && typeof videoData.transcriptions === 'object') {
+        const transcriptions = videoData.transcriptions;
+        if (transcriptions[finalLocale]) {
+          if (typeof transcriptions[finalLocale] === 'string') {
+            transcriptionText = transcriptions[finalLocale].trim();
+          } else if (transcriptions[finalLocale]?.text) {
+            transcriptionText = String(transcriptions[finalLocale].text).trim();
+          }
+        } else if (transcriptions.en) {
+          if (typeof transcriptions.en === 'string') {
+            transcriptionText = transcriptions.en;
+          } else if (transcriptions.en?.text) {
+            transcriptionText = transcriptions.en.text;
+          }
+        }
+      } else if (videoData) {
+        switch (finalLocale) {
+          case 'es':
+            transcriptionText = videoData.transcription_es || videoData.transcription || null;
+            break;
+          case 'pt':
+            transcriptionText = videoData.transcription_pt || videoData.transcription || null;
+            break;
+          default:
+            transcriptionText = videoData.transcription_en || videoData.transcription || null;
+            break;
+        }
+      }
+      
+      if (!transcriptionText) {
+        try {
+          const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
+          const response = await fetch(
+            `${baseUrl}/videos/${videoId}/transcription?locale=${finalLocale}`,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'Accept-Language': finalLocale,
+              },
+            }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.transcription) {
+              transcriptionText = data.transcription;
+            }
+          }
+        } catch (apiError) {
+          console.error('Transcription API error:', apiError);
+        }
+      }
+      
+      if (transcriptionText) {
+        if (Array.isArray(transcriptionText)) {
+          transcriptionText = transcriptionText.map(item => {
+            if (typeof item === 'string') {
+              return item;
+            } else if (item && typeof item === 'object') {
+              return item.punctuated_word || item.word || item.text || '';
+            }
+            return '';
+          }).join(' ');
+        }
+        
+        if (typeof transcriptionText !== 'string') {
+          transcriptionText = String(transcriptionText || '');
+        }
+        
+        setTranscription(transcriptionText);
+        const segments = parseTranscription(transcriptionText, video?.duration || videoData?.duration || 0);
+        setTranscriptionSegments(segments);
+      } else {
+        setTranscription(null);
+        setTranscriptionSegments([]);
+      }
+    } catch (error) {
+      console.error('Error loading transcription:', error);
+      setTranscription(null);
+      setTranscriptionSegments([]);
+    }
+  };
+
+  // Direct video download handler
+  const handleVideoDownload = async () => {
+    if (!video) {
+      toast.error('Video not available');
+      return;
+    }
+
+    if (!video.allow_download) {
+      toast.error('Download is not allowed for this video');
+      return;
+    }
+
+    if (!video.bunny_video_id && !video.bunny_embed_url && !video.bunny_video_url) {
+      toast.error('Video download is not available');
+      return;
+    }
+
+    try {
+      toast.loading('Preparing download...', { id: 'download' });
+      
+      const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000';
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error(t('video.auth_required', 'Authentication required for download'), { id: 'download' });
+        return;
+      }
+      
+      const videoId = video.id;
+      const quality = '720';
+      
+      const response = await fetch(`${apiBaseUrl}/api/videos/${videoId}/download-url?quality=${quality}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.download_url) {
+          const link = document.createElement('a');
+          link.href = data.download_url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.download = `${video.title || 'video'}.mp4`;
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast.success('Download started', { id: 'download' });
+        } else {
+          toast.error(data.message || 'Failed to get download URL', { id: 'download' });
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to get download URL' }));
+        toast.error(errorData.message || 'Failed to get download URL', { id: 'download' });
+      }
+    } catch (error) {
+      console.error('Error downloading video:', error);
+      toast.error('Failed to download video', { id: 'download' });
+    }
+  };
+
+  const handleDownloadMaterials = async () => {
+    if (video && video.allow_download && video.bunny_video_id) {
+      await handleVideoDownload();
+      return;
+    }
+    
+    if (video && video.allow_download && (video.bunny_embed_url || video.bunny_video_url)) {
+      await handleVideoDownload();
+      return;
+    }
+    
+    if (downloadableResources.length > 0) {
+      let downloadedCount = 0;
+      let failedCount = 0;
+      
+      for (let index = 0; index < downloadableResources.length; index++) {
+        const resource = downloadableResources[index];
+        
+        if (resource.url && resource.url.startsWith('api://download-video/') && resource.video_id) {
+          try {
+            const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000';
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+            const response = await fetch(`${apiBaseUrl}/api/videos/${resource.video_id}/download-url?quality=720`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.download_url) {
+                const link = document.createElement('a');
+                link.href = data.download_url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.download = resource.filename || resource.name || 'video.mp4';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                downloadedCount++;
+              } else {
+                failedCount++;
+                toast.error(data.message || 'Failed to get download URL');
+              }
+            } else {
+              failedCount++;
+              toast.error('Failed to get download URL');
+            }
+          } catch (error) {
+            console.error('Error fetching download URL:', error);
+            failedCount++;
+            toast.error('Failed to download video');
+          }
+          continue;
+        }
+        
+        if (resource.url) {
+          try {
+            let downloadUrl = resource.url;
+            
+            if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://') && !downloadUrl.startsWith('api://')) {
+              const baseUrl = import.meta.env.VITE_SERVER_BASE_URL;
+              downloadUrl = `${baseUrl.replace('/api', '')}${downloadUrl.startsWith('/') ? '' : '/'}${downloadUrl}`;
+            }
+            
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            
+            if (resource.filename || resource.name) {
+              link.download = resource.filename || resource.name;
+            }
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            downloadedCount++;
+            
+            if (index < downloadableResources.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+          } catch (error) {
+            console.error('Error downloading resource:', error);
+            failedCount++;
+            try {
+              window.open(resource.url, '_blank');
+            } catch (fallbackError) {
+              toast.error(`Failed to download: ${resource.url || 'unknown resource'}`);
+            }
+          }
+        } else {
+          failedCount++;
+        }
+      }
+      
+      if (downloadedCount > 0) {
+        toast.success(`${downloadedCount} ${downloadedCount === 1 ? 'file' : 'files'} ${t('video.download_started', 'download iniciado')}`);
+      } else if (failedCount > 0) {
+        toast.error('Failed to download materials. Please check the console for details.');
+      }
+    } else {
+      if (video?.allow_download && !video?.bunny_video_id && !video?.bunny_embed_url && !video?.bunny_video_url) {
+        toast.error(t('video.download_not_configured', 'Download is enabled but video source is not configured. Please contact support.'));
+      } else if (video?.allow_download === false && !video?.downloadable_resources) {
+        toast.info(t('video.no_downloadable_resources', 'No hay materiales descargables disponibles. Los recursos descargables deben agregarse en el panel de administración.'));
+      } else {
+        toast.info(t('video.no_downloadable_resources', 'No hay materiales descargables disponibles'));
+      }
+    }
+  };
+
+  const handleTranscription = () => {
+    if (activeTab === 'transcription') {
+      setActiveTab(null);
+    } else {
+      setActiveTab('transcription');
+      
+      if (!transcription && video?.id) {
+        loadTranscription(video.id, video);
+      }
+    }
+  };
+
+  // Reload transcription when language changes
+  useEffect(() => {
+    if (video && video.id) {
+      loadTranscription(video.id, video);
+    }
+  }, [locale, video?.id]);
+
+  // Update active transcription segment based on current playback time
+  useEffect(() => {
+    if (transcriptionSegments.length === 0 || videoCurrentTime === undefined) return;
+
+    setTranscriptionSegments(prevSegments => {
+      return prevSegments.map(segment => {
+        const isActive = videoCurrentTime >= segment.startTime && videoCurrentTime < segment.endTime;
+        return { ...segment, isActive };
+      });
+    });
+  }, [videoCurrentTime]);
+
   if (loading) {
     return (
       <main className="w-full min-h-screen pb-20 bg-[#161313] flex items-center justify-center">
@@ -544,24 +1010,22 @@ const EpisodeShop = () => {
               <Play className="h-7 w-7 fill-current" />
               <span className="font-bold text-sm tracking-widest uppercase">{t('video.play', 'Reproducir')}</span>
             </Button>
-            {downloadableResources.length > 0 && (
-              <Button
-                variant="outline"
-                className="flex items-center justify-center rounded border border-[#A05245] text-[#A05245] hover:bg-[#A05245] hover:text-white transition-all duration-300 px-6 gap-2"
-              >
-                <Download className="h-5 w-5" />
-                <span className="font-bold text-xs tracking-widest uppercase">{t('video.download_materials', 'Descargar Materiales')}</span>
-              </Button>
-            )}
-            {transcription && (
-              <Button
-                variant="outline"
-                className="flex items-center justify-center rounded border border-[#A05245] text-[#A05245] hover:bg-[#A05245] hover:text-white transition-all duration-300 px-6 gap-2"
-              >
-                <FileText className="h-5 w-5" />
-                <span className="font-bold text-xs tracking-widest uppercase">{t('video.transcription', 'Transcripción')}</span>
-              </Button>
-            )}
+            <Button
+              onClick={handleDownloadMaterials}
+              variant="outline"
+              className="flex items-center justify-center rounded border border-[#A05245] text-[#A05245] hover:bg-[#A05245] hover:text-white transition-all duration-300 px-6 gap-2"
+            >
+              <Download className="h-5 w-5" />
+              <span className="font-bold text-xs tracking-widest uppercase">{t('video.download_materials', 'Descargar Materiales')}</span>
+            </Button>
+            <Button
+              onClick={handleTranscription}
+              variant="outline"
+              className="flex items-center justify-center rounded border border-[#A05245] text-[#A05245] hover:bg-[#A05245] hover:text-white transition-all duration-300 px-6 gap-2"
+            >
+              <FileText className="h-5 w-5" />
+              <span className="font-bold text-xs tracking-widest uppercase">{t('video.transcription', 'Transcripción')}</span>
+            </Button>
           </div>
           <div className="flex items-center gap-6 pr-2">
             <button
@@ -626,6 +1090,61 @@ const EpisodeShop = () => {
                   </p>
                 )}
               </div>
+
+              {/* Transcription Content - Only shown when button is pressed */}
+              {activeTab === 'transcription' && (
+                <div data-transcription-section className="py-6 space-y-6 max-w-3xl">
+                  {transcriptionSegments.length > 0 ? (
+                    transcriptionSegments.map((segment, index) => (
+                      <div
+                        id={`transcript-segment-${index}`}
+                        key={index}
+                        onClick={() => {
+                          if (video && (video.bunny_embed_url || video.bunny_player_url)) {
+                            if (bunnyPlayerRef.current) {
+                              bunnyPlayerRef.current.seek(segment.startTime);
+                            }
+                          } else if (videoRef.current) {
+                            videoRef.current.currentTime = segment.startTime;
+                          }
+                        }}
+                        className={`cursor-pointer transition-all py-3 px-4 rounded-lg border-l-4 ${
+                          segment.isActive
+                            ? 'bg-[#a15145]/10 border-[#a15145]'
+                            : 'bg-transparent border-transparent hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-[#b2a6a4] text-xs font-mono flex-shrink-0 mt-1">
+                            {segment.time}
+                          </span>
+                          <p
+                            className={`text-sm leading-relaxed ${
+                              segment.isActive
+                                ? 'text-white font-bold'
+                                : 'text-[#b2a6a4]'
+                            }`}
+                          >
+                            {segment.text}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : transcription ? (
+                    <div className="py-6">
+                      <p className="text-[#b2a6a4] text-base leading-relaxed whitespace-pre-wrap">
+                        {transcription}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="py-6">
+                      <p className="text-[#b2a6a4] text-base">
+                        {t('video.no_transcription_available', 'No hay transcripción disponible para este video.')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Comments Section */}
               <div className="mt-4">
