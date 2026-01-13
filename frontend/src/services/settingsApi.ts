@@ -120,6 +120,26 @@ export const settingsApi = {
     });
     return handleResponse(response);
   },
+
+  // Get YouTube video statistics
+  async getYouTubeStats(videoId: string): Promise<{ 
+    success: boolean; 
+    data?: {
+      viewCount: number | null;
+      likeCount: number | null;
+      commentCount: number | null;
+      concurrentViewers: number | null;
+      isLive: boolean;
+      title: string | null;
+      description: string | null;
+    };
+    message?: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/youtube/stats?video_id=${encodeURIComponent(videoId)}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
 };
 
 export default settingsApi;

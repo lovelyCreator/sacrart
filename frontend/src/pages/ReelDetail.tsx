@@ -46,8 +46,8 @@ const ReelDetail = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const bunnyPlayerRef = useRef<any>(null);
 
-  // Transcription data - reels don't have transcription, so we'll show a placeholder
-  const [transcription] = useState<TranscriptionSegment[]>([]);
+  // Transcription data
+  const [transcription, setTranscription] = useState<TranscriptionSegment[]>([]);
 
   // Load Player.js library for Bunny.net iframe control
   useEffect(() => {
@@ -87,6 +87,8 @@ const ReelDetail = () => {
             console.log('Reel data loaded:', response.data);
             console.log('Category reels:', response.data.category_reels);
             setReel(response.data);
+            // Extract transcription from reel data
+            loadTranscriptionFromReel(response.data);
           } else {
             toast.error(t('reel.reel_not_found', 'Reel not found'));
           }
@@ -101,6 +103,155 @@ const ReelDetail = () => {
 
     fetchReel();
   }, [id]);
+
+  // Load transcription from reel data
+  const loadTranscriptionFromReel = (reelData: Reel) => {
+    if (!reelData.transcriptions) {
+      setTranscription([]);
+      return;
+    }
+
+    try {
+      const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+      let transcriptionText: string | null = null;
+
+      // Try to get transcription from transcriptions JSON field
+      if (reelData.transcriptions && typeof reelData.transcriptions === 'object') {
+        const transcriptions = reelData.transcriptions as any;
+        if (transcriptions[currentLocale]) {
+          if (typeof transcriptions[currentLocale] === 'string') {
+            transcriptionText = transcriptions[currentLocale];
+          } else if (transcriptions[currentLocale]?.text) {
+            transcriptionText = transcriptions[currentLocale].text;
+          }
+        } else if (transcriptions.en) {
+          // Fallback to English
+          if (typeof transcriptions.en === 'string') {
+            transcriptionText = transcriptions.en;
+          } else if (transcriptions.en?.text) {
+            transcriptionText = transcriptions.en.text;
+          }
+        }
+      }
+
+      if (transcriptionText) {
+        // Handle if transcription is an array of words instead of string
+        if (Array.isArray(transcriptionText)) {
+          transcriptionText = transcriptionText.map(item => {
+            if (typeof item === 'string') {
+              return item;
+            } else if (item && typeof item === 'object') {
+              return item.punctuated_word || item.word || item.text || '';
+            }
+            return '';
+          }).join(' ');
+        }
+
+        // Ensure it's a string
+        if (typeof transcriptionText !== 'string') {
+          transcriptionText = String(transcriptionText || '');
+        }
+
+        // Parse transcription text into segments
+        const segments = parseTranscription(transcriptionText, reelData.duration || 0);
+        setTranscription(segments);
+      } else {
+        setTranscription([]);
+      }
+    } catch (error) {
+      console.error('Error loading transcription from reel:', error);
+      setTranscription([]);
+    }
+  };
+
+  // Parse transcription text into segments
+  const parseTranscription = (text: string, duration: number): TranscriptionSegment[] => {
+    if (!text || !text.trim()) return [];
+    
+    // Try to parse as WebVTT format
+    if (text.includes('WEBVTT') || text.includes('-->')) {
+      return parseWebVTT(text);
+    }
+    
+    // Try to parse as simple text with timestamps
+    const lines = text.split('\n').filter(line => line.trim());
+    const segments: TranscriptionSegment[] = [];
+    
+    lines.forEach((line) => {
+      // Try to extract timestamp and text
+      const timestampMatch = line.match(/(\d{1,2}):(\d{2}):?(\d{2})?/);
+      if (timestampMatch) {
+        const time = timestampMatch[0];
+        const textPart = line.replace(timestampMatch[0], '').trim();
+        if (textPart) {
+          segments.push({
+            time,
+            text: textPart,
+            isActive: false,
+          });
+        }
+      } else if (line.trim() && segments.length > 0) {
+        // Append to last segment if no timestamp
+        segments[segments.length - 1].text += ' ' + line.trim();
+      }
+    });
+    
+    return segments.length > 0 ? segments : [{ time: '00:00', text, isActive: false }];
+  };
+
+  // Parse WebVTT format
+  const parseWebVTT = (vtt: string): TranscriptionSegment[] => {
+    const segments: TranscriptionSegment[] = [];
+    const lines = vtt.split('\n');
+    let currentTime = '';
+    let currentText = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip WEBVTT header
+      if (line === 'WEBVTT' || line.startsWith('WEBVTT')) {
+        continue;
+      }
+      
+      // Check for timestamp line (format: 00:00:00.000 --> 00:00:05.000)
+      const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
+      if (timeMatch) {
+        // Save previous segment if exists
+        if (currentTime && currentText) {
+          segments.push({
+            time: currentTime,
+            text: currentText.trim(),
+            isActive: false,
+          });
+        }
+        // Start new segment with start time
+        currentTime = timeMatch[1].split('.')[0]; // Remove milliseconds
+        currentText = '';
+      } else if (line && currentTime) {
+        // Add text to current segment
+        currentText += (currentText ? ' ' : '') + line;
+      }
+    }
+    
+    // Add last segment
+    if (currentTime && currentText) {
+      segments.push({
+        time: currentTime,
+        text: currentText.trim(),
+        isActive: false,
+      });
+    }
+    
+    return segments;
+  };
+
+  // Reload transcription when language changes
+  useEffect(() => {
+    if (reel) {
+      loadTranscriptionFromReel(reel);
+    }
+  }, [i18n.language, locale, reel?.id]);
 
   // Initialize Bunny.net player when iframe loads
   useEffect(() => {
@@ -187,14 +338,14 @@ const ReelDetail = () => {
         player.on('error', (error: any) => {
           console.error('Bunny.net player error:', error);
           if (error && error.fatal === true) {
-            toast.error(t('reel.playback_error', 'Error de reproducción. Por favor, intente recargar la página.'));
+            toast.error(t('reel.playback_error', 'Playback error. Please try reloading the page.'));
           }
         });
 
         // Listen for iframe errors
         iframe.addEventListener('error', (e) => {
           console.error('Bunny.net iframe error:', e);
-          toast.error(t('reel.load_error', 'Error al cargar el video. Por favor, verifique su conexión.'));
+          toast.error(t('reel.load_error', 'Error loading video. Please check your connection.'));
         });
       } catch (error) {
         console.error('Error initializing Bunny.net player:', error);
@@ -448,7 +599,7 @@ const ReelDetail = () => {
           }
         } catch (error) {
           console.error('Error entering fullscreen:', error);
-          toast.error(t('reel.fullscreen_error', 'Error al entrar en pantalla completa'));
+          toast.error(t('reel.fullscreen_error', 'Error entering fullscreen'));
         }
       }
     } else if (videoRef.current) {
@@ -501,9 +652,9 @@ const ReelDetail = () => {
   // Mobile view - Fullscreen video with modal buttons
   if (isMobile) {
     return (
-      <main className="w-full h-[calc(100vh-80px)] bg-[#0A0A0A] text-white relative overflow-hidden">
-        {/* Video Container - Reduced height to show buttons */}
-        <div className="absolute inset-0 z-0">
+      <main className="w-full h-[calc(100vh-80px)] bg-[#0A0A0A] text-white relative overflow-hidden flex flex-col">
+        {/* Video Container - Takes most of the screen, above buttons */}
+        <div className="flex-1 relative z-0 min-h-0">
           {reel && (reel.bunny_embed_url || reel.bunny_player_url) ? (
             <iframe
               key={`bunny-iframe-${reel.id}-${(i18n.language || locale || 'en').substring(0, 2)}`}
@@ -521,6 +672,7 @@ const ReelDetail = () => {
                 }
                 const separator = finalUrl.includes('?') ? '&' : '?';
                 // Enable controls and captions - Bunny.net will show its native control bar
+                // Make sure controls are always visible on mobile
                 finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
                 
                 // Add captions if available
@@ -537,27 +689,68 @@ const ReelDetail = () => {
                 
                 return finalUrl;
               })()}
-              className="w-full h-full object-cover border-0"
+              className="border-0"
               allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
               allowFullScreen
               title={reelTitle}
+              style={{ 
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 50, // Higher than modal (z-30) to keep controls visible
+                border: 'none'
+              }}
             />
           ) : videoUrl ? (
             <video
               ref={videoRef}
               src={videoUrl}
               className="w-full h-full object-cover"
+              controls
+              playsInline
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                zIndex: 50 // Higher than modal (z-30) to keep controls visible
+              }}
             />
           ) : thumbnailUrl ? (
-            <img src={thumbnailUrl} alt={reelTitle} className="w-full h-full object-cover" />
+            <img 
+              src={thumbnailUrl} 
+              alt={reelTitle} 
+              className="w-full h-full object-cover"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                zIndex: 0
+              }}
+            />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900"></div>
+            <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900" style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 0
+            }}></div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20"></div>
+          {/* Gradient overlay - subtle, doesn't interfere with controls */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" style={{ zIndex: 2 }}></div>
         </div>
 
         {/* Multi-Language Audio Player - Only for TTS audio (not original) */}
@@ -568,7 +761,7 @@ const ReelDetail = () => {
             .map(([lang, url]) => ({
               language: lang,
               url: url as string,
-              label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+              label: lang === 'en' ? t('common.language_en', 'English') : lang === 'es' ? t('common.language_es', 'Español') : t('common.language_pt', 'Português')
             }));
           
           if (ttsAudioTracks.length === 0) return null;
@@ -576,7 +769,10 @@ const ReelDetail = () => {
           return (
             <div className="absolute top-4 right-4 left-4 z-20" key={`audio-player-mobile-${reel.id}-${i18n.language.substring(0, 2)}`}>
               <MultiLanguageAudioPlayer
-                audioTracks={ttsAudioTracks}
+                audioTracks={ttsAudioTracks.map(track => ({
+                  ...track,
+                  label: track.language === 'en' ? t('common.language_en', 'English') : track.language === 'es' ? t('common.language_es', 'Español') : t('common.language_pt', 'Português')
+                }))}
                 defaultLanguage={i18n.language.substring(0, 2) as 'en' | 'es' | 'pt'}
                 videoRef={null}
               />
@@ -586,8 +782,8 @@ const ReelDetail = () => {
 
         {/* Custom video controls hidden - using Bunny.net native controls */}
 
-        {/* Action Buttons - Always visible below video */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 px-6 pb-6 bg-gradient-to-t from-black/80 to-transparent pt-8">
+        {/* Action Buttons - Fixed at bottom, below video */}
+        <div className="relative z-10 px-6 py-4 bg-[#0A0A0A] border-t border-white/10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
@@ -599,7 +795,7 @@ const ReelDetail = () => {
                   setShowMobileModal(true);
                 }
               }}
-              className={`flex-1 px-4 py-3 rounded-lg border transition-colors text-sm font-medium ${
+              className={`flex-1 px-4 py-3 rounded-lg border transition-colors text-sm font-medium touch-manipulation ${
                 showMobileModal && mobileModalType === 'videos'
                   ? 'bg-[#A05245] border-[#A05245] text-white'
                   : 'bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm'
@@ -617,7 +813,7 @@ const ReelDetail = () => {
                   setShowMobileModal(true);
                 }
               }}
-              className={`flex-1 px-4 py-3 rounded-lg border transition-colors text-sm font-medium ${
+              className={`flex-1 px-4 py-3 rounded-lg border transition-colors text-sm font-medium touch-manipulation ${
                 showMobileModal && mobileModalType === 'transcription'
                   ? 'bg-[#A05245] border-[#A05245] text-white'
                   : 'bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm'
@@ -629,8 +825,9 @@ const ReelDetail = () => {
         </div>
 
         {/* Bottom Modal Section - Only shows when expanded */}
+        {/* Modal appears above the buttons */}
         {showMobileModal && (
-          <div className="absolute bottom-0 left-0 right-0 z-30 bg-[#141414] rounded-t-[2rem] shadow-[0_-10px_60px_rgba(0,0,0,0.8)] border-t border-white/10 flex flex-col max-h-[85vh] transition-all duration-500">
+          <div className="absolute bottom-[72px] left-0 right-0 z-30 bg-[#141414] rounded-t-[2rem] shadow-[0_-10px_60px_rgba(0,0,0,0.8)] border-t border-white/10 flex flex-col max-h-[calc(85vh-72px)] transition-all duration-500">
             <div className="w-full flex justify-center pt-3 pb-1">
               <div 
                 className="w-12 h-1 bg-white/20 rounded-full cursor-pointer"
@@ -710,7 +907,7 @@ const ReelDetail = () => {
                 })
               ) : (
                 <div className="px-6 py-8 text-center text-gray-400 text-sm">
-                  {t('reel.no_episodes', 'No hay más episodios en esta categoría')}
+                  {t('reel.no_episodes', 'No more episodes in this category')}
                 </div>
               )}
             </div>
@@ -746,7 +943,7 @@ const ReelDetail = () => {
                   ))
                 ) : (
                   <div className="text-center text-gray-400 py-8">
-                    <p className="text-sm">{t('reel.no_transcription', 'No hay transcripción disponible para este reel')}</p>
+                    <p className="text-sm">{t('reel.no_transcription', 'No transcription available for this reel')}</p>
                   </div>
                 )}
               </div>
@@ -890,13 +1087,13 @@ const ReelDetail = () => {
         {/* Multi-Language Audio Player - Only for TTS audio (not original) */}
         {reel && reel.audio_urls && Object.keys(reel.audio_urls).length > 0 && (() => {
           // Filter out 'original' audio (source language uses video's original audio)
-          const ttsAudioTracks = Object.entries(reel.audio_urls)
-            .filter(([lang, url]) => url !== 'original')
-            .map(([lang, url]) => ({
-              language: lang,
-              url: url as string,
-              label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
-            }));
+            const ttsAudioTracks = Object.entries(reel.audio_urls)
+              .filter(([lang, url]) => url !== 'original')
+              .map(([lang, url]) => ({
+                language: lang,
+                url: url as string,
+                label: lang === 'en' ? t('common.language_en', 'English') : lang === 'es' ? t('common.language_es', 'Español') : t('common.language_pt', 'Português')
+              }));
           
           if (ttsAudioTracks.length === 0) return null;
           
@@ -986,7 +1183,7 @@ const ReelDetail = () => {
                 ))
               ) : (
                 <div className="text-center text-gray-400 py-8">
-                  <p className="text-base">{t('reel.no_transcription', 'No hay transcripción disponible para este reel')}</p>
+                  <p className="text-base">{t('reel.no_transcription', 'No transcription available for this reel')}</p>
                 </div>
               )}
             </div>

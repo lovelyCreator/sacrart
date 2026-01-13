@@ -84,7 +84,7 @@ const App = () => (
 
           <SupportTicketsProvider>
           <BrowserRouter>
-            {/* <CookieConsentBanner /> */}
+            <CookieConsentBanner />
             <Routes>
               {/* Landing page (before auth) - Index will redirect to /es if authenticated */}
               <Route path="/" element={<Index />} />

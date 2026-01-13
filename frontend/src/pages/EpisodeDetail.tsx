@@ -49,6 +49,8 @@ const EpisodeDetail = () => {
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [downloadableResources, setDownloadableResources] = useState<any[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
+  const [transcriptionSegments, setTranscriptionSegments] = useState<Array<{time: string; text: string; isActive?: boolean}>>([]);
+  const [activeTab, setActiveTab] = useState<'description' | 'transcription'>('description');
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const lastSavedProgress = useRef<number>(0); // Track last saved progress to avoid duplicate saves
@@ -633,12 +635,9 @@ const EpisodeDetail = () => {
           return;
         }
 
-        // Check for transcription in description or downloadable_resources
-        if (videoData.description && videoData.description.includes('TRANSCRIPCIÓN:')) {
-          const transcriptionMatch = videoData.description.match(/TRANSCRIPCIÓN:\s*(.+)/i);
-          if (transcriptionMatch) {
-            setTranscription(transcriptionMatch[1]);
-          }
+        // Load transcription from API
+        if (videoData.id) {
+          loadTranscription(videoData.id);
         }
 
         // Fetch related videos
@@ -841,6 +840,154 @@ const EpisodeDetail = () => {
     if (!dateString) return new Date().getFullYear().toString();
     return new Date(dateString).getFullYear().toString();
   };
+
+  // Load transcription from API
+  const loadTranscription = async (videoId: number) => {
+    try {
+      const currentLocale = (locale || 'en').substring(0, 2);
+      const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
+      const response = await fetch(
+        `${baseUrl}/videos/${videoId}/transcription?locale=${currentLocale}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Language': currentLocale,
+          },
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.transcription) {
+          let transcriptionText = data.transcription;
+          
+          // Handle if transcription is an array of words instead of string
+          if (Array.isArray(transcriptionText)) {
+            transcriptionText = transcriptionText.map(item => {
+              if (typeof item === 'string') {
+                return item;
+              } else if (item && typeof item === 'object') {
+                return item.punctuated_word || item.word || item.text || '';
+              }
+              return '';
+            }).join(' ');
+          }
+          
+          // Ensure it's a string
+          if (typeof transcriptionText !== 'string') {
+            transcriptionText = String(transcriptionText || '');
+          }
+          
+          // Store full transcription text
+          setTranscription(transcriptionText);
+          
+          // Parse transcription text into segments for display
+          const segments = parseTranscription(transcriptionText, video?.duration || 0);
+          setTranscriptionSegments(segments);
+        } else {
+          setTranscription(null);
+          setTranscriptionSegments([]);
+        }
+      } else {
+        setTranscription(null);
+        setTranscriptionSegments([]);
+      }
+    } catch (error) {
+      console.error('Error loading transcription:', error);
+      setTranscription(null);
+      setTranscriptionSegments([]);
+    }
+  };
+
+  // Parse transcription text into segments
+  const parseTranscription = (text: string, duration: number): Array<{time: string; text: string; isActive?: boolean}> => {
+    if (!text || !text.trim()) return [];
+    
+    // Try to parse as WebVTT format
+    if (text.includes('WEBVTT') || text.includes('-->')) {
+      return parseWebVTT(text);
+    }
+    
+    // Try to parse as simple text with timestamps
+    const lines = text.split('\n').filter(line => line.trim());
+    const segments: Array<{time: string; text: string; isActive?: boolean}> = [];
+    
+    lines.forEach((line) => {
+      // Try to extract timestamp and text
+      const timestampMatch = line.match(/(\d{1,2}):(\d{2}):?(\d{2})?/);
+      if (timestampMatch) {
+        const time = timestampMatch[0];
+        const textPart = line.replace(timestampMatch[0], '').trim();
+        if (textPart) {
+          segments.push({
+            time,
+            text: textPart,
+            isActive: false,
+          });
+        }
+      } else if (line.trim() && segments.length > 0) {
+        // Append to last segment if no timestamp
+        segments[segments.length - 1].text += ' ' + line.trim();
+      }
+    });
+    
+    return segments.length > 0 ? segments : [{ time: '00:00', text, isActive: false }];
+  };
+
+  // Parse WebVTT format
+  const parseWebVTT = (vtt: string): Array<{time: string; text: string; isActive?: boolean}> => {
+    const segments: Array<{time: string; text: string; isActive?: boolean}> = [];
+    const lines = vtt.split('\n');
+    let currentTime = '';
+    let currentText = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip WEBVTT header
+      if (line === 'WEBVTT' || line.startsWith('WEBVTT')) {
+        continue;
+      }
+      
+      // Check for timestamp line (format: 00:00:00.000 --> 00:00:05.000)
+      const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
+      if (timeMatch) {
+        // Save previous segment if exists
+        if (currentTime && currentText) {
+          segments.push({
+            time: currentTime,
+            text: currentText.trim(),
+            isActive: false,
+          });
+        }
+        // Start new segment with start time
+        currentTime = timeMatch[1].split('.')[0]; // Remove milliseconds
+        currentText = '';
+      } else if (line && currentTime) {
+        // Add text to current segment
+        currentText += (currentText ? ' ' : '') + line;
+      }
+    }
+    
+    // Add last segment
+    if (currentTime && currentText) {
+      segments.push({
+        time: currentTime,
+        text: currentText.trim(),
+        isActive: false,
+      });
+    }
+    
+    return segments;
+  };
+
+  // Reload transcription when language changes
+  useEffect(() => {
+    if (video && video.id) {
+      loadTranscription(video.id);
+    }
+  }, [locale, video?.id]);
 
   const handlePlay = () => {
     if (!video) {
@@ -2010,17 +2157,85 @@ const EpisodeDetail = () => {
                   </>
                 )}
               </div>
-              <div className="prose dark:prose-invert max-w-none">
-                <p className="text-lg leading-relaxed text-gray-300 font-light">
-                  {video.episode_number && (
-                    <strong className="font-semibold text-primary">
-                      {t('video.chapter', 'Capítulo')} {video.episode_number}: {video.title}
-                    </strong>
-                  )}
-                  {' '}
-                  {video.description || video.short_description || t('video.no_description', 'Sin descripción')}
-                </p>
+              {/* Tabs for Description and Transcription */}
+              <div className="mb-6 border-b border-white/10 flex items-center gap-8">
+                <button
+                  onClick={() => setActiveTab('description')}
+                  className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors ${
+                    activeTab === 'description'
+                      ? 'text-white border-b-2 border-[#A05245]'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {t('video.description', 'Descripción')}
+                </button>
+                <button
+                  onClick={() => setActiveTab('transcription')}
+                  className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors ${
+                    activeTab === 'transcription'
+                      ? 'text-white border-b-2 border-[#A05245]'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {t('video.transcription', 'Transcripción')}
+                </button>
               </div>
+
+              {/* Tab Content */}
+              {activeTab === 'description' ? (
+                <div className="prose dark:prose-invert max-w-none">
+                  <p className="text-lg leading-relaxed text-gray-300 font-light">
+                    {video.episode_number && (
+                      <strong className="font-semibold text-primary">
+                        {t('video.chapter', 'Capítulo')} {video.episode_number}: {video.title}
+                      </strong>
+                    )}
+                    {' '}
+                    {video.description || video.short_description || t('video.no_description', 'Sin descripción')}
+                  </p>
+                </div>
+              ) : (
+                <div className="py-6 space-y-8 max-w-3xl">
+                  {transcriptionSegments.length > 0 ? (
+                    transcriptionSegments.map((segment, index) => (
+                      <div
+                        key={index}
+                        className={`group flex gap-6 ${
+                          segment.isActive
+                            ? 'relative'
+                            : 'opacity-50 hover:opacity-80 transition-opacity'
+                        }`}
+                      >
+                        {segment.isActive && (
+                          <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r"></div>
+                        )}
+                        <span className={`font-mono text-xs pt-1 ${
+                          segment.isActive ? 'text-white font-bold' : 'text-gray-500'
+                        }`}>
+                          {segment.time}
+                        </span>
+                        <p className={`leading-relaxed ${
+                          segment.isActive
+                            ? 'text-lg text-white font-normal'
+                            : 'text-base text-gray-300 font-light'
+                        }`}>
+                          {segment.text}
+                        </p>
+                      </div>
+                    ))
+                  ) : transcription ? (
+                    <div className="prose dark:prose-invert max-w-none">
+                      <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
+                        {transcription}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400 py-8">
+                      <p className="text-base">{t('video.no_transcription', 'No hay transcripción disponible')}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Comments Section */}

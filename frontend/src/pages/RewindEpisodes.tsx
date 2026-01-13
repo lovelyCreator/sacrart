@@ -27,6 +27,7 @@ const RewindEpisodes = () => {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [activeTab, setActiveTab] = useState<'episodios' | 'transcripcion'>('episodios');
   const [transcription, setTranscription] = useState<TranscriptionSegment[]>([]);
+  const [transcriptionText, setTranscriptionText] = useState<string | null>(null);
 
   // Helper to get image URL
   const getImageUrl = (src: string | null | undefined): string => {
@@ -156,6 +157,9 @@ const RewindEpisodes = () => {
             transcriptionText = String(transcriptionText || '');
           }
           
+          // Store full transcription text
+          setTranscriptionText(transcriptionText);
+          
           // Parse transcription text into segments
           const segments = parseTranscription(transcriptionText, video.duration || 0);
           console.log('Parsed transcription segments:', segments.length); // Debug log
@@ -163,14 +167,17 @@ const RewindEpisodes = () => {
         } else {
           console.log('No transcription data in response'); // Debug log
           setTranscription([]);
+          setTranscriptionText(null);
         }
       } else {
         console.error('Transcription API error:', response.status, response.statusText);
         setTranscription([]);
+        setTranscriptionText(null);
       }
     } catch (error) {
       console.error('Error loading transcription:', error);
       setTranscription([]);
+      setTranscriptionText(null);
     }
   };
 
@@ -415,7 +422,7 @@ const RewindEpisodes = () => {
               .map(([lang, url]) => ({
                 language: lang,
                 url: url as string,
-                label: lang === 'en' ? 'English' : lang === 'es' ? 'Español' : 'Português'
+                label: lang === 'en' ? t('common.language_en', 'English') : lang === 'es' ? t('common.language_es', 'Español') : t('common.language_pt', 'Português')
               }));
             
             if (ttsAudioTracks.length === 0) return null;
@@ -551,6 +558,12 @@ const RewindEpisodes = () => {
                       </p>
                     </div>
                   ))
+                ) : transcriptionText ? (
+                  <div className="prose dark:prose-invert max-w-none">
+                    <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
+                      {transcriptionText}
+                    </pre>
+                  </div>
                 ) : (
                   <div className="text-center py-12">
                     <p className="text-gray-400 text-lg">

@@ -866,6 +866,24 @@ export const reelApi = {
     return handleResponse<{ success: boolean; message: string }>(response);
   },
 
+  // Transcription API endpoints for reels
+  async processTranscription(id: number, languages?: string[], sourceLanguage?: string) {
+    const response = await fetch(`${API_BASE_URL}/admin/reels/${id}/process-transcription`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ languages, source_language: sourceLanguage }),
+    });
+    return handleResponse<{ 
+      success: boolean; 
+      message: string;
+      data?: {
+        transcriptions: Record<string, any>;
+        caption_urls: Record<string, string>;
+        languages_processed: string[];
+      };
+    }>(response);
+  },
+
   getPublic: async (params?: Record<string, any>) => {
     const queryParams = new URLSearchParams();
     if (params) {

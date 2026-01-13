@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Reel;
 use App\Services\WebpConversionService;
 use App\Services\BunnyNetService;
+use App\Services\VideoTranscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -15,13 +16,16 @@ class ReelController extends Controller
 {
     protected $webpService;
     protected $bunnyNetService;
+    protected $transcriptionService;
 
     public function __construct(
         WebpConversionService $webpService,
-        BunnyNetService $bunnyNetService
+        BunnyNetService $bunnyNetService,
+        VideoTranscriptionService $transcriptionService
     ) {
         $this->webpService = $webpService;
         $this->bunnyNetService = $bunnyNetService;
+        $this->transcriptionService = $transcriptionService;
     }
 
     /**
@@ -595,5 +599,55 @@ class ReelController extends Controller
             'success' => true,
             'data' => $reels,
         ]);
+    }
+
+    /**
+     * Process reel transcription and upload captions for multiple languages
+     * This endpoint triggers Deepgram transcription and uploads captions to Bunny.net
+     * 
+     * @param int $id Reel ID
+     * @return JsonResponse
+     */
+    public function processTranscription(Request $request, $id): JsonResponse
+    {
+        // Only admins can trigger transcription processing
+        if (!Auth::user()->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Admin access required.',
+            ], 403);
+        }
+
+        $reel = Reel::findOrFail($id);
+
+        $validated = $request->validate([
+            'languages' => 'nullable|array',
+            'languages.*' => 'string|in:en,es,pt,fr,de,it',
+            'source_language' => 'nullable|string|in:en,es,pt,fr,de,it',
+        ]);
+
+        $languages = $validated['languages'] ?? ['en', 'es', 'pt'];
+        $sourceLanguage = $validated['source_language'] ?? 'en';
+
+        try {
+            $result = $this->transcriptionService->processVideoTranscription(
+                $reel,
+                $languages,
+                $sourceLanguage
+            );
+
+            return response()->json($result, $result['success'] ? 200 : 500);
+
+        } catch (\Exception $e) {
+            \Log::error('Reel transcription processing exception', [
+                'reel_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process transcription: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

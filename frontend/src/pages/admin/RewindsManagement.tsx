@@ -46,6 +46,8 @@ import {
   Eye,
   EyeOff,
   Video as VideoIcon,
+  Subtitles,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -53,6 +55,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { rewindApi, videoApi, Rewind, Video } from '@/services/videoApi';
 import FileUpload from '@/components/admin/FileUpload';
 import LanguageTabs from '@/components/admin/LanguageTabs';
+import TranslateButton from '@/components/admin/TranslateButton';
 
 interface MultilingualData {
   en: string;
@@ -73,6 +76,10 @@ const RewindsManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
+  const [selectedRewindForTranscription, setSelectedRewindForTranscription] = useState<number | null>(null);
+  const [transcriptionDialogOpen, setTranscriptionDialogOpen] = useState(false);
+  const [selectedSourceLanguage, setSelectedSourceLanguage] = useState<'en' | 'es' | 'pt'>('en');
 
   // Multilingual state for rewinds
   const [rewindMultilingual, setRewindMultilingual] = useState<{
@@ -245,6 +252,57 @@ const RewindsManagement = () => {
       setSelectedVideoIds([]);
     }
     setIsDialogOpen(true);
+  };
+
+  const handleProcessTranscription = async (rewindId: number) => {
+    // Open dialog to select source language
+    setSelectedRewindForTranscription(rewindId);
+    setSelectedSourceLanguage('en'); // Default to English
+    setTranscriptionDialogOpen(true);
+  };
+
+  const handleConfirmProcessTranscription = async () => {
+    if (!selectedRewindForTranscription) return;
+
+    setTranscriptionDialogOpen(false);
+    setProcessingTranscription(prev => ({ ...prev, [selectedRewindForTranscription]: true }));
+
+    try {
+      // For rewinds, we need to process transcription for each video in the rewind
+      const rewind = rewinds.find(r => r.id === selectedRewindForTranscription);
+      if (!rewind || !rewind.videos || rewind.videos.length === 0) {
+        toast.error('Rewind does not have any videos');
+        return;
+      }
+
+      // Process transcription for the first video (or all videos)
+      // Note: This might need to be adjusted based on API requirements
+      const firstVideo = rewind.videos[0];
+      if (!firstVideo.bunny_video_id) {
+        toast.error('Video does not have a Bunny.net video ID');
+        return;
+      }
+
+      const result = await videoApi.processTranscription(
+        firstVideo.id, 
+        ['en', 'es', 'pt'], 
+        selectedSourceLanguage
+      );
+      
+      if (result.success) {
+        toast.success(result.message || 'Transcription processing completed successfully!');
+        // Refresh rewinds list to show updated transcription status
+        fetchRewinds();
+      } else {
+        toast.error(result.message || 'Failed to process transcription');
+      }
+    } catch (error: any) {
+      console.error('Transcription processing error:', error);
+      toast.error(error.message || 'An error occurred while processing transcription');
+    } finally {
+      setProcessingTranscription(prev => ({ ...prev, [selectedRewindForTranscription]: false }));
+      setSelectedRewindForTranscription(null);
+    }
   };
 
   const handleSaveRewind = async () => {
@@ -487,6 +545,19 @@ const RewindsManagement = () => {
                             </>
                           )}
                         </DropdownMenuItem>
+                        {rewind.videos && rewind.videos.length > 0 && rewind.videos[0]?.bunny_video_id && (
+                          <DropdownMenuItem 
+                            onClick={() => handleProcessTranscription(rewind.id)}
+                            disabled={processingTranscription[rewind.id]}
+                          >
+                            {processingTranscription[rewind.id] ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Subtitles className="mr-2 h-4 w-4" />
+                            )}
+                            Process Captions (AI)
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => handleDeleteRewind(rewind.id)}
@@ -522,12 +593,40 @@ const RewindsManagement = () => {
           </DialogHeader>
           {selectedRewind && (
             <div className="grid gap-4 py-4">
-              {/* Language Tabs */}
-              <LanguageTabs 
-                activeLanguage={contentLocale} 
-                onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
-              />
+              {/* Language Tabs with Translate Button */}
+              <div className="flex items-center justify-between mb-4">
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                />
+                <TranslateButton
+                  fields={{
+                    title: rewindMultilingual.title[contentLocale] || '',
+                    description: rewindMultilingual.description[contentLocale] || '',
+                    short_description: rewindMultilingual.short_description[contentLocale] || '',
+                  }}
+                  sourceLanguage={contentLocale}
+                  onTranslate={(translations) => {
+                    setRewindMultilingual(prev => ({
+                      title: {
+                        en: translations.title?.en !== undefined ? translations.title.en : prev.title.en,
+                        es: translations.title?.es !== undefined ? translations.title.es : prev.title.es,
+                        pt: translations.title?.pt !== undefined ? translations.title.pt : prev.title.pt,
+                      },
+                      description: {
+                        en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                        es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                        pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                      },
+                      short_description: {
+                        en: translations.short_description?.en !== undefined ? translations.short_description.en : prev.short_description.en,
+                        es: translations.short_description?.es !== undefined ? translations.short_description.es : prev.short_description.es,
+                        pt: translations.short_description?.pt !== undefined ? translations.short_description.pt : prev.short_description.pt,
+                      },
+                    }));
+                  }}
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -728,6 +827,110 @@ const RewindsManagement = () => {
             </Button>
             <Button onClick={handleSaveRewind} disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : (selectedRewind?.id ? 'Save Changes' : 'Create Rewind')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Source Language Selection Dialog for Transcription */}
+      <Dialog open={transcriptionDialogOpen} onOpenChange={setTranscriptionDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>🎙️ Select Rewind Source Language</DialogTitle>
+            <DialogDescription>
+              Choose the original language of this rewind. This is important for audio dubbing:<br/><br/>
+              <strong>• Source language:</strong> Will use the rewind's original audio<br/>
+              <strong>• Other languages:</strong> Will generate TTS (text-to-speech) dubbed audio
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-3">
+              <Label>Original Rewind Language</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'en' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('en')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇬🇧</span>
+                  <span className="font-semibold">English</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'es' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('es')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇪🇸</span>
+                  <span className="font-semibold">Español</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'pt' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('pt')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇧🇷</span>
+                  <span className="font-semibold">Português</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+              <div className="font-semibold">What will be generated:</div>
+              <div className="space-y-1">
+                {selectedSourceLanguage === 'en' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>EN:</strong> Original rewind audio (best quality)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
+                    </div>
+                  </>
+                )}
+                {selectedSourceLanguage === 'es' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>ES:</strong> Original rewind audio (best quality)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
+                    </div>
+                  </>
+                )}
+                {selectedSourceLanguage === 'pt' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>PT:</strong> Original rewind audio (best quality)
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
+                  <span>📝</span> All languages will have captions uploaded to Bunny.net
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTranscriptionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmProcessTranscription}>
+              Process Transcription
             </Button>
           </DialogFooter>
         </DialogContent>

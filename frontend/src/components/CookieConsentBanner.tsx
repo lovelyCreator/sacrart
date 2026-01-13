@@ -30,6 +30,11 @@ const CookieConsentBanner = () => {
           marketing: saved.marketing || false,
           functional: saved.functional || false,
         });
+        // If user rejected all cookies (marketing and analytics both false), show banner again
+        // This ensures they can change their mind
+        if (saved.analytics === false && saved.marketing === false && saved.functional === false) {
+          setShowBanner(true);
+        }
       } catch (e) {
         console.error('Error parsing cookie consent:', e);
         setShowBanner(true);
@@ -91,7 +96,7 @@ const CookieConsentBanner = () => {
 
       {/* Cookie Banner */}
       <div className="fixed bottom-0 left-0 right-0 z-[9999] p-4 sm:p-6">
-        <div className="max-w-4xl mx-auto bg-surface-dark border border-border-dark rounded-lg shadow-2xl p-6 sm:p-8">
+        <div className="max-w-4xl mx-auto bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl p-6 sm:p-8">
           {!showPreferences ? (
             // Main Banner View
             <>
@@ -107,7 +112,7 @@ const CookieConsentBanner = () => {
                   </p>
                   <a
                     href="/politica-de-cookies"
-                    className="text-primary hover:text-primary/80 text-sm underline"
+                    className="text-primary hover:text-primary/80 text-sm underline transition-colors"
                   >
                     {t('cookie_banner.learn_more', 'Más información sobre cookies')}
                   </a>
@@ -125,20 +130,20 @@ const CookieConsentBanner = () => {
                 <Button
                   onClick={handleRejectAll}
                   variant="outline"
-                  className="flex-1 sm:flex-none bg-transparent border-gray-600 text-white hover:bg-gray-800"
+                  className="flex-1 sm:flex-none border-white/20 text-white hover:bg-white/10"
                 >
                   {t('cookie_banner.reject_all', 'Rechazar todo')}
                 </Button>
                 <Button
                   onClick={handleShowPreferences}
                   variant="outline"
-                  className="flex-1 sm:flex-none bg-transparent border-gray-600 text-white hover:bg-gray-800"
+                  className="flex-1 sm:flex-none border-white/20 text-white hover:bg-white/10"
                 >
                   {t('cookie_banner.configure', 'Configurar')}
                 </Button>
                 <Button
                   onClick={handleAcceptAll}
-                  className="flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-white"
+                  className="flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-white font-bold"
                 >
                   {t('cookie_banner.accept_all', 'Aceptar todo')}
                 </Button>
@@ -167,7 +172,7 @@ const CookieConsentBanner = () => {
 
               <div className="space-y-4 mb-6">
                 {/* Necessary Cookies - Always enabled */}
-                <div className="flex items-start justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-start justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                   <div className="flex-1">
                     <h4 className="font-semibold text-white mb-1">
                       {t('cookie_banner.necessary_title', 'Cookies Necesarias')}
@@ -186,7 +191,7 @@ const CookieConsentBanner = () => {
                 </div>
 
                 {/* Analytics Cookies */}
-                <div className="flex items-start justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-start justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                   <div className="flex-1">
                     <h4 className="font-semibold text-white mb-1">
                       {t('cookie_banner.analytics_title', 'Cookies de Análisis')}
@@ -214,7 +219,7 @@ const CookieConsentBanner = () => {
                 </div>
 
                 {/* Marketing Cookies */}
-                <div className="flex items-start justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-start justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                   <div className="flex-1">
                     <h4 className="font-semibold text-white mb-1">
                       {t('cookie_banner.marketing_title', 'Cookies de Marketing')}
@@ -242,7 +247,7 @@ const CookieConsentBanner = () => {
                 </div>
 
                 {/* Functional Cookies */}
-                <div className="flex items-start justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-start justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                   <div className="flex-1">
                     <h4 className="font-semibold text-white mb-1">
                       {t('cookie_banner.functional_title', 'Cookies Funcionales')}
@@ -274,13 +279,13 @@ const CookieConsentBanner = () => {
                 <Button
                   onClick={() => setShowPreferences(false)}
                   variant="outline"
-                  className="flex-1 sm:flex-none bg-transparent border-gray-600 text-white hover:bg-gray-800"
+                  className="flex-1 sm:flex-none border-white/20 text-white hover:bg-white/10"
                 >
                   {t('cookie_banner.cancel', 'Cancelar')}
                 </Button>
                 <Button
                   onClick={handleSavePreferences}
-                  className="flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-white"
+                  className="flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-white font-bold"
                 >
                   {t('cookie_banner.save_preferences', 'Guardar Preferencias')}
                 </Button>

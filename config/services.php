@@ -59,4 +59,8 @@ return [
     'deepgram' => [
         'api_key' => env('DEEPGRAM_API_KEY'),
     ],
+
+    'youtube' => [
+        'api_key' => env('YOUTUBE_API_KEY'),
+    ],
 ];

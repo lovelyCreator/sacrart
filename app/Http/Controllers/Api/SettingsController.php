@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SiteSetting;
+use App\Services\YouTubeDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -295,5 +296,41 @@ class SettingsController extends Controller
         }
 
         return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    /**
+     * Get YouTube live stream statistics
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getYouTubeStats(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'video_id' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Video ID is required',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $videoId = $request->input('video_id');
+        $result = $this->youtubeService->getVideoStatistics($videoId);
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['error'] ?? 'Failed to fetch YouTube statistics',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $result['data'],
+        ]);
     }
 }

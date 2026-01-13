@@ -56,6 +56,7 @@ Route::get('/faqs/categories', [FaqController::class, 'categories']);
 
 // Public Settings routes
 Route::get('/settings/public', [SettingsController::class, 'getPublicSettings']);
+Route::get('/youtube/stats', [SettingsController::class, 'getYouTubeStats']);
 
 // Public Hero Backgrounds route
 Route::get('/hero-backgrounds/public', [HeroBackgroundController::class, 'public']);
@@ -189,6 +190,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/reels/{reel}', [ReelController::class, 'show']);
         Route::put('/admin/reels/{reel}', [ReelController::class, 'update']);
         Route::delete('/admin/reels/{reel}', [ReelController::class, 'destroy']);
+        
+        // Reel transcription processing routes
+        Route::post('/admin/reels/{id}/process-transcription', [ReelController::class, 'processTranscription']);
 
         // Reel Categories (Admin CRUD)
         Route::get('/admin/reel-categories', [ReelCategoryController::class, 'index']);

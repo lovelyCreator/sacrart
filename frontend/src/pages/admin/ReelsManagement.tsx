@@ -46,12 +46,15 @@ import {
   EyeOff,
   Video as VideoIcon,
   Folder,
+  Subtitles,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { reelApi, reelCategoryApi, Reel, ReelCategory } from '@/services/videoApi';
 import LanguageTabs from '@/components/admin/LanguageTabs';
+import TranslateButton from '@/components/admin/TranslateButton';
 
 interface MultilingualData {
   en: string;
@@ -81,6 +84,10 @@ const ReelsManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
+  const [selectedReelForTranscription, setSelectedReelForTranscription] = useState<number | null>(null);
+  const [transcriptionDialogOpen, setTranscriptionDialogOpen] = useState(false);
+  const [selectedSourceLanguage, setSelectedSourceLanguage] = useState<'en' | 'es' | 'pt'>('en');
 
   // Multilingual state for reels
   const [reelMultilingual, setReelMultilingual] = useState<{
@@ -538,6 +545,50 @@ const ReelsManagement = () => {
     }
   };
 
+  const handleProcessTranscription = async (reelId: number) => {
+    // Open dialog to select source language
+    setSelectedReelForTranscription(reelId);
+    setSelectedSourceLanguage('en'); // Default to English
+    setTranscriptionDialogOpen(true);
+  };
+
+  const handleConfirmProcessTranscription = async () => {
+    if (!selectedReelForTranscription) return;
+
+    setTranscriptionDialogOpen(false);
+    setProcessingTranscription(prev => ({ ...prev, [selectedReelForTranscription]: true }));
+
+    try {
+      // Use videoApi to process transcription for the reel's bunny_video_id
+      const reel = reels.find(r => r.id === selectedReelForTranscription);
+      if (!reel || !reel.bunny_video_id) {
+        toast.error('Reel does not have a Bunny.net video ID');
+        return;
+      }
+
+      // Use reel API to process transcription
+      const result = await reelApi.processTranscription(
+        selectedReelForTranscription,
+        ['en', 'es', 'pt'], 
+        selectedSourceLanguage
+      );
+      
+      if (result.success) {
+        toast.success(result.message || 'Transcription processing completed successfully!');
+        // Refresh reels list to show updated transcription status
+        fetchReels();
+      } else {
+        toast.error(result.message || 'Failed to process transcription');
+      }
+    } catch (error: any) {
+      console.error('Transcription processing error:', error);
+      toast.error(error.message || 'An error occurred while processing transcription');
+    } finally {
+      setProcessingTranscription(prev => ({ ...prev, [selectedReelForTranscription]: false }));
+      setSelectedReelForTranscription(null);
+    }
+  };
+
   const handleSaveCategory = async () => {
     if (!selectedCategory) return;
 
@@ -812,6 +863,19 @@ const ReelsManagement = () => {
                                 </>
                               )}
                             </DropdownMenuItem>
+                            {reel.bunny_video_id && (
+                              <DropdownMenuItem 
+                                onClick={() => handleProcessTranscription(reel.id)}
+                                disabled={processingTranscription[reel.id]}
+                              >
+                                {processingTranscription[reel.id] ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Subtitles className="mr-2 h-4 w-4" />
+                                )}
+                                Process Captions (AI)
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDeleteReel(reel.id)}
@@ -930,12 +994,40 @@ const ReelsManagement = () => {
           </DialogHeader>
           {selectedReel && (
             <div className="grid gap-4 py-4">
-              {/* Language Tabs */}
-              <LanguageTabs 
-                activeLanguage={contentLocale} 
-                onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
-              />
+              {/* Language Tabs with Translate Button */}
+              <div className="flex items-center justify-between mb-4">
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                />
+                <TranslateButton
+                  fields={{
+                    title: reelMultilingual.title[contentLocale] || '',
+                    description: reelMultilingual.description[contentLocale] || '',
+                    short_description: reelMultilingual.short_description[contentLocale] || '',
+                  }}
+                  sourceLanguage={contentLocale}
+                  onTranslate={(translations) => {
+                    setReelMultilingual(prev => ({
+                      title: {
+                        en: translations.title?.en !== undefined ? translations.title.en : prev.title.en,
+                        es: translations.title?.es !== undefined ? translations.title.es : prev.title.es,
+                        pt: translations.title?.pt !== undefined ? translations.title.pt : prev.title.pt,
+                      },
+                      description: {
+                        en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                        es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                        pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                      },
+                      short_description: {
+                        en: translations.short_description?.en !== undefined ? translations.short_description.en : prev.short_description.en,
+                        es: translations.short_description?.es !== undefined ? translations.short_description.es : prev.short_description.es,
+                        pt: translations.short_description?.pt !== undefined ? translations.short_description.pt : prev.short_description.pt,
+                      },
+                    }));
+                  }}
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1116,12 +1208,34 @@ const ReelsManagement = () => {
           </DialogHeader>
           {selectedCategory && (
             <div className="grid gap-4 py-4">
-              {/* Language Tabs */}
-              <LanguageTabs 
-                activeLanguage={contentLocale} 
-                onLanguageChange={(lang) => setContentLocale(lang)}
-                className="mb-4"
-              />
+              {/* Language Tabs with Translate Button */}
+              <div className="flex items-center justify-between mb-4">
+                <LanguageTabs 
+                  activeLanguage={contentLocale} 
+                  onLanguageChange={(lang) => setContentLocale(lang)}
+                />
+                <TranslateButton
+                  fields={{
+                    name: categoryMultilingual.name[contentLocale] || '',
+                    description: categoryMultilingual.description[contentLocale] || '',
+                  }}
+                  sourceLanguage={contentLocale}
+                  onTranslate={(translations) => {
+                    setCategoryMultilingual(prev => ({
+                      name: {
+                        en: translations.name?.en !== undefined ? translations.name.en : prev.name.en,
+                        es: translations.name?.es !== undefined ? translations.name.es : prev.name.es,
+                        pt: translations.name?.pt !== undefined ? translations.name.pt : prev.name.pt,
+                      },
+                      description: {
+                        en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                        es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                        pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                      },
+                    }));
+                  }}
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="categoryName">Name <span className="text-red-500">*</span></Label>
@@ -1204,6 +1318,110 @@ const ReelsManagement = () => {
             </Button>
             <Button onClick={handleSaveCategory} disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : (selectedCategory?.id ? 'Save Changes' : 'Create Category')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Source Language Selection Dialog for Transcription */}
+      <Dialog open={transcriptionDialogOpen} onOpenChange={setTranscriptionDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>🎙️ Select Reel Source Language</DialogTitle>
+            <DialogDescription>
+              Choose the original language of this reel. This is important for audio dubbing:<br/><br/>
+              <strong>• Source language:</strong> Will use the reel's original audio<br/>
+              <strong>• Other languages:</strong> Will generate TTS (text-to-speech) dubbed audio
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-3">
+              <Label>Original Reel Language</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'en' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('en')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇬🇧</span>
+                  <span className="font-semibold">English</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'es' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('es')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇪🇸</span>
+                  <span className="font-semibold">Español</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'pt' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('pt')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇧🇷</span>
+                  <span className="font-semibold">Português</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+              <div className="font-semibold">What will be generated:</div>
+              <div className="space-y-1">
+                {selectedSourceLanguage === 'en' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>EN:</strong> Original reel audio (best quality)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
+                    </div>
+                  </>
+                )}
+                {selectedSourceLanguage === 'es' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>ES:</strong> Original reel audio (best quality)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
+                    </div>
+                  </>
+                )}
+                {selectedSourceLanguage === 'pt' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>PT:</strong> Original reel audio (best quality)
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
+                  <span>📝</span> All languages will have captions uploaded to Bunny.net
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTranscriptionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmProcessTranscription}>
+              Process Transcription
             </Button>
           </DialogFooter>
         </DialogContent>
