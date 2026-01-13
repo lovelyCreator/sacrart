@@ -901,6 +901,20 @@ export const reelApi = {
     const response = await fetch(`${API_BASE_URL}/reels/${id}`);
     return handleResponse<{ success: boolean; data: Reel }>(response);
   },
+
+  // Get transcription for a reel
+  async getTranscription(id: number, locale?: string) {
+    const currentLocale = locale || getLocale().substring(0, 2);
+    const response = await fetch(`${API_BASE_URL}/reels/${id}/transcription?locale=${currentLocale}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ 
+      success: boolean; 
+      locale: string;
+      transcription: string;
+      webvtt_url: string | null;
+    }>(response);
+  },
 };
 
 // Rewind API

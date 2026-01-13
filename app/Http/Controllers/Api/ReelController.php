@@ -650,4 +650,279 @@ class ReelController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get subtitles/transcriptions for a reel
+     */
+    public function getSubtitles(Request $request, Reel $reel): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$reel->isAccessibleTo($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have access to this reel.',
+            ], 403);
+        }
+
+        $locale = $request->input('locale', 'en');
+        
+        // Get transcription based on locale
+        // First try new JSON format, then fall back to old fields
+        $transcription = null;
+        $transcriptions = $reel->transcriptions; // JSON field
+        
+        // Enhanced logging to debug transcription structure
+        \Log::debug('Reel getSubtitles - Starting transcription extraction', [
+            'reel_id' => $reel->id,
+            'requested_locale' => $locale,
+            'transcriptions_exists' => !is_null($transcriptions),
+            'transcriptions_type' => gettype($transcriptions),
+            'transcriptions_is_array' => is_array($transcriptions),
+            'available_locales' => is_array($transcriptions) ? array_keys($transcriptions) : [],
+            'transcriptions_structure' => is_array($transcriptions) ? array_map(function($item) {
+                if (is_array($item)) {
+                    return array_keys($item);
+                }
+                return gettype($item);
+            }, $transcriptions) : null,
+        ]);
+        
+        if ($transcriptions && is_array($transcriptions) && isset($transcriptions[$locale])) {
+            $localeData = $transcriptions[$locale];
+            
+            // Check if transcription is stored as array with 'text' field (new format)
+            if (is_array($localeData)) {
+                if (isset($localeData['text'])) {
+                    $textValue = $localeData['text'];
+                    if (!empty($textValue) && is_string($textValue) && trim($textValue) !== '') {
+                        $transcription = trim($textValue);
+                        \Log::debug("Found transcription for locale '{$locale}' in 'text' field", [
+                            'reel_id' => $reel->id,
+                            'text_length' => strlen($transcription),
+                            'text_preview' => substr($transcription, 0, 100),
+                        ]);
+                    } else {
+                        \Log::warning("Transcription for locale '{$locale}' has empty or invalid 'text' field", [
+                            'reel_id' => $reel->id,
+                            'text_type' => gettype($textValue),
+                            'text_is_empty' => empty($textValue),
+                            'text_is_string' => is_string($textValue),
+                            'text_trimmed_length' => is_string($textValue) ? strlen(trim($textValue)) : 0,
+                        ]);
+                        // Try to fallback to other languages
+                    }
+                } elseif (isset($localeData['error'])) {
+                    \Log::warning("Transcription for locale '{$locale}' has error", [
+                        'reel_id' => $reel->id,
+                        'error' => $localeData['error'],
+                    ]);
+                    // Try to fallback to other languages
+                } else {
+                    \Log::warning("Transcription for locale '{$locale}' exists but 'text' field is missing", [
+                        'reel_id' => $reel->id,
+                        'available_keys' => array_keys($localeData),
+                    ]);
+                }
+            } else {
+                // Direct string value (old format)
+                $transcription = $localeData;
+                \Log::debug("Found transcription for locale '{$locale}' as direct string", [
+                    'reel_id' => $reel->id,
+                    'text_length' => strlen($transcription),
+                ]);
+            }
+        }
+        
+        // If transcription is empty, try fallback languages in order: en, es, pt
+        if (empty($transcription) && $transcriptions && is_array($transcriptions)) {
+            $fallbackLocales = ['en', 'es', 'pt'];
+            foreach ($fallbackLocales as $fallbackLocale) {
+                if ($fallbackLocale === $locale) {
+                    continue; // Skip the requested locale
+                }
+                
+                if (isset($transcriptions[$fallbackLocale])) {
+                    $fallbackData = $transcriptions[$fallbackLocale];
+                    
+                    if (is_array($fallbackData) && isset($fallbackData['text']) && !empty($fallbackData['text'])) {
+                        $transcription = $fallbackData['text'];
+                        \Log::info("Using fallback transcription from locale '{$fallbackLocale}'", [
+                            'reel_id' => $reel->id,
+                            'requested_locale' => $locale,
+                            'fallback_locale' => $fallbackLocale,
+                            'text_length' => strlen($transcription),
+                        ]);
+                        break;
+                    } elseif (!is_array($fallbackData) && !empty($fallbackData)) {
+                        $transcription = $fallbackData;
+                        \Log::info("Using fallback transcription (string) from locale '{$fallbackLocale}'", [
+                            'reel_id' => $reel->id,
+                            'requested_locale' => $locale,
+                            'fallback_locale' => $fallbackLocale,
+                            'text_length' => strlen($transcription),
+                        ]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Debug logging
+        \Log::debug('Reel getSubtitles API response', [
+            'reel_id' => $reel->id,
+            'locale' => $locale,
+            'transcription_found' => !empty($transcription),
+            'transcription_type' => gettype($transcription),
+            'transcription_is_array' => is_array($transcription),
+            'transcription_length' => is_string($transcription) ? strlen($transcription) : (is_array($transcription) ? count($transcription) : 0),
+            'transcription_preview' => is_string($transcription) ? substr($transcription, 0, 100) : (is_array($transcription) ? json_encode(array_slice($transcription, 0, 5)) : ''),
+        ]);
+
+        // CRITICAL FIX: Ensure transcription is always a string, never an array!
+        if (is_array($transcription)) {
+            \Log::error('Reel transcription is an array in API response! Converting to string.', [
+                'reel_id' => $reel->id,
+                'locale' => $locale,
+                'array_count' => count($transcription),
+                'first_elements' => array_slice($transcription, 0, 5),
+            ]);
+            
+            // If it's an array of words, join them into a sentence
+            $transcription = implode(' ', array_map(function($item) {
+                if (is_string($item)) {
+                    return $item;
+                } elseif (is_array($item) && isset($item['word'])) {
+                    return $item['word'];
+                } elseif (is_array($item) && isset($item['punctuated_word'])) {
+                    return $item['punctuated_word'];
+                } else {
+                    return '';
+                }
+            }, $transcription));
+        }
+
+        // Ensure we have a string
+        $transcription = is_string($transcription) ? $transcription : '';
+
+        // Convert transcription to WebVTT format if available
+        $webvtt = null;
+        if ($transcription) {
+            $webvtt = $this->convertTranscriptionToWebVTT($transcription, $reel->duration);
+        }
+
+        return response()->json([
+            'success' => true,
+            'locale' => $locale,
+            'transcription' => $transcription, // Always a string
+            'webvtt_url' => $webvtt ? route('api.reels.subtitles.vtt', ['reel' => $reel->id, 'locale' => $locale]) : null,
+        ]);
+    }
+
+    /**
+     * Convert transcription text to WebVTT format
+     */
+    private function convertTranscriptionToWebVTT(string $transcription, int $duration): ?string
+    {
+        if (empty($transcription)) {
+            return null;
+        }
+
+        // If already in WebVTT format, return as is
+        if (strpos($transcription, 'WEBVTT') !== false) {
+            return $transcription;
+        }
+
+        // Simple conversion: split by sentences and assign timestamps
+        $sentences = preg_split('/([.!?]+[\s\n]+)/', $transcription, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $webvtt = "WEBVTT\n\n";
+        
+        $currentTime = 0;
+        $sentenceDuration = $duration > 0 ? ($duration / max(count($sentences), 1)) : 3; // 3 seconds per sentence if duration unknown
+        
+        foreach ($sentences as $index => $sentence) {
+            if (trim($sentence)) {
+                $startTime = $currentTime;
+                $endTime = min($currentTime + $sentenceDuration, $duration);
+                
+                $startTimeFormatted = $this->formatTimeForWebVTT($startTime);
+                $endTimeFormatted = $this->formatTimeForWebVTT($endTime);
+                
+                $webvtt .= "{$index}\n";
+                $webvtt .= "{$startTimeFormatted} --> {$endTimeFormatted}\n";
+                $webvtt .= trim($sentence) . "\n\n";
+                
+                $currentTime = $endTime;
+            }
+        }
+        
+        return $webvtt;
+    }
+
+    /**
+     * Format seconds to WebVTT time format (HH:MM:SS.mmm)
+     */
+    private function formatTimeForWebVTT(int $seconds): string
+    {
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $secs = $seconds % 60;
+        
+        return sprintf('%02d:%02d:%02d.000', $hours, $minutes, $secs);
+    }
+
+    /**
+     * Serve WebVTT subtitle file for reel
+     */
+    public function getSubtitleVtt(Request $request, Reel $reel, string $locale = 'en'): \Illuminate\Http\Response
+    {
+        $user = Auth::user();
+
+        // Check access permissions
+        if (!$reel->isAccessibleTo($user)) {
+            abort(403, 'You do not have access to this reel.');
+        }
+
+        // Get transcription
+        $transcription = null;
+        $transcriptions = $reel->transcriptions;
+        
+        if ($transcriptions && is_array($transcriptions) && isset($transcriptions[$locale])) {
+            if (is_array($transcriptions[$locale]) && isset($transcriptions[$locale]['text'])) {
+                $transcription = $transcriptions[$locale]['text'];
+            } else {
+                $transcription = $transcriptions[$locale];
+            }
+        } else if ($transcriptions && is_array($transcriptions) && isset($transcriptions['en'])) {
+            if (is_array($transcriptions['en']) && isset($transcriptions['en']['text'])) {
+                $transcription = $transcriptions['en']['text'];
+            } else {
+                $transcription = $transcriptions['en'];
+            }
+        }
+
+        // Convert to WebVTT
+        $webvtt = null;
+        if ($transcription) {
+            if (is_array($transcription)) {
+                $transcription = implode(' ', array_map(function($item) {
+                    if (is_string($item)) return $item;
+                    if (is_array($item) && isset($item['word'])) return $item['word'];
+                    if (is_array($item) && isset($item['punctuated_word'])) return $item['punctuated_word'];
+                    return '';
+                }, $transcription));
+            }
+            $webvtt = $this->convertTranscriptionToWebVTT($transcription, $reel->duration);
+        }
+
+        if (!$webvtt) {
+            abort(404, 'Subtitle not found for this locale.');
+        }
+
+        return response($webvtt, 200, [
+            'Content-Type' => 'text/vtt',
+            'Content-Disposition' => 'inline; filename="reel-' . $reel->id . '-' . $locale . '.vtt"',
+        ]);
+    }
 }

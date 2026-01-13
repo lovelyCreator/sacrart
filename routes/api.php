@@ -83,6 +83,8 @@ Route::get('/videos/{video}', [VideoController::class, 'show']);
 Route::get('/videos/{video}/stream', [VideoController::class, 'stream']);
 Route::get('/videos/{video}/subtitles/{locale?}', [VideoController::class, 'getSubtitleVtt'])->where('locale', '[a-z]{2}');
 Route::get('/videos/{video}/transcription', [VideoController::class, 'getSubtitles']); // JSON transcription endpoint
+Route::get('/reels/{reel}/transcription', [ReelController::class, 'getSubtitles']); // JSON transcription endpoint for reels
+Route::get('/reels/{reel}/transcription/{locale}.vtt', [ReelController::class, 'getSubtitleVtt'])->name('api.reels.subtitles.vtt'); // WebVTT subtitle file for reels
 
 // Public routes for reels and rewinds (authentication optional)
 Route::get('/reels/public', [ReelController::class, 'getPublic']);

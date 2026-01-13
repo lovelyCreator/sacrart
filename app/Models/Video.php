@@ -80,6 +80,13 @@ class Video extends Model
         'processing_error',
         'processed_at',
         'is_featured_process',
+        'transcriptions',
+        'caption_urls',
+        'audio_urls',
+        'source_language',
+        'transcription_status',
+        'transcription_error',
+        'transcription_processed_at',
     ];
 
     protected $casts = [

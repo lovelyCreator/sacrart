@@ -10,7 +10,9 @@ import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer'
 
 // Sample transcription data structure
 interface TranscriptionSegment {
-  time: string;
+  time: string; // Display time (e.g., "00:05")
+  startTime: number; // Start time in seconds
+  endTime: number; // End time in seconds
   text: string;
   isActive?: boolean;
 }
@@ -84,11 +86,14 @@ const ReelDetail = () => {
         if (id) {
           const response = await reelApi.getPublicById(parseInt(id));
           if (response.success && response.data) {
-            console.log('Reel data loaded:', response.data);
-            console.log('Category reels:', response.data.category_reels);
+            console.log('📦 Reel data loaded:', response.data);
+            console.log('📦 Reel transcriptions field:', response.data.transcriptions);
+            console.log('📦 Reel transcriptions type:', typeof response.data.transcriptions);
+            console.log('📦 Reel transcriptions value (full):', JSON.stringify(response.data.transcriptions, null, 2));
+            console.log('📦 Category reels:', response.data.category_reels);
             setReel(response.data);
-            // Extract transcription from reel data
-            loadTranscriptionFromReel(response.data);
+            // Extract transcription from reel data or API
+            await loadTranscriptionFromReel(response.data);
           } else {
             toast.error(t('reel.reel_not_found', 'Reel not found'));
           }
@@ -104,40 +109,120 @@ const ReelDetail = () => {
     fetchReel();
   }, [id]);
 
-  // Load transcription from reel data
-  const loadTranscriptionFromReel = (reelData: Reel) => {
-    if (!reelData.transcriptions) {
-      setTranscription([]);
-      return;
-    }
+  // Load transcription from reel data or API
+  const loadTranscriptionFromReel = async (reelData: Reel) => {
+    console.log('🔍 Loading transcription for reel:', {
+      reelId: reelData.id,
+      reelTitle: reelData.title,
+      hasTranscriptions: !!reelData.transcriptions,
+      transcriptionsType: typeof reelData.transcriptions,
+      transcriptionsValue: reelData.transcriptions,
+    });
 
     try {
-      const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
+      // Get locale from i18n, ensuring it's one of the supported languages
+      const i18nLang = i18n.language || locale || 'en';
+      const currentLocale = i18nLang.substring(0, 2).toLowerCase();
+      // Ensure locale is one of: en, es, pt
+      const supportedLocales = ['en', 'es', 'pt'];
+      const finalLocale = supportedLocales.includes(currentLocale) ? currentLocale : 'en';
+      console.log('🌐 Current locale:', {
+        i18nLanguage: i18n.language,
+        locale: locale,
+        extracted: currentLocale,
+        final: finalLocale,
+      });
       let transcriptionText: string | null = null;
 
-      // Try to get transcription from transcriptions JSON field
+      // First, try to get transcription from reel data (if available)
       if (reelData.transcriptions && typeof reelData.transcriptions === 'object') {
         const transcriptions = reelData.transcriptions as any;
-        if (transcriptions[currentLocale]) {
-          if (typeof transcriptions[currentLocale] === 'string') {
-            transcriptionText = transcriptions[currentLocale];
-          } else if (transcriptions[currentLocale]?.text) {
-            transcriptionText = transcriptions[currentLocale].text;
+        console.log('📝 Transcriptions object:', transcriptions);
+        console.log('📝 Available languages:', Object.keys(transcriptions));
+        
+        if (transcriptions[finalLocale]) {
+          console.log(`✅ Found transcription for locale "${finalLocale}":`, transcriptions[finalLocale]);
+          if (typeof transcriptions[finalLocale] === 'string') {
+            const text = transcriptions[finalLocale].trim();
+            if (text) {
+              transcriptionText = text;
+              console.log('📄 Transcription is string, length:', transcriptionText.length);
+            } else {
+              console.warn('⚠️ Transcription for locale is empty string');
+            }
+          } else if (transcriptions[finalLocale]?.text) {
+            const text = String(transcriptions[finalLocale].text).trim();
+            if (text) {
+              transcriptionText = text;
+              console.log('📄 Transcription from .text field, length:', transcriptionText.length);
+            } else {
+              console.warn('⚠️ Transcription .text field is empty or whitespace');
+            }
+          } else if (transcriptions[finalLocale]?.error) {
+            console.warn('⚠️ Transcription for locale has error:', transcriptions[finalLocale].error);
+          } else {
+            console.warn('⚠️ Transcription for locale exists but is not string or has no .text field:', transcriptions[finalLocale]);
           }
         } else if (transcriptions.en) {
           // Fallback to English
+          console.log('🔄 Falling back to English transcription:', transcriptions.en);
           if (typeof transcriptions.en === 'string') {
             transcriptionText = transcriptions.en;
+            console.log('📄 English transcription is string, length:', transcriptionText.length);
           } else if (transcriptions.en?.text) {
             transcriptionText = transcriptions.en.text;
+            console.log('📄 English transcription from .text field, length:', transcriptionText.length);
+          } else {
+            console.warn('⚠️ English transcription exists but is not string or has no .text field:', transcriptions.en);
           }
+        } else {
+          console.warn('⚠️ No transcription found for current locale or English');
+        }
+      } else {
+        console.log('❌ No transcriptions object in reel data');
+      }
+
+      // If not found in reel data, try API endpoint
+      if (!transcriptionText && reelData.id) {
+        console.log('🌐 Transcription not in reel data, trying API endpoint...');
+        try {
+          const response = await reelApi.getTranscription(reelData.id, finalLocale);
+          console.log('📡 API Response:', response);
+          if (response.success && response.transcription) {
+            transcriptionText = response.transcription;
+            console.log('✅ Got transcription from API, length:', transcriptionText.length);
+          } else {
+            console.warn('⚠️ API response unsuccessful or no transcription:', response);
+          }
+        } catch (apiError) {
+          console.error('❌ Transcription API error:', apiError);
         }
       }
 
       if (transcriptionText) {
+        const isArray = Array.isArray(transcriptionText);
+        const isString = typeof transcriptionText === 'string';
+        
+        console.log('📝 Processing transcription text:', {
+          type: typeof transcriptionText,
+          isArray: isArray,
+          length: isString 
+            ? transcriptionText.length 
+            : (isArray 
+              ? (transcriptionText as unknown as any[]).length 
+              : 0),
+          preview: isString 
+            ? transcriptionText.substring(0, 100) 
+            : (isArray 
+              ? JSON.stringify((transcriptionText as unknown as any[]).slice(0, 5)) 
+              : 'N/A'),
+        });
+
         // Handle if transcription is an array of words instead of string
-        if (Array.isArray(transcriptionText)) {
-          transcriptionText = transcriptionText.map(item => {
+        if (isArray) {
+          const transcriptionArray = transcriptionText as unknown as any[];
+          console.log('🔄 Converting array to string, array length:', transcriptionArray.length);
+          transcriptionText = transcriptionArray.map(item => {
             if (typeof item === 'string') {
               return item;
             } else if (item && typeof item === 'object') {
@@ -145,21 +230,29 @@ const ReelDetail = () => {
             }
             return '';
           }).join(' ');
+          console.log('✅ Converted to string, length:', transcriptionText.length);
         }
 
         // Ensure it's a string
         if (typeof transcriptionText !== 'string') {
+          console.warn('⚠️ Transcription is not string, converting:', typeof transcriptionText);
           transcriptionText = String(transcriptionText || '');
         }
 
         // Parse transcription text into segments
         const segments = parseTranscription(transcriptionText, reelData.duration || 0);
+        console.log('📊 Parsed transcription segments:', {
+          segmentCount: segments.length,
+          duration: reelData.duration,
+          firstSegment: segments[0],
+        });
         setTranscription(segments);
       } else {
+        console.warn('❌ No transcription text found, setting empty array');
         setTranscription([]);
       }
     } catch (error) {
-      console.error('Error loading transcription from reel:', error);
+      console.error('❌ Error loading transcription from reel:', error);
       setTranscription([]);
     }
   };
@@ -177,40 +270,113 @@ const ReelDetail = () => {
     const lines = text.split('\n').filter(line => line.trim());
     const segments: TranscriptionSegment[] = [];
     
-    lines.forEach((line) => {
+    let currentTime = 0;
+    const estimatedSegmentDuration = duration / Math.max(lines.length, 1);
+    
+    lines.forEach((line, index) => {
       // Try to extract timestamp and text
       const timestampMatch = line.match(/(\d{1,2}):(\d{2}):?(\d{2})?/);
       if (timestampMatch) {
-        const time = timestampMatch[0];
+        // Parse timestamp to seconds
+        const parts = timestampMatch[0].split(':');
+        let seconds = 0;
+        if (parts.length === 2) {
+          seconds = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        } else if (parts.length === 3) {
+          seconds = parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+        }
+        currentTime = seconds;
         const textPart = line.replace(timestampMatch[0], '').trim();
         if (textPart) {
           segments.push({
-            time,
+            time: formatDisplayTime(seconds),
+            startTime: seconds,
+            endTime: Math.min(seconds + estimatedSegmentDuration, duration),
             text: textPart,
             isActive: false,
           });
         }
-      } else if (line.trim() && segments.length > 0) {
-        // Append to last segment if no timestamp
-        segments[segments.length - 1].text += ' ' + line.trim();
+      } else if (line.trim()) {
+        // If no timestamp, estimate time based on position
+        if (segments.length === 0) {
+          // First segment starts at 0
+          segments.push({
+            time: formatDisplayTime(0),
+            startTime: 0,
+            endTime: estimatedSegmentDuration,
+            text: line.trim(),
+            isActive: false,
+          });
+        } else {
+          // Append to last segment or create new one
+          const lastSegment = segments[segments.length - 1];
+          if (lastSegment.text.length < 200) {
+            // Append to last segment if it's not too long
+            lastSegment.text += ' ' + line.trim();
+            lastSegment.endTime = Math.min(lastSegment.startTime + estimatedSegmentDuration * (segments.length + 1), duration);
+          } else {
+            // Create new segment
+            const newStartTime = lastSegment.endTime;
+            segments.push({
+              time: formatDisplayTime(newStartTime),
+              startTime: newStartTime,
+              endTime: Math.min(newStartTime + estimatedSegmentDuration, duration),
+              text: line.trim(),
+              isActive: false,
+            });
+          }
+        }
       }
     });
     
-    return segments.length > 0 ? segments : [{ time: '00:00', text, isActive: false }];
+    // If no segments were created, create one with the full text
+    if (segments.length === 0) {
+      return [{
+        time: formatDisplayTime(0),
+        startTime: 0,
+        endTime: duration || 0,
+        text: text.trim(),
+        isActive: false,
+      }];
+    }
+    
+    return segments;
   };
 
-  // Parse WebVTT format
+  // Helper function to convert WebVTT time to seconds
+  const vttTimeToSeconds = (vttTime: string): number => {
+    const parts = vttTime.split(':');
+    if (parts.length === 3) {
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10);
+      const secondsParts = parts[2].split('.');
+      const seconds = parseInt(secondsParts[0], 10);
+      const milliseconds = parseInt(secondsParts[1] || '0', 10);
+      return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+    }
+    return 0;
+  };
+
+  // Helper function to format seconds to display time (MM:SS)
+  const formatDisplayTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Parse WebVTT format with proper time ranges
   const parseWebVTT = (vtt: string): TranscriptionSegment[] => {
     const segments: TranscriptionSegment[] = [];
     const lines = vtt.split('\n');
-    let currentTime = '';
+    let currentStartTime = '';
+    let currentEndTime = '';
     let currentText = '';
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      // Skip WEBVTT header
-      if (line === 'WEBVTT' || line.startsWith('WEBVTT')) {
+      // Skip WEBVTT header and empty lines
+      if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '') {
         continue;
       }
       
@@ -218,26 +384,38 @@ const ReelDetail = () => {
       const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
       if (timeMatch) {
         // Save previous segment if exists
-        if (currentTime && currentText) {
+        if (currentStartTime && currentText) {
+          const startSeconds = vttTimeToSeconds(currentStartTime);
+          const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
           segments.push({
-            time: currentTime,
+            time: formatDisplayTime(startSeconds),
+            startTime: startSeconds,
+            endTime: endSeconds,
             text: currentText.trim(),
             isActive: false,
           });
         }
-        // Start new segment with start time
-        currentTime = timeMatch[1].split('.')[0]; // Remove milliseconds
+        // Start new segment
+        currentStartTime = timeMatch[1];
+        currentEndTime = timeMatch[2];
         currentText = '';
-      } else if (line && currentTime) {
-        // Add text to current segment
-        currentText += (currentText ? ' ' : '') + line;
+      } else if (line && currentStartTime) {
+        // Add text to current segment (remove HTML tags if any)
+        const cleanLine = line.replace(/<[^>]*>/g, '').trim();
+        if (cleanLine) {
+          currentText += (currentText ? ' ' : '') + cleanLine;
+        }
       }
     }
     
     // Add last segment
-    if (currentTime && currentText) {
+    if (currentStartTime && currentText) {
+      const startSeconds = vttTimeToSeconds(currentStartTime);
+      const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
       segments.push({
-        time: currentTime,
+        time: formatDisplayTime(startSeconds),
+        startTime: startSeconds,
+        endTime: endSeconds,
         text: currentText.trim(),
         isActive: false,
       });
@@ -249,9 +427,26 @@ const ReelDetail = () => {
   // Reload transcription when language changes
   useEffect(() => {
     if (reel) {
-      loadTranscriptionFromReel(reel);
+      loadTranscriptionFromReel(reel).catch(error => {
+        console.error('Error reloading transcription:', error);
+      });
     }
   }, [i18n.language, locale, reel?.id]);
+
+  // Update active transcription segment based on current playback time
+  useEffect(() => {
+    if (transcription.length === 0 || currentTime === undefined) return;
+
+    setTranscription(prevSegments => {
+      const updated = prevSegments.map(segment => {
+        // Check if current time is within this segment's time range
+        const isActive = currentTime >= segment.startTime && currentTime < segment.endTime;
+        return { ...segment, isActive };
+      });
+
+      return updated;
+    });
+  }, [currentTime, transcription.length]);
 
   // Initialize Bunny.net player when iframe loads
   useEffect(() => {
@@ -1153,29 +1348,49 @@ const ReelDetail = () => {
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto relative">
           {activeTab === 'transcripcion' ? (
-            <div className="px-12 py-10 space-y-8 max-w-3xl">
+            <div className="px-12 py-10 space-y-6 max-w-3xl">
               {transcription.length > 0 ? (
                 transcription.map((segment, index) => (
                   <div
+                    id={`transcript-segment-${index}`}
                     key={index}
-                    className={`group flex gap-6 ${
+                    onClick={() => {
+                      // Seek to this segment's start time
+                      if (reel && (reel.bunny_embed_url || reel.bunny_player_url)) {
+                        if (bunnyPlayerRef.current) {
+                          try {
+                            bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                            setCurrentTime(segment.startTime);
+                            if (reel.duration) {
+                              setProgress((segment.startTime / reel.duration) * 100);
+                            }
+                          } catch (error) {
+                            console.error('Error seeking to segment:', error);
+                          }
+                        }
+                      } else if (videoRef.current) {
+                        videoRef.current.currentTime = segment.startTime;
+                        setCurrentTime(segment.startTime);
+                      }
+                    }}
+                    className={`group flex gap-6 transition-all duration-200 ${
                       segment.isActive
-                        ? 'relative'
-                        : 'opacity-50 hover:opacity-80 transition-opacity cursor-pointer'
+                        ? 'relative opacity-100'
+                        : 'opacity-60 hover:opacity-90 cursor-pointer'
                     }`}
                   >
                     {segment.isActive && (
-                      <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r"></div>
+                      <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r transition-all"></div>
                     )}
-                    <span className={`font-mono text-xs pt-1 ${
-                      segment.isActive ? 'text-white font-bold' : 'text-gray-500'
+                    <span className={`font-mono text-xs pt-1 min-w-[3rem] transition-colors ${
+                      segment.isActive ? 'text-[#A05245] font-bold' : 'text-gray-500'
                     }`}>
                       {segment.time}
                     </span>
-                    <p className={`leading-relaxed ${
+                    <p className={`leading-relaxed transition-all ${
                       segment.isActive
-                        ? 'text-lg text-white font-normal'
-                        : 'text-base text-gray-300 font-light'
+                        ? 'text-lg text-white font-semibold'
+                        : 'text-base text-gray-300 font-normal'
                     }`}>
                       {segment.text}
                     </p>

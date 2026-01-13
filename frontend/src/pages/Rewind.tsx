@@ -145,9 +145,8 @@ const Rewind = () => {
 
   const getRewindType = (videoCount: number) => {
     if (videoCount === 1) return t('rewind.masterclass', 'Masterclass');
-    if (videoCount <= 3) return t('rewind.series_short', 'Series of {count} Ep.', { count: videoCount });
-    if (videoCount <= 6) return t('rewind.series_medium', 'Series of {count} Ep.', { count: videoCount });
-    return t('rewind.series_long', 'Series of {count} Ep.', { count: videoCount });
+    // Show actual number instead of placeholder
+    return `${videoCount} ${t('rewind.episodes', 'Episodes')}`;
   };
 
   const handleRewindClick = (rewind: Rewind) => {

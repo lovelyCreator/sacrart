@@ -62,6 +62,13 @@ class Reel extends Model
         'processing_status',
         'processing_error',
         'processed_at',
+        'transcriptions',
+        'caption_urls',
+        'audio_urls',
+        'source_language',
+        'transcription_status',
+        'transcription_error',
+        'transcription_processed_at',
     ];
 
     protected $casts = [

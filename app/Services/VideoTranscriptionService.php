@@ -36,11 +36,17 @@ class VideoTranscriptionService
     public function processVideoTranscription($model, array $languages = ['en', 'es', 'pt'], string $sourceLanguage = 'en'): array
     {
         try {
-            // Update status to processing
-            $model->update([
-                'transcription_status' => 'processing',
-                'transcription_error' => null,
-            ]);
+            // Update status to processing using direct DB update to avoid model events
+            DB::table($model->getTable())
+                ->where('id', $model->id)
+                ->update([
+                    'transcription_status' => 'processing',
+                    'transcription_error' => null,
+                    'updated_at' => now(),
+                ]);
+            
+            // Refresh model to sync
+            $model->refresh();
 
             // Get Bunny.net video ID
             $bunnyVideoId = $model->bunny_video_id;
@@ -106,11 +112,9 @@ class VideoTranscriptionService
             $captionUrls = [];
             $audioUrls = [];
 
-            // Step 1: Transcribe video in ALL languages using Deepgram directly
-            // This gives us properly timed captions in each language without translation issues
-            Log::info('Starting multi-language transcription with Deepgram', [
+            // Step 1: Transcribe video in source language only using Deepgram
+            Log::info('Starting transcription in source language with Deepgram', [
                 'model_id' => $model->id,
-                'languages' => $languages,
                 'source_language' => $sourceLanguage,
             ]);
 
@@ -121,62 +125,169 @@ class VideoTranscriptionService
                 'hls_url' => $bunnyHlsUrl,
             ]);
 
-            foreach ($languages as $lang) {
-                try {
-                    Log::info("Transcribing video in {$lang}", [
+            // First, transcribe only in the source language
+            try {
+                Log::info("Transcribing video in source language: {$sourceLanguage}", [
+                    'model_id' => $model->id,
+                    'language' => $sourceLanguage,
+                ]);
+
+                // Transcribe the video in source language using Deepgram
+                $transcriptionResult = $this->deepgramService->transcribeFromUrl($videoUrl, $sourceLanguage);
+
+                if (!$transcriptionResult['success']) {
+                    throw new Exception('Deepgram transcription failed: ' . ($transcriptionResult['error'] ?? 'Unknown error'));
+                }
+
+                // Verify transcription is a string, not an array
+                $sourceTranscriptionText = $transcriptionResult['transcription'];
+                $sourceTranscriptionVTT = $transcriptionResult['vtt'];
+                
+                if (!is_string($sourceTranscriptionText)) {
+                    Log::error("Source transcription text is NOT a string!", [
+                        'lang' => $sourceLanguage,
+                        'type' => gettype($sourceTranscriptionText),
+                        'is_array' => is_array($sourceTranscriptionText),
+                    ]);
+                    throw new Exception("Source transcription text is not a string (got " . gettype($sourceTranscriptionText) . ")");
+                }
+                
+                if (!is_string($sourceTranscriptionVTT)) {
+                    Log::error("Source transcription VTT is NOT a string!", [
+                        'lang' => $sourceLanguage,
+                        'type' => gettype($sourceTranscriptionVTT),
+                    ]);
+                    throw new Exception("Source transcription VTT is not a string (got " . gettype($sourceTranscriptionVTT) . ")");
+                }
+                
+                // Store source language transcription
+                $transcriptions[$sourceLanguage] = [
+                    'text' => $sourceTranscriptionText,
+                    'vtt' => $sourceTranscriptionVTT,
+                    'processed_at' => now()->toDateTimeString(),
+                    'method' => 'deepgram_native',
+                ];
+
+                Log::info("Successfully transcribed video in source language: {$sourceLanguage}", [
+                    'model_id' => $model->id,
+                    'text_length' => strlen($sourceTranscriptionText),
+                    'vtt_length' => strlen($sourceTranscriptionVTT),
+                ]);
+
+                // Upload source language caption to Bunny.net
+                $uploadResult = $this->uploadCaptionToBunny(
+                    $bunnyVideoId,
+                    $sourceTranscriptionVTT,
+                    $sourceLanguage,
+                    $this->getLanguageLabel($sourceLanguage)
+                );
+
+                if ($uploadResult['success']) {
+                    $captionUrls[$sourceLanguage] = $uploadResult['url'] ?? null;
+                    $transcriptions[$sourceLanguage]['bunny_caption_url'] = $uploadResult['url'] ?? null;
+                    
+                    Log::info("Caption uploaded to Bunny.net for source language: {$sourceLanguage}", [
                         'model_id' => $model->id,
-                        'language' => $lang,
-                        'is_source_language' => $lang === $sourceLanguage,
+                        'url' => $uploadResult['url'] ?? null,
+                    ]);
+                } else {
+                    Log::warning("Failed to upload caption to Bunny.net for source language: {$sourceLanguage}", [
+                        'model_id' => $model->id,
+                        'error' => $uploadResult['message'] ?? 'Unknown error',
+                    ]);
+                }
+
+                // For source language: Use original Bunny.net video audio (no TTS needed)
+                $audioUrls[$sourceLanguage] = 'original'; // Special marker to use video's original audio
+                $transcriptions[$sourceLanguage]['audio_url'] = 'original';
+                $transcriptions[$sourceLanguage]['audio_type'] = 'original';
+                $transcriptions[$sourceLanguage]['bunny_hls_url'] = $bunnyHlsUrl;
+                
+                Log::info("Using original video audio for source language: {$sourceLanguage}", [
+                    'model_id' => $model->id,
+                    'hls_url' => $bunnyHlsUrl,
+                ]);
+
+            } catch (Exception $e) {
+                Log::error("Failed to transcribe source language: {$sourceLanguage}", [
+                    'model_id' => $model->id,
+                    'error' => $e->getMessage(),
+                ]);
+                throw $e; // Can't continue without source transcription
+            }
+
+            // Step 2: Translate source transcription to other languages
+            foreach ($languages as $lang) {
+                // Skip source language (already done)
+                if ($lang === $sourceLanguage) {
+                    continue;
+                }
+
+                try {
+                    Log::info("Translating transcription to {$lang}", [
+                        'model_id' => $model->id,
+                        'target_language' => $lang,
+                        'source_language' => $sourceLanguage,
                     ]);
 
-                    // Transcribe the video directly in this language using Deepgram
-                    $transcriptionResult = $this->deepgramService->transcribeFromUrl($videoUrl, $lang);
+                    // Translate the transcription text
+                    $translationResult = $this->deepgramService->translateText(
+                        $sourceTranscriptionText,
+                        $lang,
+                        $sourceLanguage
+                    );
 
-                    if (!$transcriptionResult['success']) {
-                        throw new Exception('Deepgram transcription failed: ' . ($transcriptionResult['error'] ?? 'Unknown error'));
+                    if (!$translationResult['success']) {
+                        throw new Exception('Translation failed: ' . ($translationResult['error'] ?? 'Unknown error'));
                     }
 
-                    // Verify transcription is a string, not an array
-                    $transcriptionText = $transcriptionResult['transcription'];
-                    $transcriptionVTT = $transcriptionResult['vtt'];
-                    
-                    if (!is_string($transcriptionText)) {
-                        Log::error("Transcription text is NOT a string!", [
+                    $translatedText = $translationResult['translated_text'] ?? $sourceTranscriptionText;
+
+                    // Translate the WebVTT file
+                    $translatedVTT = $this->deepgramService->translateWebVTT(
+                        $sourceTranscriptionVTT,
+                        $lang,
+                        $sourceLanguage
+                    );
+
+                    // Verify translated text is a string
+                    if (!is_string($translatedText)) {
+                        Log::error("Translated text is NOT a string!", [
                             'lang' => $lang,
-                            'type' => gettype($transcriptionText),
-                            'is_array' => is_array($transcriptionText),
+                            'type' => gettype($translatedText),
                         ]);
-                        throw new Exception("Transcription text for {$lang} is not a string (got " . gettype($transcriptionText) . ")");
+                        throw new Exception("Translated text for {$lang} is not a string (got " . gettype($translatedText) . ")");
                     }
                     
-                    if (!is_string($transcriptionVTT)) {
-                        Log::error("Transcription VTT is NOT a string!", [
+                    if (!is_string($translatedVTT)) {
+                        Log::error("Translated VTT is NOT a string!", [
                             'lang' => $lang,
-                            'type' => gettype($transcriptionVTT),
+                            'type' => gettype($translatedVTT),
                         ]);
-                        throw new Exception("Transcription VTT for {$lang} is not a string (got " . gettype($transcriptionVTT) . ")");
+                        throw new Exception("Translated VTT for {$lang} is not a string (got " . gettype($translatedVTT) . ")");
                     }
                     
-                    // Store transcription
+                    // Store translated transcription
                     $transcriptions[$lang] = [
-                        'text' => $transcriptionText,
-                        'vtt' => $transcriptionVTT,
+                        'text' => $translatedText,
+                        'vtt' => $translatedVTT,
                         'processed_at' => now()->toDateTimeString(),
-                        'method' => 'deepgram_native', // Native Deepgram transcription (not translation)
+                        'method' => 'translated',
+                        'translated_from' => $sourceLanguage,
                     ];
 
-                    Log::info("Successfully transcribed video in {$lang}", [
+                    Log::info("Successfully translated transcription to {$lang}", [
                         'model_id' => $model->id,
-                        'text_type' => gettype($transcriptionText),
-                        'text_length' => strlen($transcriptionText),
-                        'text_preview' => substr($transcriptionText, 0, 100),
-                        'vtt_length' => strlen($transcriptionVTT),
+                        'text_type' => gettype($translatedText),
+                        'text_length' => strlen($translatedText),
+                        'text_preview' => substr($translatedText, 0, 100),
+                        'vtt_length' => strlen($translatedVTT),
                     ]);
 
-                    // Upload caption to Bunny.net
+                    // Upload translated caption to Bunny.net
                     $uploadResult = $this->uploadCaptionToBunny(
                         $bunnyVideoId,
-                        $transcriptionResult['vtt'],
+                        $translatedVTT,
                         $lang,
                         $this->getLanguageLabel($lang)
                     );
@@ -196,55 +307,41 @@ class VideoTranscriptionService
                         ]);
                     }
 
-                    // Handle audio: Use original for source language, TTS for others
-                    if ($lang === $sourceLanguage) {
-                        // For source language: Use original Bunny.net video audio (no TTS needed)
-                        $audioUrls[$lang] = 'original'; // Special marker to use video's original audio
-                        $transcriptions[$lang]['audio_url'] = 'original';
-                        $transcriptions[$lang]['audio_type'] = 'original';
-                        $transcriptions[$lang]['bunny_hls_url'] = $bunnyHlsUrl;
-                        
-                        Log::info("Using original video audio for source language: {$lang}", [
+                    // Generate TTS audio for translated languages
+                    try {
+                        Log::info("Generating TTS audio for {$lang}", [
                             'model_id' => $model->id,
-                            'hls_url' => $bunnyHlsUrl,
+                            'text_length' => strlen($translatedText),
                         ]);
-                    } else {
-                        // For other languages: Generate TTS audio
-                        try {
-                            Log::info("Generating TTS audio for {$lang}", [
-                                'model_id' => $model->id,
-                                'text_length' => strlen($transcriptionResult['transcription']),
-                            ]);
 
-                            $ttsResult = $this->deepgramService->textToSpeech(
-                                $transcriptionResult['transcription'],
-                                $lang
-                            );
+                        $ttsResult = $this->deepgramService->textToSpeech(
+                            $translatedText,
+                            $lang
+                        );
 
-                            if ($ttsResult['success']) {
-                                $audioUrls[$lang] = $ttsResult['audio_url'];
-                                $transcriptions[$lang]['audio_url'] = $ttsResult['audio_url'];
-                                $transcriptions[$lang]['audio_path'] = $ttsResult['audio_path'];
-                                $transcriptions[$lang]['audio_type'] = 'tts';
-                                
-                                Log::info("TTS audio generated for {$lang}", [
-                                    'model_id' => $model->id,
-                                    'audio_url' => $ttsResult['audio_url'],
-                                    'file_size' => filesize($ttsResult['audio_path']),
-                                ]);
-                            } else {
-                                Log::warning("TTS failed for {$lang}", [
-                                    'model_id' => $model->id,
-                                    'error' => $ttsResult['error'] ?? 'Unknown TTS error',
-                                ]);
-                            }
-                        } catch (Exception $ttsError) {
-                            Log::warning("TTS generation failed for {$lang}", [
+                        if ($ttsResult['success']) {
+                            $audioUrls[$lang] = $ttsResult['audio_url'];
+                            $transcriptions[$lang]['audio_url'] = $ttsResult['audio_url'];
+                            $transcriptions[$lang]['audio_path'] = $ttsResult['audio_path'];
+                            $transcriptions[$lang]['audio_type'] = 'tts';
+                            
+                            Log::info("TTS audio generated for {$lang}", [
                                 'model_id' => $model->id,
-                                'error' => $ttsError->getMessage(),
+                                'audio_url' => $ttsResult['audio_url'],
+                                'file_size' => filesize($ttsResult['audio_path']),
                             ]);
-                            // Continue even if TTS fails - captions still work
+                        } else {
+                            Log::warning("TTS failed for {$lang}", [
+                                'model_id' => $model->id,
+                                'error' => $ttsResult['error'] ?? 'Unknown TTS error',
+                            ]);
                         }
+                    } catch (Exception $ttsError) {
+                        Log::warning("TTS generation failed for {$lang}", [
+                            'model_id' => $model->id,
+                            'error' => $ttsError->getMessage(),
+                        ]);
+                        // Continue even if TTS fails - captions still work
                     }
 
                     Log::info("Completed processing language: {$lang}", [
@@ -254,7 +351,7 @@ class VideoTranscriptionService
                     ]);
 
                 } catch (Exception $e) {
-                    Log::error("Failed to process language: {$lang}", [
+                    Log::error("Failed to translate language: {$lang}", [
                         'model_id' => $model->id,
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString(),
@@ -269,14 +366,184 @@ class VideoTranscriptionService
             }
 
             // Step 2: Update model with transcription data
-            $model->update([
-                'transcriptions' => $transcriptions,
-                'caption_urls' => $captionUrls,
-                'audio_urls' => $audioUrls,
-                'source_language' => $sourceLanguage,
-                'transcription_status' => 'completed',
-                'transcription_processed_at' => now(),
-            ]);
+            try {
+                $updateData = [
+                    'transcriptions' => $transcriptions,
+                    'caption_urls' => $captionUrls,
+                    'audio_urls' => $audioUrls,
+                    'source_language' => $sourceLanguage,
+                    'transcription_status' => 'completed',
+                    'transcription_processed_at' => now(),
+                    'transcription_error' => null,
+                ];
+
+                Log::info('Attempting to save transcription data to database', [
+                    'model_type' => get_class($model),
+                    'model_id' => $model->id,
+                    'transcriptions_count' => count($transcriptions),
+                    'caption_urls_count' => count($captionUrls),
+                    'audio_urls_count' => count($audioUrls),
+                    'update_data_keys' => array_keys($updateData),
+                ]);
+
+                // Use DB transaction to ensure data is saved
+                // Use direct DB update to bypass any model-level restrictions
+                DB::beginTransaction();
+                try {
+                    // First, let's check if the model can be updated
+                    foreach ($updateData as $key => $value) {
+                        if (!in_array($key, $model->getFillable())) {
+                            Log::warning('Field not in fillable array, will use direct DB update', [
+                                'field' => $key,
+                                'fillable_fields' => $model->getFillable(),
+                            ]);
+                        }
+                    }
+
+                    // Skip model save entirely - use direct DB update only
+                    // This bypasses any model-level restrictions, events, or observers that might interfere
+                    // Model events (like Video's 'saved' event that updates series statistics) can interfere with transcription saves
+                    
+                    // Prepare update data
+                    $dbUpdateData = [
+                        'transcriptions' => json_encode($transcriptions, JSON_UNESCAPED_UNICODE),
+                        'caption_urls' => json_encode($captionUrls, JSON_UNESCAPED_UNICODE),
+                        'audio_urls' => json_encode($audioUrls, JSON_UNESCAPED_UNICODE),
+                        'source_language' => $sourceLanguage,
+                        'transcription_status' => 'completed',
+                        'transcription_processed_at' => now(),
+                        'transcription_error' => null,
+                        'updated_at' => now(),
+                    ];
+                    
+                    // For Video model, also save to old transcription fields (transcription, transcription_en, transcription_es, transcription_pt)
+                    // This ensures compatibility with EpisodeDetail and RewindEpisodes pages
+                    if ($model instanceof \App\Models\Video) {
+                        // Extract text from transcriptions JSON for each language
+                        $transcriptionText = null;
+                        $transcriptionEn = null;
+                        $transcriptionEs = null;
+                        $transcriptionPt = null;
+                        
+                        if (isset($transcriptions['en']) && is_array($transcriptions['en'])) {
+                            $transcriptionEn = $transcriptions['en']['text'] ?? null;
+                            // Use English as default transcription
+                            if (!$transcriptionText) {
+                                $transcriptionText = $transcriptionEn;
+                            }
+                        }
+                        
+                        if (isset($transcriptions['es']) && is_array($transcriptions['es'])) {
+                            $transcriptionEs = $transcriptions['es']['text'] ?? null;
+                        }
+                        
+                        if (isset($transcriptions['pt']) && is_array($transcriptions['pt'])) {
+                            $transcriptionPt = $transcriptions['pt']['text'] ?? null;
+                        }
+                        
+                        // If source language is not English, use it as default transcription
+                        if ($sourceLanguage !== 'en' && isset($transcriptions[$sourceLanguage]) && is_array($transcriptions[$sourceLanguage])) {
+                            $transcriptionText = $transcriptions[$sourceLanguage]['text'] ?? $transcriptionText;
+                        }
+                        
+                        // Add old transcription fields to update data
+                        $dbUpdateData['transcription'] = $transcriptionText;
+                        $dbUpdateData['transcription_en'] = $transcriptionEn;
+                        $dbUpdateData['transcription_es'] = $transcriptionEs;
+                        $dbUpdateData['transcription_pt'] = $transcriptionPt;
+                        
+                        Log::info('Saving transcriptions to old fields for Video model', [
+                            'video_id' => $model->id,
+                            'transcription_length' => $transcriptionText ? strlen($transcriptionText) : 0,
+                            'transcription_en_length' => $transcriptionEn ? strlen($transcriptionEn) : 0,
+                            'transcription_es_length' => $transcriptionEs ? strlen($transcriptionEs) : 0,
+                            'transcription_pt_length' => $transcriptionPt ? strlen($transcriptionPt) : 0,
+                        ]);
+                    }
+                    
+                    $directUpdate = DB::table($model->getTable())
+                        ->where('id', $model->id)
+                        ->update($dbUpdateData);
+                    
+                    if ($directUpdate === 0) {
+                        DB::rollBack();
+                        Log::error('Direct DB update affected 0 rows', [
+                            'model_type' => get_class($model),
+                            'model_id' => $model->id,
+                            'table' => $model->getTable(),
+                        ]);
+                        throw new Exception('Direct DB update affected 0 rows - video may not exist');
+                    }
+
+                    // Commit the transaction
+                    DB::commit();
+                    
+                    Log::info('Direct DB update completed successfully', [
+                        'model_id' => $model->id,
+                        'rows_affected' => $directUpdate,
+                    ]);
+
+                    // Verify the data was saved by querying directly from database
+                    $model->refresh();
+                    
+                    // Select fields based on model type
+                    $selectFields = ['transcriptions', 'caption_urls', 'audio_urls', 'transcription_status', 'source_language'];
+                    if ($model instanceof \App\Models\Video) {
+                        $selectFields = array_merge($selectFields, ['transcription', 'transcription_en', 'transcription_es', 'transcription_pt']);
+                    }
+                    
+                    $dbCheck = DB::table($model->getTable())
+                        ->where('id', $model->id)
+                        ->select($selectFields)
+                        ->first();
+                    
+                    if (!$dbCheck) {
+                        throw new Exception('Could not verify saved data - video not found in database');
+                    }
+                    
+                    $savedTranscriptions = $dbCheck->transcriptions ? json_decode($dbCheck->transcriptions, true) : null;
+                    $savedCaptionUrls = $dbCheck->caption_urls ? json_decode($dbCheck->caption_urls, true) : null;
+                    $savedAudioUrls = $dbCheck->audio_urls ? json_decode($dbCheck->audio_urls, true) : null;
+                    
+                    $logData = [
+                        'model_type' => get_class($model),
+                        'model_id' => $model->id,
+                        'saved_transcriptions_keys' => is_array($savedTranscriptions) ? array_keys($savedTranscriptions) : 'not_array',
+                        'saved_transcriptions_type' => gettype($savedTranscriptions),
+                        'saved_caption_urls' => is_array($savedCaptionUrls) ? array_keys($savedCaptionUrls) : 'not_array',
+                        'saved_audio_urls' => is_array($savedAudioUrls) ? array_keys($savedAudioUrls) : 'not_array',
+                        'transcription_status' => $dbCheck->transcription_status,
+                        'source_language' => $dbCheck->source_language,
+                        'transcriptions_preview' => is_array($savedTranscriptions) ? array_slice($savedTranscriptions, 0, 1) : null,
+                    ];
+                    
+                    // Add old field verification for Video model
+                    if ($model instanceof \App\Models\Video) {
+                        $logData['transcription_length'] = $dbCheck->transcription ? strlen($dbCheck->transcription) : 0;
+                        $logData['transcription_en_length'] = $dbCheck->transcription_en ? strlen($dbCheck->transcription_en) : 0;
+                        $logData['transcription_es_length'] = $dbCheck->transcription_es ? strlen($dbCheck->transcription_es) : 0;
+                        $logData['transcription_pt_length'] = $dbCheck->transcription_pt ? strlen($dbCheck->transcription_pt) : 0;
+                    }
+                    
+                    Log::info('Database verification query result - data confirmed saved', $logData);
+                    
+                    // Also refresh model to sync with database
+                    $model->refresh();
+
+                } catch (\Exception $saveException) {
+                    DB::rollBack();
+                    throw $saveException;
+                }
+
+            } catch (\Exception $updateException) {
+                Log::error('Exception while saving transcription data', [
+                    'model_type' => get_class($model),
+                    'model_id' => $model->id,
+                    'error' => $updateException->getMessage(),
+                    'trace' => $updateException->getTraceAsString(),
+                ]);
+                throw $updateException;
+            }
 
             Log::info('Video transcription processing completed', [
                 'model_type' => get_class($model),
