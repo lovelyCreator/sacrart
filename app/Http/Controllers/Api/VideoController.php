@@ -52,16 +52,8 @@ class VideoController extends Controller
         // Check if this is an admin request (admin routes)
         $isAdminRequest = $request->is('api/admin/*');
 
-        // Apply visibility filters based on user subscription (skip for admin)
-        if (!$isAdminRequest) {
-            if ($user) {
-                // Default to freemium if subscription_type is null/empty
-                $subscriptionType = $user->subscription_type ?: 'freemium';
-                $query->visibleTo($subscriptionType);
-            } else {
-                $query->where('visibility', 'freemium');
-            }
-        }
+        // Don't filter by visibility in listings - show all videos, frontend will handle lock icons
+        // Visibility filtering is only applied when actually accessing/streaming videos
 
         // Filter by category_id (videos belong to series, series belong to categories)
         if ($request->has('category_id')) {
@@ -979,14 +971,8 @@ class VideoController extends Controller
 
         $query = $series->videos()->with(['instructor']);
 
-        // Apply visibility filters
-        if ($user) {
-            // Default to freemium if subscription_type is null/empty
-            $subscriptionType = $user->subscription_type ?: 'freemium';
-            $query->visibleTo($subscriptionType);
-        } else {
-            $query->where('visibility', 'freemium');
-        }
+        // Don't filter by visibility in listings - show all videos, frontend will handle lock icons
+        // Visibility filtering is only applied when actually accessing/streaming videos
 
         // Only published videos for public access
         $query->published();
@@ -1853,22 +1839,12 @@ class VideoController extends Controller
         // Calculate date 7 days ago
         $sevenDaysAgo = now()->subDays(7);
         
-        // Build base query with visibility filters
+        // Build base query - show all published videos, frontend will handle lock icons
         $baseQuery = Video::query()
             ->where('videos.status', 'published');
         
-        // Apply visibility filters
-        if ($user) {
-            $subscriptionType = $user->subscription_type ?: 'freemium';
-            if ($subscriptionType === 'freemium') {
-                $baseQuery->where('videos.visibility', 'freemium');
-            } elseif ($subscriptionType === 'basic') {
-                $baseQuery->whereIn('videos.visibility', ['freemium', 'basic']);
-            }
-            // Premium users can see all videos - no additional filter
-        } else {
-            $baseQuery->where('videos.visibility', 'freemium');
-        }
+        // Don't filter by visibility in listings - show all videos, frontend will handle lock icons
+        // Visibility filtering is only applied when actually accessing/streaming videos
         
         // Get ALL videos and calculate views in last 7 days from daily_views JSON column
         // This uses the new daily_views tracking system
@@ -1946,20 +1922,8 @@ class VideoController extends Controller
             ->where('status', 'published')
             ->whereNotNull('series_id'); // Only show episodes (videos that belong to a series)
 
-        // Apply visibility filters
-        if ($user) {
-            $subscriptionType = $user->subscription_type ?: 'freemium';
-            // Apply visibility filter directly to avoid scope issues
-            if ($subscriptionType === 'freemium') {
-                $query->where('visibility', 'freemium');
-            } elseif ($subscriptionType === 'basic') {
-                $query->whereIn('visibility', ['freemium', 'basic']);
-            } elseif ($subscriptionType === 'premium') {
-                // Premium users can see all videos - no additional filter needed
-            }
-        } else {
-            $query->where('visibility', 'freemium');
-        }
+        // Don't filter by visibility in listings - show all videos, frontend will handle lock icons
+        // Visibility filtering is only applied when actually accessing/streaming videos
 
         // Eager load relationships
         $query->with(['series.category', 'instructor']);

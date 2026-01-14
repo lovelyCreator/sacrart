@@ -22,6 +22,7 @@ import { videoApi } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
 import { commentsApi, VideoComment } from '@/services/commentsApi';
 import { toast } from 'sonner';
+import { isVideoLocked, shouldShowLockIcon, getLockMessageKey } from '@/utils/videoAccess';
 
 interface ShopProduct {
   name?: string;
@@ -1280,27 +1281,45 @@ const EpisodeShop = () => {
           <div className="flex gap-6 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4 md:mx-0 md:px-0">
             {relatedVideos.map((relatedVideo) => {
               const relatedThumbnail = getImageUrl(relatedVideo.intro_image_url || relatedVideo.intro_image || relatedVideo.thumbnail_url || relatedVideo.thumbnail || relatedVideo.bunny_thumbnail_url || '');
+              const shouldShowLock = shouldShowLockIcon(relatedVideo.visibility);
+              const isLocked = isVideoLocked(relatedVideo.visibility, user?.subscription_type);
+              const showLockIcon = shouldShowLock;
               
               return (
                 <div
                   key={relatedVideo.id}
-                  className="group min-w-[300px] w-[300px] flex flex-col gap-3 cursor-pointer"
-                  onClick={() => navigateWithLocale(`/episode/${relatedVideo.id}`)}
+                  className={`group min-w-[300px] w-[300px] flex flex-col gap-3 ${showLockIcon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  onClick={() => {
+                    if (isLocked || showLockIcon) {
+                      toast.error(t('video.locked_content'));
+                      return;
+                    }
+                    navigateWithLocale(`/episode/${relatedVideo.id}`);
+                  }}
                 >
                   <div className="relative aspect-video rounded-sm overflow-hidden bg-[#1d1615]">
                     {relatedThumbnail ? (
                       <div 
-                        className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                        className={`absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110 ${showLockIcon ? 'opacity-60' : ''}`}
                         style={{ backgroundImage: `url(${relatedThumbnail})` }}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-[#a15145]/20 to-[#a15145]/5" />
                     )}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Play className="h-12 w-12 text-white drop-shadow-lg" />
-                    </div>
+                    {showLockIcon ? (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                        <div className="flex flex-col items-center gap-2 px-3 text-center">
+                          <Lock className="h-10 w-10 text-white" />
+                          <span className="text-white text-xs font-semibold">{t(getLockMessageKey(relatedVideo.visibility))}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Play className="h-12 w-12 text-white drop-shadow-lg" />
+                      </div>
+                    )}
                     {relatedVideo.duration && (
-                      <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">
+                      <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white z-20">
                         {formatDurationShort(relatedVideo.duration)}
                       </div>
                     )}

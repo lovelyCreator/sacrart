@@ -25,7 +25,8 @@ import {
   Languages,
   Monitor,
   CheckCircle2,
-  ChevronDown
+  ChevronDown,
+  Lock
 } from 'lucide-react';
 import { generateMockSeries, generateMockVideos, MockSeries } from '@/services/mockData';
 import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
@@ -42,6 +43,7 @@ import { userProgressApi, UserProgress } from '@/services/userProgressApi';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { useLanguage } from '@/hooks/useLanguage';
+import { isVideoLocked, shouldShowLockIcon, getLockMessageKey } from '@/utils/videoAccess';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -2994,24 +2996,46 @@ const Home = () => {
             <div className="text-center text-gray-400 py-8 text-sm sm:text-base">{t('common.loading')}</div>
           ) : trendingForSection.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {trendingForSection.map((video) => (
+              {trendingForSection.map((video) => {
+                const shouldShowLock = shouldShowLockIcon(video.visibility);
+                const isLocked = isVideoLocked(video.visibility, user?.subscription_type);
+                // Use shouldShowLock for UI display, isLocked for navigation blocking
+                const showLockIcon = shouldShowLock;
+                
+                return (
                 <div
                   key={video.id}
-                  onClick={() => navigateWithLocale(`/episode/${video.id}`)}
-                  className="group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 cursor-pointer"
+                  onClick={(e) => {
+                    if (isLocked) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toast.error(t('video.locked_content'));
+                      return;
+                    }
+                    navigateWithLocale(`/episode/${video.id}`);
+                  }}
+                  className={`group relative bg-[#2a1d21] rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/50 hover:z-10 ${showLockIcon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <div className="relative aspect-video w-full overflow-hidden">
                     <img
                       src={getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '')}
                       alt={video.title || ''}
-                      className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+                      className={`w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110 ${showLockIcon ? 'opacity-60' : ''}`}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
                       }}
                     />
+                    {showLockIcon && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                        <div className="flex flex-col items-center gap-2 px-4 text-center">
+                          <Lock className="h-12 w-12 text-white" />
+                          <span className="text-white text-sm font-semibold">{t(getLockMessageKey(video.visibility))}</span>
+                        </div>
+                      </div>
+                    )}
                     {video.duration && (
-                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs font-bold text-white">
+                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs font-bold text-white z-20">
                         {formatVideoDuration(video.duration)}
                       </div>
                     )}
@@ -3026,29 +3050,32 @@ const Home = () => {
                     <p className="text-text-subtle text-xs sm:text-sm line-clamp-1">
                       {typeof video.instructor === 'string' ? video.instructor : (video.instructor?.name || '') || video.category?.name || ''}
                     </p>
-                    <div className="mt-2 sm:mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigateWithLocale(`/episode/${video.id}`);
-                        }}
-                        className="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors"
-                      >
-                        <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Add to favorites/watchlist functionality
-                        }}
-                        className="border border-white/30 rounded-full p-1 hover:border-white transition-colors"
-                      >
-                        <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </button>
-                    </div>
+                    {!showLockIcon && (
+                      <div className="mt-2 sm:mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateWithLocale(`/episode/${video.id}`);
+                          }}
+                          className="bg-white text-black rounded-full p-1 hover:bg-primary hover:text-white transition-colors"
+                        >
+                          <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Add to favorites/watchlist functionality
+                          }}
+                          className="border border-white/30 rounded-full p-1 hover:border-white transition-colors"
+                        >
+                          <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           ) : (
             <div className="text-center text-gray-400 py-8">{t('index.trending.no_videos', 'No hay videos disponibles')}</div>
@@ -3114,30 +3141,49 @@ const Home = () => {
                         ? `${video.series.title}`
                         : video.title;
                     
+                    const shouldShowLock = shouldShowLockIcon(video.visibility);
+                    const isLocked = isVideoLocked(video.visibility, user?.subscription_type);
+                    const showLockIcon = shouldShowLock;
+                    
                     return (
                       <div key={progress.id} className="max-w-[200px] sm:max-w-[240px] md:max-w-[280px] snap-start flex-shrink-0">
                         <div
                           onClick={() => {
+                            if (isLocked || showLockIcon) {
+                              toast.error(t('video.locked_content'));
+                              return;
+                            }
                             navigateWithLocale(`/episode/${video.id}`);
                           }}
-                          className="group relative rounded-lg overflow-hidden aspect-video mb-3 cursor-pointer bg-[#2a1d21]"
+                          className={`group relative rounded-lg overflow-hidden aspect-video mb-3 ${showLockIcon ? 'cursor-not-allowed' : 'cursor-pointer'} bg-[#2a1d21]`}
                         >
                           <img
                             src={getImageUrl(video.thumbnail_url || video.intro_image_url || video.intro_image || '')}
                             alt={video.title || ''}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${showLockIcon ? 'opacity-60' : ''}`}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
                             }}
                           />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Play className="text-white text-4xl sm:text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
-                          </div>
+                          {showLockIcon ? (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                              <div className="flex flex-col items-center gap-2 px-3 text-center">
+                                <Lock className="h-10 w-10 text-white" />
+                                <span className="text-white text-xs font-semibold">{t(getLockMessageKey(video.visibility))}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Play className="text-white text-4xl sm:text-5xl drop-shadow-lg transform scale-50 group-hover:scale-100 transition-transform" fill="currentColor" />
+                            </div>
+                          )}
                           {/* Progress bar */}
-                          <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
-                            <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
-                          </div>
+                          {!showLockIcon && (
+                            <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+                              <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
+                            </div>
+                          )}
                         </div>
                         <h3 className="font-bold text-sm sm:text-base text-white truncate">{video.title || ''}</h3>
                         <p className="text-xs text-text-subtle mt-1 line-clamp-1">

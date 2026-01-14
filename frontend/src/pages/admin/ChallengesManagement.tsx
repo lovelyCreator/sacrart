@@ -43,11 +43,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useLocale } from '@/hooks/useLocale';
 import challengeApi, { Challenge } from '@/services/challengeApi';
 import FileUpload from '@/components/admin/FileUpload';
+import LanguageTabs from '@/components/admin/LanguageTabs';
+import TranslateButton from '@/components/admin/TranslateButton';
 
 const ChallengesManagement = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { locale: urlLocale } = useLocale();
+  const displayLocale = (i18n.language || urlLocale || 'en').substring(0, 2) as 'en' | 'es' | 'pt';
+  
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [filteredChallenges, setFilteredChallenges] = useState<Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,11 +63,28 @@ const ChallengesManagement = () => {
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
   const [stats, setStats] = useState<Record<number, any>>({});
 
-  // Form state
+  // Language state for form
+  const [contentLocale, setContentLocale] = useState<'en' | 'es' | 'pt'>(displayLocale);
+
+  // Multilingual data structure
+  interface MultilingualData {
+    en: string;
+    es: string;
+    pt: string;
+  }
+
+  // Form state - multilingual
+  const [challengeMultilingual, setChallengeMultilingual] = useState<{
+    title: MultilingualData;
+    description: MultilingualData;
+    instructions: MultilingualData;
+  }>({
+    title: { en: '', es: '', pt: '' },
+    description: { en: '', es: '', pt: '' },
+    instructions: { en: '', es: '', pt: '' },
+  });
+
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    instructions: '',
     display_order: 0,
     is_active: true,
     is_featured: false,
@@ -123,10 +146,28 @@ const ChallengesManagement = () => {
   const handleOpenDialog = (challenge?: Challenge) => {
     if (challenge) {
       setEditingChallenge(challenge);
+      
+      // Extract translations from challenge
+      const translations = (challenge as any).translations || {};
+      setChallengeMultilingual({
+        title: {
+          en: translations.title?.en || challenge.title_en || challenge.title || '',
+          es: translations.title?.es || challenge.title_es || '',
+          pt: translations.title?.pt || challenge.title_pt || '',
+        },
+        description: {
+          en: translations.description?.en || challenge.description_en || challenge.description || '',
+          es: translations.description?.es || challenge.description_es || '',
+          pt: translations.description?.pt || challenge.description_pt || '',
+        },
+        instructions: {
+          en: translations.instructions?.en || challenge.instructions_en || challenge.instructions || '',
+          es: translations.instructions?.es || challenge.instructions_es || '',
+          pt: translations.instructions?.pt || challenge.instructions_pt || '',
+        },
+      });
+      
       setFormData({
-        title: challenge.title || '',
-        description: challenge.description || '',
-        instructions: challenge.instructions || '',
         display_order: challenge.display_order || 0,
         is_active: challenge.is_active ?? true,
         is_featured: challenge.is_featured ?? false,
@@ -136,6 +177,7 @@ const ChallengesManagement = () => {
       });
       setImagePreview(challenge.image_url || null);
       setThumbnailPreview(challenge.thumbnail_url || null);
+      setContentLocale(displayLocale);
     } else {
       setEditingChallenge(null);
       resetForm();
@@ -144,10 +186,12 @@ const ChallengesManagement = () => {
   };
 
   const resetForm = () => {
+    setChallengeMultilingual({
+      title: { en: '', es: '', pt: '' },
+      description: { en: '', es: '', pt: '' },
+      instructions: { en: '', es: '', pt: '' },
+    });
     setFormData({
-      title: '',
-      description: '',
-      instructions: '',
       display_order: 0,
       is_active: true,
       is_featured: false,
@@ -159,16 +203,23 @@ const ChallengesManagement = () => {
     setThumbnailFile(null);
     setImagePreview(null);
     setThumbnailPreview(null);
+    setContentLocale(displayLocale);
   };
 
   const handleSubmit = async () => {
+    // Validate required fields
+    if (!challengeMultilingual.title.en?.trim()) {
+      toast.error('Title in English is required');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
       const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description || '');
-      formDataToSend.append('instructions', formData.instructions || '');
+      formDataToSend.append('title', challengeMultilingual.title.en); // Default to English
+      formDataToSend.append('description', challengeMultilingual.description.en || '');
+      formDataToSend.append('instructions', challengeMultilingual.instructions.en || '');
       formDataToSend.append('display_order', formData.display_order.toString());
       formDataToSend.append('is_active', formData.is_active ? '1' : '0');
       formDataToSend.append('is_featured', formData.is_featured ? '1' : '0');
@@ -181,6 +232,14 @@ const ChallengesManagement = () => {
       if (formData.tags.length > 0) {
         formDataToSend.append('tags', JSON.stringify(formData.tags));
       }
+      
+      // Include multilingual translations
+      formDataToSend.append('translations', JSON.stringify({
+        title: challengeMultilingual.title,
+        description: challengeMultilingual.description,
+        instructions: challengeMultilingual.instructions,
+      }));
+      
       if (imageFile) {
         formDataToSend.append('image', imageFile);
       }
@@ -402,8 +461,14 @@ const ChallengesManagement = () => {
       </Card>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          setEditingChallenge(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingChallenge ? 'Edit Challenge' : 'Create New Challenge'}
@@ -414,13 +479,53 @@ const ChallengesManagement = () => {
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Language Tabs with Translate Button */}
+            <div className="flex items-center justify-between mb-4">
+              <LanguageTabs 
+                activeLanguage={contentLocale} 
+                onLanguageChange={(lang) => setContentLocale(lang)}
+              />
+              <TranslateButton
+                fields={{
+                  title: challengeMultilingual.title[contentLocale] || '',
+                  description: challengeMultilingual.description[contentLocale] || '',
+                  instructions: challengeMultilingual.instructions[contentLocale] || '',
+                }}
+                sourceLanguage={contentLocale}
+                onTranslate={(translations) => {
+                  setChallengeMultilingual(prev => ({
+                    title: {
+                      en: translations.title?.en !== undefined ? translations.title.en : prev.title.en,
+                      es: translations.title?.es !== undefined ? translations.title.es : prev.title.es,
+                      pt: translations.title?.pt !== undefined ? translations.title.pt : prev.title.pt,
+                    },
+                    description: {
+                      en: translations.description?.en !== undefined ? translations.description.en : prev.description.en,
+                      es: translations.description?.es !== undefined ? translations.description.es : prev.description.es,
+                      pt: translations.description?.pt !== undefined ? translations.description.pt : prev.description.pt,
+                    },
+                    instructions: {
+                      en: translations.instructions?.en !== undefined ? translations.instructions.en : prev.instructions.en,
+                      es: translations.instructions?.es !== undefined ? translations.instructions.es : prev.instructions.es,
+                      pt: translations.instructions?.pt !== undefined ? translations.instructions.pt : prev.instructions.pt,
+                    },
+                  }));
+                }}
+              />
+            </div>
+
             <div>
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="title">
+                Title <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., Draw the Gran Poder"
+                value={challengeMultilingual.title[contentLocale] || ''}
+                onChange={(e) => setChallengeMultilingual({
+                  ...challengeMultilingual,
+                  title: { ...challengeMultilingual.title, [contentLocale]: e.target.value }
+                })}
+                placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
               />
             </div>
 
@@ -428,9 +533,12 @@ const ChallengesManagement = () => {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description of the challenge"
+                value={challengeMultilingual.description[contentLocale] || ''}
+                onChange={(e) => setChallengeMultilingual({
+                  ...challengeMultilingual,
+                  description: { ...challengeMultilingual.description, [contentLocale]: e.target.value }
+                })}
+                placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
                 rows={3}
               />
             </div>
@@ -439,9 +547,12 @@ const ChallengesManagement = () => {
               <Label htmlFor="instructions">Instructions</Label>
               <Textarea
                 id="instructions"
-                value={formData.instructions}
-                onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-                placeholder="Detailed instructions for the challenge"
+                value={challengeMultilingual.instructions[contentLocale] || ''}
+                onChange={(e) => setChallengeMultilingual({
+                  ...challengeMultilingual,
+                  instructions: { ...challengeMultilingual.instructions, [contentLocale]: e.target.value }
+                })}
+                placeholder={`Enter instructions in ${contentLocale.toUpperCase()}`}
                 rows={5}
               />
             </div>
@@ -503,20 +614,22 @@ const ChallengesManagement = () => {
             <div>
               <Label>Challenge Image</Label>
               <FileUpload
-                accept="image/*"
+                type="image"
+                accept="image/jpeg,image/png,image/jpg,image/webp,image/gif"
                 onFileSelect={handleImageChange}
-                currentFile={imageFile}
-                currentPreview={imagePreview}
+                currentFile={imagePreview}
+                label="Upload Challenge Image"
               />
             </div>
 
             <div>
               <Label>Thumbnail Image</Label>
               <FileUpload
-                accept="image/*"
+                type="image"
+                accept="image/jpeg,image/png,image/jpg,image/webp,image/gif"
                 onFileSelect={handleThumbnailChange}
-                currentFile={thumbnailFile}
-                currentPreview={thumbnailPreview}
+                currentFile={thumbnailPreview}
+                label="Upload Thumbnail Image"
               />
             </div>
           </div>
@@ -525,7 +638,7 @@ const ChallengesManagement = () => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting || !formData.title}>
+            <Button onClick={handleSubmit} disabled={isSubmitting || !challengeMultilingual.title.en?.trim()}>
               {isSubmitting ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />

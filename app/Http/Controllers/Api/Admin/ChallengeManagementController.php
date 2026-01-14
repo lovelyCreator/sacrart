@@ -159,6 +159,22 @@ class ChallengeManagementController extends Controller
 
             $challenge->save();
 
+            // Handle translations
+            if ($request->has('translations')) {
+                $translations = json_decode($request->input('translations'), true);
+                if (is_array($translations)) {
+                    foreach (['title', 'description', 'instructions'] as $field) {
+                        if (isset($translations[$field])) {
+                            foreach (['en', 'es', 'pt'] as $locale) {
+                                if (isset($translations[$field][$locale]) && $locale !== 'en') {
+                                    $challenge->setTranslation($field, $locale, $translations[$field][$locale]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Challenge created successfully',
@@ -237,6 +253,22 @@ class ChallengeManagementController extends Controller
             }
             if ($request->has('tags')) {
                 $challenge->tags = $request->input('tags');
+            }
+
+            // Handle translations
+            if ($request->has('translations')) {
+                $translations = json_decode($request->input('translations'), true);
+                if (is_array($translations)) {
+                    foreach (['title', 'description', 'instructions'] as $field) {
+                        if (isset($translations[$field])) {
+                            foreach (['en', 'es', 'pt'] as $locale) {
+                                if (isset($translations[$field][$locale]) && $locale !== 'en') {
+                                    $challenge->setTranslation($field, $locale, $translations[$field][$locale]);
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Handle image upload

@@ -1151,6 +1151,105 @@ export const reelCategoryApi = {
   },
 };
 
+// Live Archive Video API
+export interface LiveArchiveVideo {
+  id: number;
+  title: string;
+  description?: string | null;
+  bunny_video_id?: string | null;
+  bunny_video_url?: string | null;
+  bunny_embed_url: string;
+  bunny_thumbnail_url?: string | null;
+  thumbnail_url?: string | null;
+  duration: number;
+  status: 'draft' | 'published' | 'archived';
+  visibility: 'freemium' | 'premium' | 'exclusive';
+  is_free: boolean;
+  tags?: string[] | null;
+  views: number;
+  unique_views: number;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  published_at?: string | null;
+  archived_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  translations?: {
+    title?: { en?: string; es?: string; pt?: string };
+    description?: { en?: string; es?: string; pt?: string };
+  };
+}
+
+export const liveArchiveVideoApi = {
+  getAll: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/live-archive-videos?${queryParams}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: { data: LiveArchiveVideo[]; total: number; per_page: number; current_page: number } }>(response);
+  },
+
+  get: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/live-archive-videos/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: LiveArchiveVideo }>(response);
+  },
+
+  create: async (data: Partial<LiveArchiveVideo>) => {
+    const response = await fetch(`${API_BASE_URL}/admin/live-archive-videos`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: LiveArchiveVideo; message: string }>(response);
+  },
+
+  update: async (id: number, data: Partial<LiveArchiveVideo>) => {
+    const response = await fetch(`${API_BASE_URL}/admin/live-archive-videos/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; data: LiveArchiveVideo; message: string }>(response);
+  },
+
+  delete: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/admin/live-archive-videos/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
+
+  getPublic: async (params?: Record<string, any>) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': getLocale(),
+    };
+    const response = await fetch(`${API_BASE_URL}/live-archive-videos/public?${queryParams}`, {
+      headers,
+    });
+    return handleResponse<{ success: boolean; data: { data: LiveArchiveVideo[]; total: number; per_page: number; current_page: number } }>(response);
+  },
+};
+
 export default {
   category: categoryApi,
   series: seriesApi,
@@ -1158,5 +1257,6 @@ export default {
   reel: reelApi,
   rewind: rewindApi,
   reelCategory: reelCategoryApi,
+  liveArchiveVideo: liveArchiveVideoApi,
 };
 

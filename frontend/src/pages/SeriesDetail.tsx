@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { categoryApi, videoApi, seriesApi } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
 import { toast } from 'sonner';
+import { isVideoLocked, getLockMessageKey } from '@/utils/videoAccess';
 
 const SeriesDetail = () => {
   const { id, locale } = useParams<{ id: string; locale?: string }>();
@@ -175,14 +176,7 @@ const SeriesDetail = () => {
   }, [id, location.search, user]);
 
   const canAccessVideo = (videoVisibility: string) => {
-    if (user && (user.role === 'admin' || user.subscription_type === 'admin' || (user as any).is_admin)) {
-      return true;
-    }
-    if (!user) return videoVisibility === 'freemium';
-    if (videoVisibility === 'freemium') return true;
-    if (videoVisibility === 'basic') return ['basic', 'premium'].includes(user.subscription_type || '');
-    if (videoVisibility === 'premium') return user.subscription_type === 'premium';
-    return false;
+    return !isVideoLocked(videoVisibility, user?.subscription_type);
   };
 
   const formatDuration = (seconds: number) => {
@@ -229,8 +223,12 @@ const SeriesDetail = () => {
   };
 
   const handleVideoClick = (video: any, index: number) => {
+    const isLocked = isVideoLocked(video.visibility, user?.subscription_type);
+    if (isLocked) {
+      toast.error(t('video.locked_content'));
+      return;
+    }
     // Just update the active video index to show its thumbnail, don't navigate
-    // Allow thumbnail preview even if user doesn't have access
     setActiveVideoIndex(index);
   };
 
@@ -240,9 +238,15 @@ const SeriesDetail = () => {
       ? videosToShow[activeVideoIndex] 
       : (videosToShow.length > 0 ? videosToShow[0] : null);
     
-    if (videoToPlay && canAccessVideo(videoToPlay.visibility)) {
-      navigateWithLocale(`/episode/${videoToPlay.id}`);
+    if (!videoToPlay) return;
+    
+    const isLocked = isVideoLocked(videoToPlay.visibility, user?.subscription_type);
+    if (isLocked) {
+      toast.error(t('video.locked_content'));
+      return;
     }
+    
+    navigateWithLocale(`/episode/${videoToPlay.id}`);
   };
 
   const getYear = (dateString: string | null | undefined) => {
@@ -510,7 +514,12 @@ const SeriesDetail = () => {
                             : 'text-text-dim/30 group-hover:text-white'
                         }`}></i>
                       ) : (
-                        <Lock className="h-5 w-5 text-text-dim/30" />
+                        <div className="flex flex-col items-center gap-0.5" title={t(getLockMessageKey(video.visibility))}>
+                          <Lock className="h-5 w-5 text-text-dim/30" />
+                          <span className="text-[8px] text-text-dim/50 text-center leading-tight max-w-[60px]">
+                            {t(getLockMessageKey(video.visibility))}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );
@@ -546,7 +555,14 @@ const SeriesDetail = () => {
                 <div
                   key={video.id}
                   className="group cursor-pointer"
-                  onClick={() => canAccessVideo(video.visibility) && navigateWithLocale(`/video/${video.id}`)}
+                  onClick={() => {
+                    const isLocked = isVideoLocked(video.visibility, user?.subscription_type);
+                    if (isLocked) {
+                      toast.error(t('video.locked_content'));
+                      return;
+                    }
+                    navigateWithLocale(`/video/${video.id}`);
+                  }}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 bg-surface-dark border border-white/5">
                     {thumbnailUrl ? (

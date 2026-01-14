@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\RewindController;
 use App\Http\Controllers\Api\ReelCategoryController;
 use App\Http\Controllers\Api\ChallengeController;
 use App\Http\Controllers\Api\TranslationController;
+use App\Http\Controllers\Api\Admin\LiveArchiveVideoController;
 
 // Preflight CORS for all API routes (avoid auth/csrf on OPTIONS)
 Route::options('/{any}', function () {
@@ -91,6 +92,9 @@ Route::get('/reels/public', [ReelController::class, 'getPublic']);
 Route::get('/reels/{reel}', [ReelController::class, 'show']);
 Route::get('/rewinds/public', [RewindController::class, 'getPublic']);
 Route::get('/rewinds/{rewind}', [RewindController::class, 'show']);
+
+// Public route for live archive videos
+Route::get('/live-archive-videos/public', [LiveArchiveVideoController::class, 'getPublic']);
 
 // Public routes for Sacrart Kids (authentication optional)
 Route::get('/kids/content', [\App\Http\Controllers\Api\KidsContentController::class, 'index']);
@@ -185,6 +189,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/videos', [VideoController::class, 'index']);
         Route::get('/admin/videos/{video}', [VideoController::class, 'show']);
         Route::get('/admin/categories', [CategoryController::class, 'index']);
+
+        // Live Archive Videos Management
+        Route::get('/admin/live-archive-videos', [LiveArchiveVideoController::class, 'index']);
+        Route::post('/admin/live-archive-videos', [LiveArchiveVideoController::class, 'store']);
+        Route::get('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'show']);
+        Route::put('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'update']);
+        Route::delete('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'destroy']);
 
         // Reels (Admin CRUD)
         Route::get('/admin/reels', [ReelController::class, 'index']);

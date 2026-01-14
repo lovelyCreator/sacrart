@@ -21,7 +21,8 @@ import {
   Film,
   History,
   Palette,
-  Trophy
+  Trophy,
+  Radio
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -65,6 +66,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/reels', icon: Film, label: 'Reels Management' },
     { path: '/admin/rewinds', icon: History, label: 'Rewinds Management' },
     { path: '/admin/challenges', icon: Trophy, label: 'Challenges & Challenge Archive' },
+    { path: '/admin/live-archive', icon: Radio, label: 'Live Archive Management' },
     { path: '/admin/plans', icon: CreditCard, label: t('admin.subscription_plans') },
     { path: '/admin/payments', icon: CreditCard, label: t('admin.payments_transactions') },
     { path: '/admin/coupons', icon: Gift, label: t('admin.coupons_discounts') },

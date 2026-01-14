@@ -19,7 +19,8 @@ import {
   Crown,
   Zap,
   Eye,
-  Download
+  Download,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +29,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { userProgressApi, UserProgress } from '@/services/userProgressApi';
 import { categoryApi } from '@/services/videoApi';
 import { toast } from 'sonner';
+import { isVideoLocked, shouldShowLockIcon, getLockMessageKey } from '@/utils/videoAccess';
 
 const Library = () => {
   const [myCategories, setMyCategories] = useState<any[]>([]);
@@ -206,15 +208,25 @@ const Library = () => {
     const categoryId = item.video?.category_id || item.category_id;
     const categoryName = item.video?.category?.name || item.category?.name || t('library.category');
 
+    const shouldShowLock = shouldShowLockIcon(item.video?.visibility);
+    const isLocked = isVideoLocked(item.video?.visibility, user?.subscription_type);
+    const showLockIcon = shouldShowLock;
+    
     return (
-      <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigateWithLocale(`/video/${item.video_id}`)}>
+      <Card className={`${showLockIcon ? 'cursor-not-allowed' : 'cursor-pointer'} hover:shadow-md transition-shadow`} onClick={() => {
+        if (isLocked || showLockIcon) {
+          toast.error(t('video.locked_content'));
+          return;
+        }
+        navigateWithLocale(`/video/${item.video_id}`);
+      }}>
         <div className="flex">
           <div className="w-32 aspect-video bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden">
             {item.video?.intro_image_url || item.video?.intro_image || item.video?.thumbnail_url || item.video?.thumbnail ? (
               <img 
                 src={item.video.intro_image_url || item.video.intro_image || item.video.thumbnail_url || item.video.thumbnail} 
                 alt={item.video?.title || t('library.video')} 
-                className="w-full h-full object-cover" 
+                className={`w-full h-full object-cover ${showLockIcon ? 'opacity-60' : ''}`}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -223,9 +235,19 @@ const Library = () => {
                 </div>
               </div>
             )}
-            <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-1">
-              <Progress value={item.progress_percentage || 0} className="h-1" />
-            </div>
+            {showLockIcon && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+                  <Lock className="h-8 w-8 text-white" />
+                  <span className="text-white text-[10px] font-semibold leading-tight">{t(getLockMessageKey(item.video?.visibility))}</span>
+                </div>
+              </div>
+            )}
+            {!showLockIcon && (
+              <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-1">
+                <Progress value={item.progress_percentage || 0} className="h-1" />
+              </div>
+            )}
           </div>
           <div className="flex-1 p-4">
             <h3 className="font-medium text-sm mb-1 line-clamp-2">{item.video?.title || t('library.untitled_video')}</h3>

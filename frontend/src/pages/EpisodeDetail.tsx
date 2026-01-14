@@ -22,6 +22,7 @@ import { userProgressApi } from '@/services/userProgressApi';
 import { commentsApi, VideoComment } from '@/services/commentsApi';
 import { toast } from 'sonner';
 import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer';
+import { isVideoLocked, shouldShowLockIcon, getLockMessageKey } from '@/utils/videoAccess';
 
 const EpisodeDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -2492,19 +2493,28 @@ const EpisodeDetail = () => {
             {relatedVideos.map((relatedVideo) => {
               const relatedThumbnail = getImageUrl(relatedVideo.intro_image_url || relatedVideo.intro_image || relatedVideo.thumbnail_url || relatedVideo.thumbnail || relatedVideo.bunny_thumbnail_url || '');
               const isNew = relatedVideo.created_at && new Date(relatedVideo.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+              const shouldShowLock = shouldShowLockIcon(relatedVideo.visibility);
+              const isLocked = isVideoLocked(relatedVideo.visibility, user?.subscription_type);
+              const showLockIcon = shouldShowLock;
               
               return (
                 <div
                   key={relatedVideo.id}
-                  className="group cursor-pointer"
-                  onClick={() => navigateWithLocale(`/episode/${relatedVideo.id}`)}
+                  className={`group ${showLockIcon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  onClick={() => {
+                    if (isLocked || showLockIcon) {
+                      toast.error(t('video.locked_content'));
+                      return;
+                    }
+                    navigateWithLocale(`/episode/${relatedVideo.id}`);
+                  }}
                 >
                   <div className="relative aspect-video rounded-md overflow-hidden mb-3 border border-transparent group-hover:border-primary/50 transition-all">
                     {relatedThumbnail ? (
                       <img
                         alt={relatedVideo.title}
                         src={relatedThumbnail}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${showLockIcon ? 'opacity-60' : ''}`}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.style.display = 'none';
@@ -2513,12 +2523,23 @@ const EpisodeDetail = () => {
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5"></div>
                     )}
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="bg-primary/90 rounded-full p-2 backdrop-blur-sm">
-                        <i className="fa-solid fa-play text-white text-xl"></i>
+                    {showLockIcon ? (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                        <div className="flex flex-col items-center gap-2 px-3 text-center">
+                          <Lock className="h-10 w-10 text-white" />
+                          <span className="text-white text-xs font-semibold">{t(getLockMessageKey(relatedVideo.visibility))}</span>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="bg-primary/90 rounded-full p-2 backdrop-blur-sm">
+                            <i className="fa-solid fa-play text-white text-xl"></i>
+                          </div>
+                        </div>
+                      </>
+                    )}
                     {isNew && (
                       <span className="absolute top-2 left-2 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">
                         {t('video.new', 'Nuevo')}

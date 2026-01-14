@@ -4,6 +4,7 @@ import {
   Search, 
   Play,
   Heart,
+  Lock,
 } from 'lucide-react';
 import { videoApi, Video, categoryApi, Category } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
@@ -11,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
 import { toast } from 'sonner';
+import { isVideoLocked, shouldShowLockIcon, getLockMessageKey } from '@/utils/videoAccess';
 
 const Explore = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -307,8 +309,13 @@ const Explore = () => {
     setFilteredVideos(filtered);
   }, [videos, trendingVideosLast7Days, searchTerm, selectedCategory, selectedVisibility, selectedSort, selectedFilter]);
 
-  const handleVideoClick = (videoId: number) => {
-    navigateWithLocale(`/episode/${videoId}`);
+  const handleVideoClick = (video: Video) => {
+    const isLocked = isVideoLocked(video.visibility, user?.subscription_type);
+    if (isLocked) {
+      toast.error(t('video.locked_content'));
+      return;
+    }
+    navigateWithLocale(`/episode/${video.id}`);
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent, videoId: number) => {
@@ -339,18 +346,32 @@ const Explore = () => {
   const VideoCard = ({ video }: { video: Video }) => {
     const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
     const isFavorite = favorites.has(video.id);
+    const shouldShowLock = shouldShowLockIcon(video.visibility);
+    const isLocked = isVideoLocked(video.visibility, user?.subscription_type);
+    // Use shouldShowLock for UI display, isLocked for navigation blocking
+    const showLockIcon = shouldShowLock;
     
     return (
       <div 
-        className="min-w-[240px] w-[240px] md:min-w-[280px] md:w-[280px] snap-start group relative cursor-pointer"
-        onClick={() => handleVideoClick(video.id)}
+        className={`min-w-[240px] w-[240px] md:min-w-[280px] md:w-[280px] snap-start group relative ${showLockIcon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+        onClick={(e) => {
+          if (isLocked || showLockIcon) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isLocked) {
+              toast.error(t('video.locked_content'));
+            }
+            return;
+          }
+          handleVideoClick(video);
+        }}
       >
         <div className="aspect-video overflow-hidden rounded-[6px] relative bg-[#18181b] shadow-lg transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-black/50">
           {thumbnailUrl ? (
             <img
               alt={video.title || ''}
               src={thumbnailUrl}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${showLockIcon ? 'opacity-60' : ''}`}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=2080&auto=format&fit=crop';
@@ -359,16 +380,29 @@ const Explore = () => {
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
           )}
-          {/* Card gradient overlay */}
-          <div className="absolute inset-0 card-gradient opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
-          {/* Play button on hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-            <div className="bg-black/40 backdrop-blur-sm rounded-full p-3 border border-white/20 shadow-xl transform scale-90 group-hover:scale-100 transition-transform">
-              <Play className="text-white h-8 w-8 md:h-10 md:w-10" fill="currentColor" />
+          {/* Lock overlay */}
+          {showLockIcon && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-2 px-4 text-center">
+                <Lock className="h-12 w-12 text-white" />
+                <span className="text-white text-sm font-semibold">{t(getLockMessageKey(video.visibility))}</span>
+              </div>
             </div>
-          </div>
+          )}
+          {/* Card gradient overlay */}
+          {!showLockIcon && (
+            <div className="absolute inset-0 card-gradient opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
+          )}
+          {/* Play button on hover */}
+          {!showLockIcon && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
+              <div className="bg-black/40 backdrop-blur-sm rounded-full p-3 border border-white/20 shadow-xl transform scale-90 group-hover:scale-100 transition-transform">
+                <Play className="text-white h-8 w-8 md:h-10 md:w-10" fill="currentColor" />
+              </div>
+            </div>
+          )}
           {/* Favorite button */}
-          {user && (
+          {user && !showLockIcon && (
             <button
               onClick={(e) => handleToggleFavorite(e, video.id)}
               className="absolute top-2 right-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-sm rounded-full p-2 hover:bg-black/80"
