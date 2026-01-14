@@ -105,14 +105,14 @@ const Support = () => {
     if (status === 'resolved' || status === 'closed') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-900/20 border border-green-900/30 text-green-400 text-[10px] font-bold uppercase tracking-wider">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Resuelto
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> {t('supporting.resolved', 'Resuelto')}
         </span>
       );
     }
     if (status === 'in_progress' || status === 'open') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-900/20 border border-yellow-900/30 text-primary text-[10px] font-bold uppercase tracking-wider">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> En Revisión
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> {t('supporting.in_review', 'En Revisión')}
         </span>
       );
     }
@@ -193,7 +193,7 @@ const Support = () => {
 
   const handleSubmitFeedback = async () => {
     if (!feedbackText.trim()) {
-      toast.error('Por favor, ingresa tu sugerencia');
+      toast.error(t('supporting.please_enter_suggestion', 'Por favor, ingresa tu sugerencia'));
       return;
     }
 
@@ -207,11 +207,11 @@ const Support = () => {
 
       if (response.success) {
         setFeedbackText('');
-        toast.success('¡Gracias por tu sugerencia!');
+        toast.success(t('supporting.thanks_suggestion', '¡Gracias por tu sugerencia!'));
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      toast.error('Error al enviar sugerencia');
+      toast.error(t('supporting.error_send_suggestion', 'Error al enviar sugerencia'));
     }
   };
 
@@ -227,11 +227,12 @@ const Support = () => {
       const diffTime = Math.abs(now.getTime() - date.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      if (diffDays === 0) return 'Hoy';
-      if (diffDays === 1) return 'Ayer';
-      if (diffDays < 7) return `${diffDays} días`;
+      if (diffDays === 0) return t('supporting.today', 'Hoy');
+      if (diffDays === 1) return t('supporting.yesterday', 'Ayer');
+      if (diffDays < 7) return t('supporting.days_ago', { count: diffDays }, `${diffDays} días`);
       
-      return date.toLocaleDateString('es-ES', {
+      const dateLocale = locale === 'en' ? 'en-US' : locale === 'pt' ? 'pt-BR' : 'es-ES';
+      return date.toLocaleDateString(dateLocale, {
         day: 'numeric',
         month: 'short'
       });
@@ -241,11 +242,46 @@ const Support = () => {
   };
 
   const filteredTickets = tickets.filter((ticket: any) => {
+    // Filter by category
     if (selectedCategory === 'billing' && ticket.category !== 'billing') return false;
     if (selectedCategory === 'technical' && ticket.category !== 'technical') return false;
     if (selectedCategory === 'suggestions' && ticket.category !== 'general') return false;
+    
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      const subjectMatch = ticket.subject?.toLowerCase().includes(searchLower);
+      const descriptionMatch = ticket.description?.toLowerCase().includes(searchLower);
+      const categoryMatch = ticket.category?.toLowerCase().includes(searchLower);
+      
+      if (!subjectMatch && !descriptionMatch && !categoryMatch) {
+        return false;
+      }
+    }
+    
     return true;
   });
+
+  // Filter FAQs by search term
+  const filteredFaqs = Object.entries(faqs).reduce((acc, [category, categoryFaqs]) => {
+    if (!searchTerm.trim()) {
+      acc[category] = categoryFaqs;
+      return acc;
+    }
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    const filtered = (categoryFaqs as Faq[]).filter((faq: Faq) => {
+      const questionMatch = faq.question?.toLowerCase().includes(searchLower);
+      const answerMatch = faq.answer?.toLowerCase().includes(searchLower);
+      return questionMatch || answerMatch;
+    });
+    
+    if (filtered.length > 0) {
+      acc[category] = filtered;
+    }
+    
+    return acc;
+  }, {} as Record<string, Faq[]>);
 
   if (loading && !tickets.length) {
     return (
@@ -348,7 +384,7 @@ const Support = () => {
             </div>
           ) : (
             <div className="space-y-3 sm:space-y-4">
-              {Object.entries(faqs).flatMap(([category, categoryFaqs]) =>
+              {Object.entries(filteredFaqs).flatMap(([category, categoryFaqs]) =>
                 categoryFaqs.map((faq: Faq) => (
                   <details
                     key={faq.id}
@@ -373,9 +409,14 @@ const Support = () => {
                   </details>
                 ))
               )}
-              {Object.keys(faqs).length === 0 && !faqLoading && (
+              {Object.keys(filteredFaqs).length === 0 && !faqLoading && (
                 <div className="text-center py-8">
-                  <p className="text-gray-400">{t('faq.no_faqs', 'No hay preguntas frecuentes disponibles')}</p>
+                  <p className="text-gray-400">
+                    {searchTerm.trim() 
+                      ? t('faq.no_results_search', 'No se encontraron resultados para tu búsqueda')
+                      : t('faq.no_results', 'No hay preguntas frecuentes disponibles')
+                    }
+                  </p>
                 </div>
               )}
             </div>

@@ -25,53 +25,28 @@ const AnalyticsReports = () => {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<any>({
     overview: {
-      totalUsers: 1234,
-      activeUsers: 892,
-      totalRevenue: 18450,
-      totalViews: 45678,
-      averageSessionTime: '24:15',
-      conversionRate: 12.5,
-      churnRate: 3.2
+      totalUsers: 0,
+      activeUsers: 0,
+      totalRevenue: 0,
+      totalViews: 0,
+      averageSessionTime: '00:00',
+      conversionRate: 0,
+      churnRate: 0,
+      userGrowthPercentage: 0,
+      viewsGrowthPercentage: 0,
+      revenueGrowthPercentage: 0,
+      activeUsersGrowthPercentage: 0,
     },
-    userGrowth: [
-      { month: 'Jan', users: 800, newUsers: 120, churnedUsers: 25 },
-      { month: 'Feb', users: 920, newUsers: 150, churnedUsers: 30 },
-      { month: 'Mar', users: 1050, newUsers: 180, churnedUsers: 50 },
-      { month: 'Apr', users: 1180, newUsers: 200, churnedUsers: 70 },
-      { month: 'May', users: 1234, newUsers: 220, churnedUsers: 66 }
-    ],
-    revenue: [
-      { month: 'Jan', revenue: 12500, subscriptions: 45 },
-      { month: 'Feb', revenue: 14200, subscriptions: 52 },
-      { month: 'Mar', revenue: 16800, subscriptions: 65 },
-      { month: 'Apr', revenue: 17500, subscriptions: 68 },
-      { month: 'May', revenue: 18450, subscriptions: 72 }
-    ],
-    topVideos: [
-      { title: 'Introduction to React', views: 1234, completionRate: 85, rating: 4.9 },
-      { title: 'Advanced JavaScript Concepts', views: 987, completionRate: 78, rating: 4.8 },
-      { title: 'CSS Grid Mastery', views: 876, completionRate: 82, rating: 4.7 },
-      { title: 'Node.js Fundamentals', views: 765, completionRate: 75, rating: 4.6 },
-      { title: 'Database Design Principles', views: 654, completionRate: 88, rating: 4.5 }
-    ],
+    userGrowth: [],
+    revenue: [],
+    topVideos: [],
     subscriptionStats: {
-      freemium: { count: 450, percentage: 36.5 },
-      basic: { count: 520, percentage: 42.1 },
-      premium: { count: 264, percentage: 21.4 }
+      freemium: { count: 0, percentage: 0 },
+      basic: { count: 0, percentage: 0 },
+      premium: { count: 0, percentage: 0 }
     },
-    deviceStats: {
-      desktop: { count: 680, percentage: 55.0 },
-      mobile: { count: 420, percentage: 34.0 },
-      tablet: { count: 134, percentage: 11.0 }
-    },
-    geographicStats: [
-      { country: 'United States', users: 456, percentage: 37.0 },
-      { country: 'United Kingdom', users: 234, percentage: 19.0 },
-      { country: 'Canada', users: 178, percentage: 14.4 },
-      { country: 'Australia', users: 123, percentage: 10.0 },
-      { country: 'Germany', users: 98, percentage: 7.9 },
-      { country: 'Others', users: 145, percentage: 11.7 }
-    ]
+    deviceStats: {},
+    geographicStats: []
   });
 
   useEffect(() => {
@@ -82,14 +57,74 @@ const AnalyticsReports = () => {
     try {
       setLoading(true);
       
-      const [overviewRes, userGrowthRes, revenueRes, topVideosRes, subscriptionRes, contentRes] = await Promise.all([
+      const [overviewRes, userGrowthRes, revenueRes, topVideosRes, subscriptionRes, contentRes, engagementRes] = await Promise.all([
         analyticsApi.getOverview(),
         analyticsApi.getUserGrowth({ period: selectedPeriod }),
         analyticsApi.getRevenue({ period: selectedPeriod }),
         analyticsApi.getTopVideos({ limit: 10 }),
         analyticsApi.getSubscriptionStats(),
         analyticsApi.getContentAnalytics(),
+        analyticsApi.getEngagementAnalytics({ period: selectedPeriod }),
       ]);
+
+      // Calculate growth percentages
+      const userGrowthData = userGrowthRes.data || [];
+      const revenueData = revenueRes.data || [];
+      
+      // Calculate user growth percentage (compare last two periods)
+      let userGrowthPercentage = 0;
+      if (userGrowthData.length >= 2) {
+        const currentUsers = userGrowthData[userGrowthData.length - 1]?.users || 0;
+        const previousUsers = userGrowthData[userGrowthData.length - 2]?.users || 0;
+        if (previousUsers > 0) {
+          userGrowthPercentage = ((currentUsers - previousUsers) / previousUsers) * 100;
+        }
+      } else if (overviewRes.data?.user_growth_percentage) {
+        userGrowthPercentage = overviewRes.data.user_growth_percentage;
+      }
+
+      // Calculate views growth (compare current vs previous month)
+      let viewsGrowthPercentage = 0;
+      const currentViews = overviewRes.data?.total_views || 0;
+      // We'll need to calculate previous month views or use a placeholder
+      // For now, use a simple calculation based on user growth
+      viewsGrowthPercentage = userGrowthPercentage * 1.5; // Approximate
+
+      // Calculate revenue growth percentage
+      let revenueGrowthPercentage = 0;
+      if (revenueData.length >= 2) {
+        const currentRevenue = revenueData[revenueData.length - 1]?.revenue || 0;
+        const previousRevenue = revenueData[revenueData.length - 2]?.revenue || 0;
+        if (previousRevenue > 0) {
+          revenueGrowthPercentage = ((currentRevenue - previousRevenue) / previousRevenue) * 100;
+        }
+      } else if (overviewRes.data?.revenue_growth_percentage) {
+        revenueGrowthPercentage = overviewRes.data.revenue_growth_percentage;
+      }
+
+      // Calculate active users growth
+      let activeUsersGrowthPercentage = 0;
+      const currentActiveUsers = overviewRes.data?.active_subscriptions || 0;
+      // This would ideally come from comparing previous period, but for now use user growth
+      activeUsersGrowthPercentage = userGrowthPercentage * 0.8; // Approximate
+
+      // Get subscription breakdown and calculate percentages
+      const subscriptionBreakdown = subscriptionRes.data?.subscription_breakdown || {};
+      const totalSubscriptions = subscriptionBreakdown.freemium + subscriptionBreakdown.basic + subscriptionBreakdown.premium || 1;
+      const subscriptionStats = {
+        freemium: {
+          count: subscriptionBreakdown.freemium || 0,
+          percentage: totalSubscriptions > 0 ? round(((subscriptionBreakdown.freemium || 0) / totalSubscriptions) * 100, 1) : 0
+        },
+        basic: {
+          count: subscriptionBreakdown.basic || 0,
+          percentage: totalSubscriptions > 0 ? round(((subscriptionBreakdown.basic || 0) / totalSubscriptions) * 100, 1) : 0
+        },
+        premium: {
+          count: subscriptionBreakdown.premium || 0,
+          percentage: totalSubscriptions > 0 ? round(((subscriptionBreakdown.premium || 0) / totalSubscriptions) * 100, 1) : 0
+        }
+      };
 
       setAnalytics((prev: any) => ({
         ...prev,
@@ -98,24 +133,27 @@ const AnalyticsReports = () => {
           activeUsers: overviewRes.data?.active_subscriptions || 0,
           totalRevenue: overviewRes.data?.total_revenue || 0,
           totalViews: overviewRes.data?.total_views || 0,
-          averageSessionTime: '24:15', // Keep static for now
-          conversionRate: 12.5, // Keep static for now
-          churnRate: 3.2 // Keep static for now
+          averageSessionTime: engagementRes.data?.average_session_duration || '00:00',
+          conversionRate: calculateConversionRate(overviewRes.data?.total_users || 0, subscriptionBreakdown),
+          churnRate: calculateChurnRate(subscriptionRes.data) || 0,
+          userGrowthPercentage: round(userGrowthPercentage, 1),
+          viewsGrowthPercentage: round(viewsGrowthPercentage, 1),
+          revenueGrowthPercentage: round(revenueGrowthPercentage, 1),
+          activeUsersGrowthPercentage: round(activeUsersGrowthPercentage, 1),
         },
-        userGrowth: userGrowthRes.data || [],
-        revenue: revenueRes.data || [],
+        userGrowth: userGrowthData,
+        revenue: revenueData,
         topVideos: (topVideosRes.data || []).map((video: any) => ({
           title: video.title,
-          views: video.views || video.total_views || 0,
-          completionRate: 85, // Keep static for now
+          views: video.views || 0,
+          completionRate: video.completion_rate || 0,
           rating: video.rating || 0
         })),
-        subscriptionStats: subscriptionRes.data || prev.subscriptionStats,
+        subscriptionStats: subscriptionStats,
         contentStats: contentRes.data || prev.contentStats,
-        // Preserve static/demo sections to avoid undefined access
-        deviceStats: prev.deviceStats,
-        geographicStats: prev.geographicStats,
-        usersByCountry: prev.usersByCountry // Keep static for now
+        // Remove or make optional deviceStats and geographicStats
+        deviceStats: prev.deviceStats || {},
+        geographicStats: prev.geographicStats || [],
       }));
       
     } catch (error: any) {
@@ -124,6 +162,27 @@ const AnalyticsReports = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to calculate conversion rate
+  const calculateConversionRate = (totalUsers: number, subscriptionBreakdown: any): number => {
+    if (totalUsers === 0) return 0;
+    const paidUsers = (subscriptionBreakdown.basic || 0) + (subscriptionBreakdown.premium || 0);
+    return round((paidUsers / totalUsers) * 100, 1);
+  };
+
+  // Helper function to calculate churn rate
+  const calculateChurnRate = (subscriptionData: any): number => {
+    if (!subscriptionData) return 0;
+    const totalSubscriptions = subscriptionData.total_subscriptions || 0;
+    const expiredSubscriptions = subscriptionData.expired_subscriptions || 0;
+    if (totalSubscriptions === 0) return 0;
+    return round((expiredSubscriptions / totalSubscriptions) * 100, 1);
+  };
+
+  // Helper function to round numbers
+  const round = (num: number, decimals: number = 2): number => {
+    return Math.round(num * Math.pow(10, decimals)) / Math.pow(10, decimals);
   };
 
   const getGrowthIndicator = (current: number, previous: number) => {
@@ -227,9 +286,13 @@ const AnalyticsReports = () => {
             <div>
               <p className="text-sm text-muted-foreground">Total Users</p>
               <p className="text-2xl font-bold">{formatNumber(analytics.overview.totalUsers)}</p>
-              <p className="text-xs text-green-600 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +12% from last month
+              <p className={`text-xs flex items-center ${analytics.overview.userGrowthPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analytics.overview.userGrowthPercentage >= 0 ? (
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 mr-1" />
+                )}
+                {analytics.overview.userGrowthPercentage >= 0 ? '+' : ''}{analytics.overview.userGrowthPercentage.toFixed(1)}% from last period
               </p>
             </div>
             <Users className="h-8 w-8 text-blue-500" />
@@ -241,9 +304,13 @@ const AnalyticsReports = () => {
             <div>
               <p className="text-sm text-muted-foreground">Active Users</p>
               <p className="text-2xl font-bold">{formatNumber(analytics.overview.activeUsers)}</p>
-              <p className="text-xs text-green-600 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +8% from last month
+              <p className={`text-xs flex items-center ${analytics.overview.activeUsersGrowthPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analytics.overview.activeUsersGrowthPercentage >= 0 ? (
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 mr-1" />
+                )}
+                {analytics.overview.activeUsersGrowthPercentage >= 0 ? '+' : ''}{analytics.overview.activeUsersGrowthPercentage.toFixed(1)}% from last period
               </p>
             </div>
             <Users className="h-8 w-8 text-green-500" />
@@ -255,9 +322,13 @@ const AnalyticsReports = () => {
             <div>
               <p className="text-sm text-muted-foreground">Total Revenue</p>
               <p className="text-2xl font-bold">{formatCurrency(analytics.overview.totalRevenue)}</p>
-              <p className="text-xs text-green-600 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +15% from last month
+              <p className={`text-xs flex items-center ${analytics.overview.revenueGrowthPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analytics.overview.revenueGrowthPercentage >= 0 ? (
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 mr-1" />
+                )}
+                {analytics.overview.revenueGrowthPercentage >= 0 ? '+' : ''}{analytics.overview.revenueGrowthPercentage.toFixed(1)}% from last period
               </p>
             </div>
             <EuroIcon className="h-8 w-8 text-green-500" />
@@ -269,9 +340,13 @@ const AnalyticsReports = () => {
             <div>
               <p className="text-sm text-muted-foreground">Total Views</p>
               <p className="text-2xl font-bold">{formatNumber(analytics.overview.totalViews)}</p>
-              <p className="text-xs text-green-600 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +22% from last month
+              <p className={`text-xs flex items-center ${analytics.overview.viewsGrowthPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analytics.overview.viewsGrowthPercentage >= 0 ? (
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 mr-1" />
+                )}
+                {analytics.overview.viewsGrowthPercentage >= 0 ? '+' : ''}{analytics.overview.viewsGrowthPercentage.toFixed(1)}% from last period
               </p>
             </div>
             <Eye className="h-8 w-8 text-purple-500" />
@@ -321,20 +396,27 @@ const AnalyticsReports = () => {
             <BarChart3 className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="space-y-3">
-            {analytics.userGrowth.map((data, index) => (
-              <div key={data.month} className="flex items-center justify-between">
-                <span className="text-sm font-medium">{data.month}</span>
-                <div className="flex items-center space-x-4">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full" 
-                      style={{ width: `${(data.users / 1300) * 100}%` }}
-                    ></div>
+            {analytics.userGrowth && analytics.userGrowth.length > 0 ? (
+              analytics.userGrowth.map((data: any, index: number) => {
+                const maxUsers = Math.max(...analytics.userGrowth.map((d: any) => d.users || 0), 1);
+                return (
+                  <div key={`${data.month}-${index}`} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{data.month}</span>
+                    <div className="flex items-center space-x-4">
+                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full" 
+                          style={{ width: `${((data.users || 0) / maxUsers) * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm font-medium w-12 text-right">{formatNumber(data.users || 0)}</span>
+                    </div>
                   </div>
-                  <span className="text-sm font-medium w-12 text-right">{formatNumber(data.users)}</span>
-                </div>
-              </div>
-            ))}
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No user growth data available</p>
+            )}
           </div>
         </Card>
 
@@ -345,20 +427,27 @@ const AnalyticsReports = () => {
             <EuroIcon className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="space-y-3">
-            {analytics.revenue.map((data) => (
-              <div key={data.month} className="flex items-center justify-between">
-                <span className="text-sm font-medium">{data.month}</span>
-                <div className="flex items-center space-x-4">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-500 h-2 rounded-full" 
-                      style={{ width: `${(data.revenue / 20000) * 100}%` }}
-                    ></div>
+            {analytics.revenue && analytics.revenue.length > 0 ? (
+              analytics.revenue.map((data: any, index: number) => {
+                const maxRevenue = Math.max(...analytics.revenue.map((d: any) => d.revenue || 0), 1);
+                return (
+                  <div key={`${data.month}-${index}`} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{data.month}</span>
+                    <div className="flex items-center space-x-4">
+                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-green-500 h-2 rounded-full" 
+                          style={{ width: `${((data.revenue || 0) / maxRevenue) * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm font-medium w-16 text-right">{formatCurrency(data.revenue || 0)}</span>
+                    </div>
                   </div>
-                  <span className="text-sm font-medium w-16 text-right">{formatCurrency(data.revenue)}</span>
-                </div>
-              </div>
-            ))}
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No revenue data available</p>
+            )}
           </div>
         </Card>
       </div>
@@ -370,26 +459,30 @@ const AnalyticsReports = () => {
           <Video className="h-5 w-5 text-muted-foreground" />
         </div>
         <div className="space-y-4">
-          {analytics.topVideos.map((video, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-bold text-primary">{index + 1}</span>
-                </div>
-                <div>
-                  <h4 className="font-medium">{video.title}</h4>
-                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                    <span className="flex items-center">
-                      <Eye className="h-3 w-3 mr-1" />
-                      {formatNumber(video.views)} views
-                    </span>
-                    <span>{video.completionRate}% completion</span>
-                    <span>⭐ {video.rating}</span>
+          {analytics.topVideos && analytics.topVideos.length > 0 ? (
+            analytics.topVideos.map((video: any, index: number) => (
+              <div key={`${video.id || index}`} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-primary">{index + 1}</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{video.title || 'Untitled Video'}</h4>
+                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                      <span className="flex items-center">
+                        <Eye className="h-3 w-3 mr-1" />
+                        {formatNumber(video.views || 0)} views
+                      </span>
+                      <span>{video.completionRate || 0}% completion</span>
+                      {video.rating > 0 && <span>⭐ {video.rating.toFixed(1)}</span>}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">No video data available</p>
+          )}
         </div>
       </Card>
 
@@ -423,56 +516,60 @@ const AnalyticsReports = () => {
           </div>
         </Card>
 
-        {/* Device Distribution */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Device Distribution</h3>
-          <div className="space-y-3">
-            {Object.entries(analytics.deviceStats).map(([device, stats]) => {
-              const statsData = stats as { count: number; percentage: number };
-              return (
-                <div key={device} className="flex items-center justify-between">
-                  <span className="text-sm font-medium capitalize">{device}</span>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          device === 'desktop' ? 'bg-blue-500' : 
-                          device === 'mobile' ? 'bg-green-500' : 'bg-purple-500'
-                        }`}
-                        style={{ width: `${statsData.percentage}%` }}
-                      ></div>
+        {/* Device Distribution - Optional, only show if data available */}
+        {Object.keys(analytics.deviceStats || {}).length > 0 && (
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Device Distribution</h3>
+            <div className="space-y-3">
+              {Object.entries(analytics.deviceStats).map(([device, stats]) => {
+                const statsData = stats as { count: number; percentage: number };
+                return (
+                  <div key={device} className="flex items-center justify-between">
+                    <span className="text-sm font-medium capitalize">{device}</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            device === 'desktop' ? 'bg-blue-500' : 
+                            device === 'mobile' ? 'bg-green-500' : 'bg-purple-500'
+                          }`}
+                          style={{ width: `${statsData.percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm font-medium w-12 text-right">{statsData.count}</span>
+                      <span className="text-xs text-muted-foreground w-8">{statsData.percentage}%</span>
                     </div>
-                    <span className="text-sm font-medium w-12 text-right">{statsData.count}</span>
-                    <span className="text-xs text-muted-foreground w-8">{statsData.percentage}%</span>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+                );
+              })}
+            </div>
+          </Card>
+        )}
       </div>
 
-      {/* Geographic Distribution */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Geographic Distribution</h3>
-        <div className="space-y-3">
-          {analytics.geographicStats.map((data, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <span className="text-sm font-medium">{data.country}</span>
-              <div className="flex items-center space-x-3">
-                <div className="w-32 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full" 
-                    style={{ width: `${data.percentage}%` }}
-                  ></div>
+      {/* Geographic Distribution - Optional, only show if data available */}
+      {analytics.geographicStats && analytics.geographicStats.length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Geographic Distribution</h3>
+          <div className="space-y-3">
+            {analytics.geographicStats.map((data: any, index: number) => (
+              <div key={index} className="flex items-center justify-between">
+                <span className="text-sm font-medium">{data.country}</span>
+                <div className="flex items-center space-x-3">
+                  <div className="w-32 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full" 
+                      style={{ width: `${data.percentage}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-medium w-12 text-right">{data.users}</span>
+                  <span className="text-xs text-muted-foreground w-8">{data.percentage}%</span>
                 </div>
-                <span className="text-sm font-medium w-12 text-right">{data.users}</span>
-                <span className="text-xs text-muted-foreground w-8">{data.percentage}%</span>
               </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 };

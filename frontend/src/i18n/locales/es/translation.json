@@ -205,7 +205,8 @@
     "subtitle": "Todo lo que necesitas saber sobre SACRART y nuestro contenido.",
     "loading": "Cargando preguntas frecuentes...",
     "faqs": "Preguntas Frecuentes",
-    "no_results": "No se encontraron preguntas frecuentes"
+    "no_results": "No se encontraron preguntas frecuentes",
+    "no_results_search": "No se encontraron resultados para tu búsqueda"
   },
   "auth": {
     "welcome_back": "Bienvenido de Nuevo",
@@ -737,7 +738,27 @@
     "no_message_content": "Sin contenido del mensaje",
     "close": "Cerrar",
     "time_9am_6pm": "9:00 AM - 6:00 PM",
-    "time_10am_4pm": "10:00 AM - 4:00 PM"
+    "time_10am_4pm": "10:00 AM - 4:00 PM",
+    "search_placeholder": "Busca tu problema (ej: Facturación, Reproductor...)",
+    "payments": "Pagos",
+    "technical_problems": "Problemas Técnicos",
+    "suggestions": "Sugerencias",
+    "ticket_history": "Historial de Asistencia",
+    "view_all": "Ver Todo",
+    "feedback_community": "Feedback y Comunidad",
+    "help_us_improve": "Ayúdanos a Mejorar",
+    "feedback_description": "Tu opinión esculpe Sacrart. ¿Qué curso te gustaría ver después?",
+    "feedback_placeholder": "Me gustaría aprender sobre...",
+    "send_suggestion": "Enviar Sugerencia",
+    "create_new_ticket": "Crear Nuevo Ticket",
+    "resolved": "Resuelto",
+    "in_review": "En Revisión",
+    "please_enter_suggestion": "Por favor, ingresa tu sugerencia",
+    "thanks_suggestion": "¡Gracias por tu sugerencia!",
+    "error_send_suggestion": "Error al enviar sugerencia",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "days_ago": "{{count}} días"
   },
   "support": {
     "title": "Soporte",
