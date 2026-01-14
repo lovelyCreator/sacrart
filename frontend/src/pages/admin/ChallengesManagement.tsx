@@ -143,41 +143,115 @@ const ChallengesManagement = () => {
     }
   };
 
-  const handleOpenDialog = (challenge?: Challenge) => {
+  const handleOpenDialog = async (challenge?: Challenge) => {
     if (challenge) {
-      setEditingChallenge(challenge);
-      
-      // Extract translations from challenge
-      const translations = (challenge as any).translations || {};
-      setChallengeMultilingual({
-        title: {
-          en: translations.title?.en || challenge.title || '',
-          es: translations.title?.es || '',
-          pt: translations.title?.pt || '',
-        },
-        description: {
-          en: translations.description?.en || challenge.description || '',
-          es: translations.description?.es || '',
-          pt: translations.description?.pt || '',
-        },
-        instructions: {
-          en: translations.instructions?.en || challenge.instructions || '',
-          es: translations.instructions?.es || '',
-          pt: translations.instructions?.pt || '',
-        },
-      });
-      
-      setFormData({
-        display_order: challenge.display_order || 0,
-        is_active: challenge.is_active ?? true,
-        is_featured: challenge.is_featured ?? false,
-        start_date: challenge.start_date ? challenge.start_date.split('T')[0] : '',
-        end_date: challenge.end_date ? challenge.end_date.split('T')[0] : '',
-        tags: challenge.tags || [],
-      });
-      setImagePreview(challenge.image_url || null);
-      setThumbnailPreview(challenge.thumbnail_url || null);
-      setContentLocale(displayLocale);
+      // Fetch full challenge data with translations
+      try {
+        const fullChallengeResponse = await challengeApi.admin.getOne(challenge.id);
+        if (fullChallengeResponse.success && fullChallengeResponse.data) {
+          const fullChallenge = fullChallengeResponse.data;
+          setEditingChallenge(fullChallenge);
+          
+          // Extract translations from challenge
+          const translations = (fullChallenge as any).translations || (fullChallenge as any).all_translations || {};
+          setChallengeMultilingual({
+            title: {
+              en: translations.title?.en || fullChallenge.title || '',
+              es: translations.title?.es || '',
+              pt: translations.title?.pt || '',
+            },
+            description: {
+              en: translations.description?.en || fullChallenge.description || '',
+              es: translations.description?.es || '',
+              pt: translations.description?.pt || '',
+            },
+            instructions: {
+              en: translations.instructions?.en || fullChallenge.instructions || '',
+              es: translations.instructions?.es || '',
+              pt: translations.instructions?.pt || '',
+            },
+          });
+          
+          setFormData({
+            display_order: fullChallenge.display_order || 0,
+            is_active: fullChallenge.is_active ?? true,
+            is_featured: fullChallenge.is_featured ?? false,
+            start_date: fullChallenge.start_date ? fullChallenge.start_date.split('T')[0] : '',
+            end_date: fullChallenge.end_date ? fullChallenge.end_date.split('T')[0] : '',
+            tags: fullChallenge.tags || [],
+          });
+          setImagePreview(fullChallenge.image_url || null);
+          setThumbnailPreview(fullChallenge.thumbnail_url || null);
+          setContentLocale(displayLocale);
+        } else {
+          // Fallback to challenge data we have
+          setEditingChallenge(challenge);
+          const translations = (challenge as any).translations || {};
+          setChallengeMultilingual({
+            title: {
+              en: translations.title?.en || challenge.title || '',
+              es: translations.title?.es || '',
+              pt: translations.title?.pt || '',
+            },
+            description: {
+              en: translations.description?.en || challenge.description || '',
+              es: translations.description?.es || '',
+              pt: translations.description?.pt || '',
+            },
+            instructions: {
+              en: translations.instructions?.en || challenge.instructions || '',
+              es: translations.instructions?.es || '',
+              pt: translations.instructions?.pt || '',
+            },
+          });
+          
+          setFormData({
+            display_order: challenge.display_order || 0,
+            is_active: challenge.is_active ?? true,
+            is_featured: challenge.is_featured ?? false,
+            start_date: challenge.start_date ? challenge.start_date.split('T')[0] : '',
+            end_date: challenge.end_date ? challenge.end_date.split('T')[0] : '',
+            tags: challenge.tags || [],
+          });
+          setImagePreview(challenge.image_url || null);
+          setThumbnailPreview(challenge.thumbnail_url || null);
+          setContentLocale(displayLocale);
+        }
+      } catch (error) {
+        console.error('Error fetching challenge details:', error);
+        // Fallback to challenge data we have
+        setEditingChallenge(challenge);
+        const translations = (challenge as any).translations || {};
+        setChallengeMultilingual({
+          title: {
+            en: translations.title?.en || challenge.title || '',
+            es: translations.title?.es || '',
+            pt: translations.title?.pt || '',
+          },
+          description: {
+            en: translations.description?.en || challenge.description || '',
+            es: translations.description?.es || '',
+            pt: translations.description?.pt || '',
+          },
+          instructions: {
+            en: translations.instructions?.en || challenge.instructions || '',
+            es: translations.instructions?.es || '',
+            pt: translations.instructions?.pt || '',
+          },
+        });
+        
+        setFormData({
+          display_order: challenge.display_order || 0,
+          is_active: challenge.is_active ?? true,
+          is_featured: challenge.is_featured ?? false,
+          start_date: challenge.start_date ? challenge.start_date.split('T')[0] : '',
+          end_date: challenge.end_date ? challenge.end_date.split('T')[0] : '',
+          tags: challenge.tags || [],
+        });
+        setImagePreview(challenge.image_url || null);
+        setThumbnailPreview(challenge.thumbnail_url || null);
+        setContentLocale(displayLocale);
+      }
     } else {
       setEditingChallenge(null);
       resetForm();

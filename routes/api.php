@@ -116,6 +116,7 @@ Route::get('/kids/resources/{id}/download', [\App\Http\Controllers\Api\KidsConte
 // Public routes for Challenges (authentication optional)
 Route::get('/challenges', [ChallengeController::class, 'index']);
 Route::get('/challenges/{id}', [ChallengeController::class, 'show']);
+Route::get('/challenges/submissions/recent', [ChallengeController::class, 'getRecentSubmissions']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -151,6 +152,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('challenges')->group(function () {
         Route::get('/my-challenges', [ChallengeController::class, 'getUserChallenges']);
         Route::post('/{id}/complete', [ChallengeController::class, 'completeChallenge']);
+        Route::post('/{id}/submit-proposal', [ChallengeController::class, 'submitProposal']);
     });
 
     // Translation routes (authenticated)

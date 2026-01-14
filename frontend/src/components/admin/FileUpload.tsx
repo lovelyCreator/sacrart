@@ -47,7 +47,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
   // Helper to resolve absolute URL for previews (works with Storage::url and raw paths)
   const resolveUrl = (src?: string | null) => {
     if (!src) return '';
-    // If already absolute
+    // If it's a data URL (base64), use it directly
+    if (src.startsWith('data:')) return src;
+    // If it's a blob URL, use it directly
+    if (src.startsWith('blob:')) return src;
+    // If already absolute HTTP/HTTPS URL
     if (src.startsWith('http://') || src.startsWith('https://')) return src;
     // Determine backend base (prefer VITE_API_BASE_URL without /api, fallback to VITE_API_URL)
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
@@ -63,11 +67,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
   React.useEffect(() => {
     console.log('FileUpload: currentFile prop changed:', currentFile);
     if (currentFile && currentFile.trim()) {
-      // If currentFile is already an absolute URL, use it directly
-      // Otherwise, resolve it
-      const url = currentFile.startsWith('http://') || currentFile.startsWith('https://') 
-        ? currentFile 
-        : resolveUrl(currentFile);
+      // If currentFile is a data URL or blob URL, use it directly
+      // If it's already an absolute HTTP/HTTPS URL, use it directly
+      // Otherwise, resolve it as a relative path
+      let url: string;
+      if (currentFile.startsWith('data:') || currentFile.startsWith('blob:') || 
+          currentFile.startsWith('http://') || currentFile.startsWith('https://')) {
+        url = currentFile;
+      } else {
+        url = resolveUrl(currentFile);
+      }
       console.log('FileUpload: Setting uploadedUrl from currentFile:', currentFile, '-> resolved:', url);
       setUploadedUrl(url);
     } else {

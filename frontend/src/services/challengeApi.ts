@@ -85,13 +85,31 @@ export interface Challenge {
 // Public API Endpoints
 export const challengeApi = {
   // Get all challenges (public)
-  getAll: () => {
-    return apiCall<{ success: boolean; data: Challenge[] }>('/challenges');
+  getAll: (showAll: boolean = false) => {
+    const queryString = showAll ? '?all=1' : '';
+    return apiCall<{ success: boolean; data: Challenge[] }>(`/challenges${queryString}`);
   },
 
   // Get a single challenge (public)
   getOne: (id: number) => {
     return apiCall<{ success: boolean; data: Challenge }>(`/challenges/${id}`);
+  },
+
+  // Get recent submissions (public)
+  getRecentSubmissions: (limit?: number) => {
+    const queryString = limit ? `?limit=${limit}` : '';
+    type SubmissionResponse = {
+      success: boolean;
+      data: Array<{
+        id: number;
+        image: string;
+        username: string;
+        avatar?: string | null;
+        challenge_title?: string | null;
+        completed_at?: string | null;
+      }>;
+    };
+    return apiCall<SubmissionResponse>(`/challenges/submissions/recent${queryString}`);
   },
 
   // Get user's challenges (authenticated)

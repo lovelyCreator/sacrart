@@ -105,54 +105,41 @@ const ChallengeUploadModal = ({ challenge, onClose, onSuccess }: ChallengeUpload
     try {
       const token = localStorage.getItem('auth_token');
       
-      // Upload cover image
-      const imageFormData = new FormData();
-      imageFormData.append('image', coverImage);
+      // Create FormData with all submission data
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('cover_image', coverImage);
+      if (processVideo) {
+        formData.append('process_video', processVideo);
+      }
 
-      const imageResponse = await fetch(`${API_BASE_URL}/media/images`, {
+      setUploadProgress(30);
+
+      // Submit the proposal to the API (handles file uploads)
+      const submissionResponse = await fetch(`${API_BASE_URL}/challenges/${challenge.id}/submit-proposal`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-        body: imageFormData,
+        body: formData,
       });
 
-      if (!imageResponse.ok) {
-        throw new Error('Failed to upload image');
+      setUploadProgress(90);
+
+      if (!submissionResponse.ok) {
+        const errorData = await submissionResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.errors || 'Failed to submit proposal');
       }
 
-      setUploadProgress(50);
-
-      // Upload video if provided
-      let videoUrl = null;
-      if (processVideo) {
-        const videoFormData = new FormData();
-        videoFormData.append('videos', processVideo);
-
-        const videoResponse = await fetch(`${API_BASE_URL}/media/videos`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: videoFormData,
-        });
-
-        if (videoResponse.ok) {
-          const videoData = await videoResponse.json();
-          if (videoData.success && videoData.data && videoData.data.length > 0) {
-            videoUrl = videoData.data[0].url || videoData.data[0].path;
-          }
-        }
-      }
-
-      setUploadProgress(100);
-
-      // Here you would typically create a submission record via API
-      // For now, we'll just show success
-      setTimeout(() => {
+      const submissionData = await submissionResponse.json();
+      if (submissionData.success) {
+        setUploadProgress(100);
+        toast.success(t('challenges.upload_success', 'Propuesta enviada exitosamente'));
         setIsUploading(false);
         onSuccess();
-      }, 500);
+      } else {
+        throw new Error(submissionData.message || 'Failed to submit proposal');
+      }
 
     } catch (error: any) {
       console.error('Upload error:', error);

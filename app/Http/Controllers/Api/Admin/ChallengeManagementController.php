@@ -52,6 +52,12 @@ class ChallengeManagementController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate($request->input('per_page', 15));
 
+            // Include translations for each challenge
+            $challenges->getCollection()->transform(function ($challenge) {
+                $challenge->translations = $challenge->getAllTranslations();
+                return $challenge;
+            });
+
             return response()->json([
                 'success' => true,
                 'data' => $challenges
@@ -81,6 +87,9 @@ class ChallengeManagementController extends Controller
             }
 
             $challenge = Challenge::with('userChallenges')->findOrFail($id);
+            
+            // Include translations
+            $challenge->translations = $challenge->getAllTranslations();
 
             return response()->json([
                 'success' => true,
@@ -165,8 +174,8 @@ class ChallengeManagementController extends Controller
                 if (is_array($translations)) {
                     foreach (['title', 'description', 'instructions'] as $field) {
                         if (isset($translations[$field])) {
-                            foreach (['en', 'es', 'pt'] as $locale) {
-                                if (isset($translations[$field][$locale]) && $locale !== 'en') {
+                            foreach (['es', 'pt'] as $locale) {
+                                if (isset($translations[$field][$locale]) && !empty($translations[$field][$locale])) {
                                     $challenge->setTranslation($field, $locale, $translations[$field][$locale]);
                                 }
                             }
@@ -174,6 +183,10 @@ class ChallengeManagementController extends Controller
                     }
                 }
             }
+
+            // Reload to get fresh translations
+            $challenge->refresh();
+            $challenge->translations = $challenge->getAllTranslations();
 
             return response()->json([
                 'success' => true,
@@ -261,8 +274,8 @@ class ChallengeManagementController extends Controller
                 if (is_array($translations)) {
                     foreach (['title', 'description', 'instructions'] as $field) {
                         if (isset($translations[$field])) {
-                            foreach (['en', 'es', 'pt'] as $locale) {
-                                if (isset($translations[$field][$locale]) && $locale !== 'en') {
+                            foreach (['es', 'pt'] as $locale) {
+                                if (isset($translations[$field][$locale]) && !empty($translations[$field][$locale])) {
                                     $challenge->setTranslation($field, $locale, $translations[$field][$locale]);
                                 }
                             }
@@ -298,6 +311,10 @@ class ChallengeManagementController extends Controller
             }
 
             $challenge->save();
+
+            // Reload to get fresh translations
+            $challenge->refresh();
+            $challenge->translations = $challenge->getAllTranslations();
 
             return response()->json([
                 'success' => true,
