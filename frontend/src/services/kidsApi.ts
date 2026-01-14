@@ -185,7 +185,7 @@ export const kidsApi = {
   admin: {
     // Get all settings
     getSettings: () => {
-      return apiCall('/admin/kids/settings');
+      return apiCall<{ success: boolean; data: Array<{ setting_key: string; setting_value: string }> }>('/admin/kids/settings');
     },
 
     // Update settings

@@ -41,6 +41,7 @@ import {
   Radio,
   Loader2,
   Tag,
+  Subtitles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -89,11 +90,16 @@ const LiveArchiveManagement = () => {
   });
 
   const [videoTags, setVideoTags] = useState<string[]>([]);
+  const [videoSection, setVideoSection] = useState<'current_season' | 'twitch_classics' | 'talks_questions' | null>(null);
   const [videoStatus, setVideoStatus] = useState<'published' | 'draft' | 'archived'>('published');
   const [videoVisibility, setVideoVisibility] = useState<'freemium' | 'premium' | 'exclusive'>('freemium');
   const [bunnyEmbedUrl, setBunnyEmbedUrl] = useState('');
   const [bunnyVideoId, setBunnyVideoId] = useState('');
   const [bunnyThumbnailUrl, setBunnyThumbnailUrl] = useState('');
+  const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
+  const [selectedVideoForTranscription, setSelectedVideoForTranscription] = useState<number | null>(null);
+  const [transcriptionDialogOpen, setTranscriptionDialogOpen] = useState(false);
+  const [selectedSourceLanguage, setSelectedSourceLanguage] = useState<'en' | 'es' | 'pt'>('en');
 
 
   // Helper function to get image URL
@@ -167,7 +173,8 @@ const LiveArchiveManagement = () => {
       title: { en: '', es: '', pt: '' },
       description: { en: '', es: '', pt: '' },
     });
-    setVideoTags(['directo']); // Automatically add archive tag for new videos
+    setVideoTags([]); // Start with no tags
+    setVideoSection('current_season'); // Default to current season
     setVideoStatus('published');
     setVideoVisibility('freemium');
     setBunnyEmbedUrl('');
@@ -196,6 +203,7 @@ const LiveArchiveManagement = () => {
     });
     
     setVideoTags(video.tags || []);
+    setVideoSection((video as any).section || 'current_season');
     setVideoStatus(video.status);
     setVideoVisibility(video.visibility);
     setBunnyEmbedUrl(video.bunny_embed_url || '');
@@ -217,27 +225,19 @@ const LiveArchiveManagement = () => {
       return;
     }
 
+    if (!videoSection) {
+      toast.error('Section is required');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-
-      // Ensure archive tags are included for new videos
-      let finalTags = [...videoTags];
-      const isNewVideo = !selectedVideo || !selectedVideo.id;
-      
-      if (isNewVideo) {
-        // Ensure at least one archive tag exists for new videos
-        const hasArchiveTag = LIVE_ARCHIVE_TAGS.some(tag => 
-          finalTags.some(t => t.toLowerCase().includes(tag))
-        );
-        if (!hasArchiveTag) {
-          finalTags.push('directo');
-        }
-      }
 
       const payload: any = {
         title: videoMultilingual.title.en, // Default to English
         description: videoMultilingual.description.en || null,
-        tags: finalTags,
+        tags: videoTags,
+        section: videoSection,
         status: videoStatus,
         visibility: videoVisibility,
         bunny_embed_url: bunnyEmbedUrl.trim(),
@@ -267,11 +267,13 @@ const LiveArchiveManagement = () => {
       }
 
       if (response.success) {
+        const isNewVideo = !selectedVideo || !selectedVideo.id;
         toast.success(isNewVideo ? 'Video created and added to archive' : 'Video updated successfully');
         setIsVideoDialogOpen(false);
         setSelectedVideo(null);
         fetchVideos();
       } else {
+        const isNewVideo = !selectedVideo || !selectedVideo.id;
         toast.error(response.message || (isNewVideo ? 'Failed to create video' : 'Failed to update video'));
       }
     } catch (error: any) {
@@ -317,6 +319,46 @@ const LiveArchiveManagement = () => {
     }
   };
 
+  const handleProcessTranscription = async (videoId: number) => {
+    setSelectedVideoForTranscription(videoId);
+    setSelectedSourceLanguage('en');
+    setTranscriptionDialogOpen(true);
+  };
+
+  const handleConfirmProcessTranscription = async () => {
+    if (!selectedVideoForTranscription) return;
+
+    setTranscriptionDialogOpen(false);
+    setProcessingTranscription(prev => ({ ...prev, [selectedVideoForTranscription]: true }));
+
+    try {
+      const video = archiveVideos.find(v => v.id === selectedVideoForTranscription);
+      if (!video || (!video.bunny_video_id && !video.bunny_embed_url)) {
+        toast.error('Video does not have a Bunny.net video ID or embed URL');
+        return;
+      }
+
+      const result = await liveArchiveVideoApi.processTranscription(
+        selectedVideoForTranscription,
+        ['en', 'es', 'pt'],
+        selectedSourceLanguage
+      );
+      
+      if (result.success) {
+        toast.success(result.message || 'Transcription processing completed successfully!');
+        fetchVideos();
+      } else {
+        toast.error(result.message || 'Failed to process transcription');
+      }
+    } catch (error: any) {
+      console.error('Transcription processing error:', error);
+      toast.error(error.message || 'An error occurred while processing transcription');
+    } finally {
+      setProcessingTranscription(prev => ({ ...prev, [selectedVideoForTranscription]: false }));
+      setSelectedVideoForTranscription(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -340,7 +382,7 @@ const LiveArchiveManagement = () => {
             className="bg-primary hover:bg-primary/90"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add New Video
+            {t('admin.live_archive_add_video')}
           </Button>
         </div>
       </div>
@@ -351,7 +393,7 @@ const LiveArchiveManagement = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search videos..."
+                placeholder={t('admin.live_archive_search_placeholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -364,20 +406,20 @@ const LiveArchiveManagement = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Thumbnail</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Views</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('admin.live_archive_table_thumbnail')}</TableHead>
+                <TableHead>{t('admin.live_archive_table_title')}</TableHead>
+                <TableHead>{t('admin.live_archive_table_duration')}</TableHead>
+                <TableHead>{t('admin.live_archive_table_status')}</TableHead>
+                <TableHead>{t('admin.live_archive_table_section')}</TableHead>
+                <TableHead>{t('admin.live_archive_table_views')}</TableHead>
+                <TableHead className="text-right">{t('admin.live_archive_table_actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredVideos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No live archive videos found. Click "Add New Video" to create one.
+                    {t('admin.live_archive_no_videos')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -418,18 +460,15 @@ const LiveArchiveManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {(video.tags || []).slice(0, 3).map((tag, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {(video.tags || []).length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{(video.tags || []).length - 3}
-                            </Badge>
-                          )}
-                        </div>
+                        {(video as any).section ? (
+                          <Badge variant="outline" className="text-xs">
+                            {(video as any).section === 'current_season' && t('admin.live_archive_section_current_season_display')}
+                            {(video as any).section === 'twitch_classics' && t('admin.live_archive_section_twitch_classics_display')}
+                            {(video as any).section === 'talks_questions' && t('admin.live_archive_section_talks_display')}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{t('admin.live_archive_section_none_display')}</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">{(video.views || 0).toLocaleString()}</span>
@@ -442,21 +481,38 @@ const LiveArchiveManagement = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel>{t('admin.live_archive_table_actions')}</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => handleEditVideo(video)}>
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                              {t('admin.common_edit')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleStatus(video)}>
                               {video.status === 'published' ? (
                                 <>
                                   <EyeOff className="mr-2 h-4 w-4" />
-                                  Unpublish
+                                  {t('admin.content_draft')}
                                 </>
                               ) : (
                                 <>
                                   <Eye className="mr-2 h-4 w-4" />
-                                  Publish
+                                  {t('admin.content_published')}
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleProcessTranscription(video.id)}
+                              disabled={processingTranscription[video.id]}
+                            >
+                              {processingTranscription[video.id] ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  {t('admin.processing_transcription', 'Processing...')}
+                                </>
+                              ) : (
+                                <>
+                                  <Subtitles className="mr-2 h-4 w-4" />
+                                  {t('admin.process_captions_ai', 'Process Captions (AI)')}
                                 </>
                               )}
                             </DropdownMenuItem>
@@ -466,7 +522,7 @@ const LiveArchiveManagement = () => {
                               className="text-red-600"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              {t('admin.common_delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -490,6 +546,7 @@ const LiveArchiveManagement = () => {
             description: { en: '', es: '', pt: '' },
           });
           setVideoTags([]);
+          setVideoSection('current_season');
           setBunnyEmbedUrl('');
           setBunnyVideoId('');
           setBunnyThumbnailUrl('');
@@ -498,12 +555,12 @@ const LiveArchiveManagement = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedVideo && selectedVideo.id ? 'Edit Video' : 'Add New Video to Archive'}
+              {selectedVideo && selectedVideo.id ? t('admin.live_archive_edit_video') : t('admin.live_archive_add_video_title')}
             </DialogTitle>
             <DialogDescription>
               {selectedVideo && selectedVideo.id 
-                ? 'Update video details and manage archive status'
-                : 'Upload a new video to the live archive. The video will automatically be tagged for the archive.'}
+                ? t('admin.live_archive_edit_description')
+                : t('admin.live_archive_add_description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -538,7 +595,7 @@ const LiveArchiveManagement = () => {
 
             <div>
               <Label htmlFor="title">
-                Title <span className="text-red-500">*</span>
+                {t('admin.live_archive_label_title')} <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="title"
@@ -547,12 +604,12 @@ const LiveArchiveManagement = () => {
                   ...videoMultilingual,
                   title: { ...videoMultilingual.title, [contentLocale]: e.target.value }
                 })}
-                placeholder={`Enter title in ${contentLocale.toUpperCase()}`}
+                placeholder={t('admin.live_archive_placeholder_title', { locale: contentLocale.toUpperCase() })}
                 required
               />
             </div>
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t('admin.live_archive_label_description')}</Label>
               <Textarea
                 id="description"
                 value={videoMultilingual.description[contentLocale] || ''}
@@ -560,110 +617,139 @@ const LiveArchiveManagement = () => {
                   ...videoMultilingual,
                   description: { ...videoMultilingual.description, [contentLocale]: e.target.value }
                 })}
-                placeholder={`Enter description in ${contentLocale.toUpperCase()}`}
+                placeholder={t('admin.live_archive_placeholder_description', { locale: contentLocale.toUpperCase() })}
                 rows={4}
               />
             </div>
             
             {/* Bunny.net Video Settings */}
             <div className="border-t pt-4">
-              <h3 className="text-lg font-semibold mb-4">Bunny.net Video Settings</h3>
+              <h3 className="text-lg font-semibold mb-4">{t('admin.live_archive_bunny_settings_title')}</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="bunnyEmbedUrl">
-                    Bunny Embed URL <span className="text-red-500">*</span>
+                    {t('admin.live_archive_label_bunny_embed_url')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="bunnyEmbedUrl"
                     value={bunnyEmbedUrl}
                     onChange={(e) => setBunnyEmbedUrl(e.target.value)}
-                    placeholder="https://iframe.mediadelivery.net/embed/{library}/{video}"
+                    placeholder={t('admin.live_archive_placeholder_bunny_embed')}
                     required
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Paste the Bunny.net embed URL from your Bunny dashboard. Duration will be auto-extracted.
+                    {t('admin.live_archive_bunny_embed_help')}
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="bunnyVideoId">Bunny Video ID (optional)</Label>
+                    <Label htmlFor="bunnyVideoId">{t('admin.live_archive_label_bunny_video_id')}</Label>
                     <Input
                       id="bunnyVideoId"
                       value={bunnyVideoId}
                       onChange={(e) => setBunnyVideoId(e.target.value)}
-                      placeholder="Video GUID from Bunny"
+                      placeholder={t('admin.live_archive_placeholder_bunny_video_id')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="bunnyThumbnailUrl">Thumbnail URL (optional)</Label>
+                    <Label htmlFor="bunnyThumbnailUrl">{t('admin.live_archive_label_thumbnail_url')}</Label>
                     <Input
                       id="bunnyThumbnailUrl"
                       value={bunnyThumbnailUrl}
                       onChange={(e) => setBunnyThumbnailUrl(e.target.value)}
-                      placeholder="https://vz-xxx.b-cdn.net/thumbnail.jpg"
+                      placeholder={t('admin.live_archive_placeholder_thumbnail')}
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
-              <Input
-                id="tags"
-                value={videoTags.join(', ')}
-                onChange={(e) => {
-                  const tags = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
-                  setVideoTags(tags);
-                }}
-                placeholder="directo, live, tutorial"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Add tags like "directo", "live", "twitch", "charla", or "q&a" to include in archive. 
-                {!selectedVideo || !selectedVideo.id ? ' Archive tags will be automatically added for new videos.' : ''}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  value={videoStatus}
-                  onChange={(e) => setVideoStatus(e.target.value as 'published' | 'draft' | 'archived')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="visibility">Visibility</Label>
-                <select
-                  id="visibility"
-                  value={videoVisibility}
-                  onChange={(e) => setVideoVisibility(e.target.value as 'freemium' | 'premium' | 'exclusive')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="freemium">Freemium</option>
-                  <option value="premium">Premium</option>
-                  <option value="exclusive">Exclusive</option>
-                </select>
+                <Label>{t('admin.live_archive_label_section')}</Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {t('admin.live_archive_section_description')}
+                </p>
+                <div className="space-y-3">
+                  {/* Esta Temporada Section */}
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <input
+                      type="radio"
+                      id="section_current_season"
+                      name="section"
+                      value="current_season"
+                      checked={videoSection === 'current_season'}
+                      onChange={(e) => setVideoSection(e.target.value as 'current_season')}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="section_current_season" className="font-medium cursor-pointer">
+                        {t('admin.live_archive_section_current_season')}
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('admin.live_archive_section_current_season_desc')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Twitch Classics Section */}
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <input
+                      type="radio"
+                      id="section_twitch_classics"
+                      name="section"
+                      value="twitch_classics"
+                      checked={videoSection === 'twitch_classics'}
+                      onChange={(e) => setVideoSection(e.target.value as 'twitch_classics')}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="section_twitch_classics" className="font-medium cursor-pointer">
+                        {t('admin.live_archive_section_twitch_classics')}
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('admin.live_archive_section_twitch_classics_desc')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Charlas y Preguntas Section */}
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <input
+                      type="radio"
+                      id="section_talks"
+                      name="section"
+                      value="talks_questions"
+                      checked={videoSection === 'talks_questions'}
+                      onChange={(e) => setVideoSection(e.target.value as 'talks_questions')}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="section_talks" className="font-medium cursor-pointer">
+                        {t('admin.live_archive_section_talks')}
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('admin.live_archive_section_talks_desc')}
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsVideoDialogOpen(false)}>
-              Cancel
+              {t('admin.live_archive_button_cancel')}
             </Button>
             <Button onClick={handleSaveVideo} disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {selectedVideo && selectedVideo.id ? 'Saving...' : 'Creating...'}
+                  {selectedVideo && selectedVideo.id ? t('admin.live_archive_button_saving') : t('admin.live_archive_button_creating')}
                 </>
               ) : (
-                selectedVideo && selectedVideo.id ? 'Save Changes' : 'Create Video'
+                selectedVideo && selectedVideo.id ? t('admin.live_archive_button_save') : t('admin.live_archive_button_create')
               )}
             </Button>
           </DialogFooter>

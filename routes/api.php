@@ -93,8 +93,16 @@ Route::get('/reels/{reel}', [ReelController::class, 'show']);
 Route::get('/rewinds/public', [RewindController::class, 'getPublic']);
 Route::get('/rewinds/{rewind}', [RewindController::class, 'show']);
 
-// Public route for live archive videos
+// Public routes for live archive videos
 Route::get('/live-archive-videos/public', [LiveArchiveVideoController::class, 'getPublic']);
+Route::get('/live-archive-videos/public/{id}', [LiveArchiveVideoController::class, 'getPublicById']);
+Route::get('/live-archive-videos/{id}/transcription', [LiveArchiveVideoController::class, 'getSubtitles']);
+
+// Protected routes for live archive video progress
+Route::middleware('auth:sanctum')->group(function () {
+    Route::put('/live-archive-videos/{id}/progress', [LiveArchiveVideoController::class, 'updateProgress']);
+    Route::get('/live-archive-videos/{id}/progress', [LiveArchiveVideoController::class, 'getProgress']);
+});
 
 // Public routes for Sacrart Kids (authentication optional)
 Route::get('/kids/content', [\App\Http\Controllers\Api\KidsContentController::class, 'index']);
@@ -196,6 +204,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'show']);
         Route::put('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'update']);
         Route::delete('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'destroy']);
+        Route::post('/admin/live-archive-videos/{id}/process-transcription', [LiveArchiveVideoController::class, 'processTranscription']);
 
         // Reels (Admin CRUD)
         Route::get('/admin/reels', [ReelController::class, 'index']);

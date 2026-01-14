@@ -136,7 +136,7 @@ export const challengeApi = {
 
     // Delete challenge
     delete: (id: number) => {
-      return apiCall(`/admin/challenges/${id}`, {
+      return apiCall<{ success: boolean; message?: string }>(`/admin/challenges/${id}`, {
         method: 'DELETE',
       });
     },

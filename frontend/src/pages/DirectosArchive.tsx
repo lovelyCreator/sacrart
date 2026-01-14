@@ -1,31 +1,59 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, memo, useRef, forwardRef } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '@/hooks/useLocale';
-import { videoApi, Video } from '@/services/videoApi';
+import { liveArchiveVideoApi, LiveArchiveVideo } from '@/services/videoApi';
 import { toast } from 'sonner';
-import { Play, ChevronLeft, ChevronRight, Search, History } from 'lucide-react';
+import { Play, ChevronLeft, ChevronRight, Search, History, Mic, ChevronDown } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import { enUS as en } from 'date-fns/locale/en-US';
 import { ptBR as pt } from 'date-fns/locale/pt-BR';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DirectosArchive = () => {
   const { t } = useTranslation();
   const { navigateWithLocale } = useLocale();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [latestVideo, setLatestVideo] = useState<Video | null>(null);
-  const [currentSeasonVideos, setCurrentSeasonVideos] = useState<Video[]>([]);
-  const [archiveVideos, setArchiveVideos] = useState<Video[]>([]);
-  const [talksVideos, setTalksVideos] = useState<Video[]>([]);
+  const [latestVideo, setLatestVideo] = useState<LiveArchiveVideo | null>(null);
+  const [currentSeasonVideos, setCurrentSeasonVideos] = useState<LiveArchiveVideo[]>([]);
+  const [archiveVideos, setArchiveVideos] = useState<LiveArchiveVideo[]>([]);
+  const [talksVideos, setTalksVideos] = useState<LiveArchiveVideo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEra, setSelectedEra] = useState<string>('Todos');
-  const [selectedYear, setSelectedYear] = useState<string>('2025');
-  const [selectedTheme, setSelectedTheme] = useState<string>('Talla');
-  
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [showClearButton, setShowClearButton] = useState(false);
+  const [videoProgress, setVideoProgress] = useState<Record<number, number>>({});
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const currentYear = new Date().getFullYear();
+  const [selectedEra, setSelectedEra] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
+  const [selectedTheme, setSelectedTheme] = useState<string>('all');
+  
   const availableYears = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
-  const availableEras = ['Todos', '2025', '2024', '2023', '2022', '2021'];
-  const availableThemes = ['Talla', 'Modelado', 'Policromía', 'Técnica Mixta'];
+
+  // Debounce search query to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Reset year to 'all' if current year is not in available years
+  useEffect(() => {
+    if (selectedYear !== 'all' && !availableYears.includes(selectedYear)) {
+      setSelectedYear('all');
+    }
+  }, [selectedYear, availableYears]);
 
   // Get locale for date-fns
   const getDateLocale = () => {
@@ -70,384 +98,228 @@ const DirectosArchive = () => {
       try {
         setLoading(true);
         
-        // Fetch all published videos
-        const response = await videoApi.getPublic({
-          status: 'published',
+        // Build filter parameters
+        const filterParams: Record<string, any> = {
           per_page: 1000,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
+        };
+        
+        // Add year filter
+        if (selectedYear && selectedYear !== 'all' && availableYears.includes(selectedYear)) {
+          filterParams.year = selectedYear;
+        }
+        
+        // Add theme filter (from tags)
+        if (selectedTheme && selectedTheme !== 'all') {
+          filterParams.theme = selectedTheme;
+        }
+        
+        // Add era filter (from tags or section)
+        if (selectedEra && selectedEra !== 'all') {
+          filterParams.era = selectedEra;
+        }
+        
+        // Add search filter
+        if (debouncedSearchQuery.trim()) {
+          filterParams.search = debouncedSearchQuery.trim();
+        }
+        
+        // Fetch all published live archive videos with filters
+        const response = await liveArchiveVideoApi.getPublic(filterParams);
 
+        console.log('📦 Live Archive API Response:', response);
+        
         if (response.success && response.data) {
-          const videos = Array.isArray(response.data) 
-            ? response.data 
-            : response.data?.data || [];
-
-          // Filter for "directos" - videos with tags containing "directo", "live", "twitch", or specific categories
-          const directosVideos = videos.filter((video: Video) => {
-            const tags = video.tags || [];
-            const tagString = tags.join(' ').toLowerCase();
-            return tagString.includes('directo') || 
-                   tagString.includes('live') || 
-                   tagString.includes('twitch') ||
-                   tagString.includes('charla') ||
-                   tagString.includes('q&a');
-          });
-
-          // Latest video (most recent)
-          if (directosVideos.length > 0) {
-            setLatestVideo(directosVideos[0]);
-          } else {
-            // Add sample latest video
-            const sampleLatest: Video = {
-              id: 1001,
-              title: 'Modelado de Manos en Vivo',
-              slug: 'modelado-manos-vivo',
-              description: 'Sesión en vivo donde exploramos técnicas avanzadas de modelado de manos en escultura sacra.',
-              short_description: 'Técnicas avanzadas de modelado de manos',
-              series_id: 1,
-              category_id: 1,
-              instructor_id: 1,
-              video_url: null,
-              video_file_path: null,
-              video_url_full: null,
-              bunny_video_id: null,
-              bunny_video_url: null,
-              bunny_embed_url: null,
-              bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-              bunny_player_url: null,
-              thumbnail: null,
-              thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-              intro_image: null,
-              intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-              intro_description: null,
-              duration: 3600,
-              file_size: null,
-              video_format: null,
-              video_quality: null,
-              streaming_urls: null,
-              hls_url: null,
-              dash_url: null,
-              visibility: 'freemium',
-              status: 'published',
-              is_free: true,
-              price: null,
-              episode_number: null,
-              sort_order: 1,
-              tags: ['directo', 'live', 'modelado'],
-              views: 2500,
-              unique_views: 1800,
-              rating: '4.9',
-              rating_count: 150,
-              completion_rate: 85,
-              published_at: new Date().toISOString(),
-              scheduled_at: null,
-              downloadable_resources: null,
-              allow_download: false,
-              meta_title: null,
-              meta_description: null,
-              meta_keywords: null,
-              processing_status: 'completed',
-              processing_error: null,
-              processed_at: new Date().toISOString(),
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-            setLatestVideo(sampleLatest);
-            directosVideos.push(sampleLatest);
+          // Handle paginated response structure: { data: { data: [...], total, per_page, current_page } }
+          const paginatedData = response.data;
+          const videos = (paginatedData.data || paginatedData || []) as LiveArchiveVideo[];
+          console.log('📹 Videos found:', videos.length, videos);
+          
+          // Debug: Check first video's section field
+          if (videos.length > 0) {
+            const firstVideo = videos[0] as any;
+            console.log('🔍 First video section check:', {
+              id: firstVideo.id,
+              title: firstVideo.title,
+              section: firstVideo.section,
+              sectionType: typeof firstVideo.section,
+              hasSection: 'section' in firstVideo,
+              allKeys: Object.keys(firstVideo),
+              rawVideo: firstVideo
+            });
+          }
+          
+          if (videos.length === 0) {
+            console.warn('⚠️ No videos returned from API. Response structure:', {
+              hasData: !!response.data,
+              dataType: typeof response.data,
+              dataKeys: response.data ? Object.keys(response.data) : [],
+              fullResponse: response
+            });
           }
 
-          // Current season videos (2025, or current year)
-          const currentSeason = directosVideos.filter((video: Video) => {
-            if (!video.created_at) return false;
-            const videoYear = new Date(video.created_at).getFullYear();
-            return videoYear === currentYear;
+          // Sort videos to ensure latest is first (by published_at or created_at)
+          const sortedVideos = [...videos].sort((a, b) => {
+            const dateA = new Date(a.published_at || a.created_at || 0).getTime();
+            const dateB = new Date(b.published_at || b.created_at || 0).getTime();
+            return dateB - dateA; // Descending order (newest first)
           });
-          
-          // Add sample current season videos if none found
-          if (currentSeason.length === 0) {
-            const sampleCurrentSeason: Video[] = [
-              {
-                id: 1002,
-                title: 'Técnicas de Policromía en Vivo',
-                slug: 'tecnicas-policromia-vivo',
-                description: 'Aplicación de técnicas tradicionales de policromía en tiempo real.',
-                short_description: 'Técnicas de policromía',
-                series_id: 1,
-                category_id: 1,
-                instructor_id: 1,
-                video_url: null,
-                video_file_path: null,
-                video_url_full: null,
-                bunny_video_id: null,
-                bunny_video_url: null,
-                bunny_embed_url: null,
-                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                bunny_player_url: null,
-                thumbnail: null,
-                thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                intro_image: null,
-                intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                intro_description: null,
-                duration: 2700,
-                file_size: null,
-                video_format: null,
-                video_quality: null,
-                streaming_urls: null,
-                hls_url: null,
-                dash_url: null,
-                visibility: 'freemium',
-                status: 'published',
-                is_free: true,
-                price: null,
-                episode_number: null,
-                sort_order: 2,
-                tags: ['directo', 'policromía'],
-                views: 1800,
-                unique_views: 1200,
-                rating: '4.8',
-                rating_count: 95,
-                completion_rate: 78,
-                published_at: new Date(currentYear, 0, 10).toISOString(),
-                scheduled_at: null,
-                downloadable_resources: null,
-                allow_download: false,
-                meta_title: null,
-                meta_description: null,
-                meta_keywords: null,
-                processing_status: 'completed',
-                processing_error: null,
-                processed_at: new Date().toISOString(),
-                created_at: new Date(currentYear, 0, 10).toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            ];
-            setCurrentSeasonVideos(sampleCurrentSeason);
-          } else {
-            setCurrentSeasonVideos(currentSeason.slice(0, 10));
-          }
 
-          // Archive videos (older than current year, with Twitch theme)
-          const archive = directosVideos.filter((video: Video) => {
-            if (!video.created_at) return false;
-            const videoYear = new Date(video.created_at).getFullYear();
-            return videoYear < currentYear;
-          });
+
+          // Latest video (most recent) - always show in header
+          const latestVideo = sortedVideos.length > 0 ? sortedVideos[0] : null;
+          setLatestVideo(latestVideo);
+
+          // Filter videos by section field
+          // Mapping: Admin section values → Frontend sections
+          // - 'current_season' → "Esta Temporada" (Current Season videos)
+          // - 'twitch_classics' → "Los Clásicos de Twitch" (Archive videos)
+          // - 'talks_questions' → "Charlas y Preguntas" (Talks videos)
           
-          // Add sample archive videos if none found
+          // "Esta Temporada" - videos with section = 'current_season'
+          // Include all videos with this section, even if it's the latest video
+          const currentSeason = sortedVideos.filter((video: LiveArchiveVideo) => {
+            const section = (video as any).section;
+            return section === 'current_season';
+          });
+          console.log('📹 Current Season videos (current_season):', currentSeason.length, currentSeason);
+          setCurrentSeasonVideos(currentSeason);
+
+          // "Los Clásicos de Twitch" (Archive) - videos with section = 'twitch_classics'
+          // Include all videos with this section, even if it's the latest video
+          const archive = sortedVideos.filter((video: LiveArchiveVideo) => {
+            const section = (video as any).section;
+            const isMatch = section === 'twitch_classics';
+            if (isMatch) {
+              console.log('✅ Found twitch_classics video:', { id: video.id, title: video.title, section, sectionType: typeof section });
+            }
+            return isMatch;
+          });
+          console.log('📹 Archive videos (twitch_classics):', archive.length, archive);
           if (archive.length === 0) {
-            const sampleArchive: Video[] = [
-              {
-                id: 1003,
-                title: 'Clásico Twitch: Talla en Madera',
-                slug: 'clasico-twitch-talla',
-                description: 'Sesión clásica de talla en madera desde nuestro archivo de Twitch.',
-                short_description: 'Talla en madera clásica',
-                series_id: 1,
-                category_id: 1,
-                instructor_id: 1,
-                video_url: null,
-                video_file_path: null,
-                video_url_full: null,
-                bunny_video_id: null,
-                bunny_video_url: null,
-                bunny_embed_url: null,
-                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-                bunny_player_url: null,
-                thumbnail: null,
-                thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-                intro_image: null,
-                intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-                intro_description: null,
-                duration: 4200,
-                file_size: null,
-                video_format: null,
-                video_quality: null,
-                streaming_urls: null,
-                hls_url: null,
-                dash_url: null,
-                visibility: 'freemium',
-                status: 'published',
-                is_free: true,
-                price: null,
-                episode_number: null,
-                sort_order: 3,
-                tags: ['twitch', 'talla', 'archivo'],
-                views: 5000,
-                unique_views: 3500,
-                rating: '4.7',
-                rating_count: 320,
-                completion_rate: 72,
-                published_at: new Date(2023, 5, 15).toISOString(),
-                scheduled_at: null,
-                downloadable_resources: null,
-                allow_download: false,
-                meta_title: null,
-                meta_description: null,
-                meta_keywords: null,
-                processing_status: 'completed',
-                processing_error: null,
-                processed_at: new Date().toISOString(),
-                created_at: new Date(2023, 5, 15).toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            ];
-            setArchiveVideos(sampleArchive);
-          } else {
-            setArchiveVideos(archive.slice(0, 10));
+            console.log('⚠️ No twitch_classics videos found. All videos sections:', sortedVideos.map(v => ({
+              id: v.id,
+              title: v.title,
+              section: (v as any).section,
+              sectionType: typeof (v as any).section,
+              sectionValue: String((v as any).section),
+              sectionEquals: (v as any).section === 'twitch_classics',
+              sectionStrict: (v as any).section === 'twitch_classics' ? 'MATCH' : 'NO MATCH'
+            })));
           }
+          setArchiveVideos(archive);
 
-          // Talks videos (videos with "charla", "q&a", "preguntas" tags)
-          const talks = directosVideos.filter((video: Video) => {
-            const tags = video.tags || [];
-            const tagString = tags.join(' ').toLowerCase();
-            return tagString.includes('charla') || 
-                   tagString.includes('q&a') || 
-                   tagString.includes('preguntas') ||
-                   tagString.includes('entrevista');
+          // "Charlas y Preguntas" (Talks) - videos with section = 'talks_questions'
+          // Include all videos with this section, even if it's the latest video
+          const talks = sortedVideos.filter((video: LiveArchiveVideo) => {
+            const section = (video as any).section;
+            const isMatch = section === 'talks_questions';
+            if (isMatch) {
+              console.log('✅ Found talks_questions video:', { id: video.id, title: video.title, section, sectionType: typeof section });
+            }
+            return isMatch;
           });
-          
-          // Add sample talks if none found
+          console.log('📹 Talks videos (talks_questions):', talks.length, talks);
           if (talks.length === 0) {
-            const sampleTalks: Video[] = [
-              {
-                id: 1004,
-                title: 'Charla: Historia del Arte Sacro',
-                slug: 'charla-historia-arte-sacro',
-                description: 'Conversación sobre la historia y evolución del arte sacro en España.',
-                short_description: 'Historia del arte sacro',
-                series_id: 1,
-                category_id: 1,
-                instructor_id: 1,
-                video_url: null,
-                video_file_path: null,
-                video_url_full: null,
-                bunny_video_id: null,
-                bunny_video_url: null,
-                bunny_embed_url: null,
-                bunny_thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                bunny_player_url: null,
-                thumbnail: null,
-                thumbnail_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                intro_image: null,
-                intro_image_url: 'https://images.unsplash.com/photo-1588693895311-574d6c44243b?q=80&w=1000&auto=format&fit=crop',
-                intro_description: null,
-                duration: 1800,
-                file_size: null,
-                video_format: null,
-                video_quality: null,
-                streaming_urls: null,
-                hls_url: null,
-                dash_url: null,
-                visibility: 'freemium',
-                status: 'published',
-                is_free: true,
-                price: null,
-                episode_number: null,
-                sort_order: 4,
-                tags: ['charla', 'historia', 'q&a'],
-                views: 3200,
-                unique_views: 2400,
-                rating: '4.9',
-                rating_count: 210,
-                completion_rate: 88,
-                published_at: new Date(currentYear, 1, 5).toISOString(),
-                scheduled_at: null,
-                downloadable_resources: null,
-                allow_download: false,
-                meta_title: null,
-                meta_description: null,
-                meta_keywords: null,
-                processing_status: 'completed',
-                processing_error: null,
-                processed_at: new Date().toISOString(),
-                created_at: new Date(currentYear, 1, 5).toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            ];
-            setTalksVideos(sampleTalks);
-          } else {
-            setTalksVideos(talks.slice(0, 10));
+            console.log('⚠️ No talks_questions videos found. All videos sections:', sortedVideos.map(v => ({
+              id: v.id,
+              title: v.title,
+              section: (v as any).section,
+              sectionType: typeof (v as any).section,
+              sectionValue: String((v as any).section)
+            })));
           }
+          setTalksVideos(talks);
+          
+          // Debug: Log all videos and their sections
+          console.log('📦 All videos with sections:', sortedVideos.map(v => ({
+            id: v.id,
+            title: v.title,
+            section: (v as any).section,
+            sectionType: typeof (v as any).section,
+            sectionValue: JSON.stringify((v as any).section),
+            published_at: v.published_at,
+            created_at: v.created_at
+          })));
+          
+          // Debug: Check if section field exists on videos
+          console.log('🔍 Section field check:', {
+            firstVideo: sortedVideos[0] ? {
+              id: sortedVideos[0].id,
+              title: sortedVideos[0].title,
+              hasSection: 'section' in sortedVideos[0],
+              section: (sortedVideos[0] as any).section,
+              allKeys: Object.keys(sortedVideos[0] || {})
+            } : null,
+            videosWithSection: sortedVideos.filter(v => (v as any).section === 'twitch_classics').length
+          });
         } else {
-          // Add sample data if API response fails
-          const sampleLatest: Video = {
-            id: 1001,
-            title: 'Modelado de Manos en Vivo',
-            slug: 'modelado-manos-vivo',
-            description: 'Sesión en vivo donde exploramos técnicas avanzadas de modelado de manos en escultura sacra.',
-            short_description: 'Técnicas avanzadas de modelado de manos',
-            series_id: 1,
-            category_id: 1,
-            instructor_id: 1,
-            video_url: null,
-            video_file_path: null,
-            video_url_full: null,
-            bunny_video_id: null,
-            bunny_video_url: null,
-            bunny_embed_url: null,
-            bunny_thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-            bunny_player_url: null,
-            thumbnail: null,
-            thumbnail_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-            intro_image: null,
-            intro_image_url: 'https://images.unsplash.com/photo-1628157588553-5eeea00af15c?q=80&w=1887&auto=format&fit=crop',
-            intro_description: null,
-            duration: 3600,
-            file_size: null,
-            video_format: null,
-            video_quality: null,
-            streaming_urls: null,
-            hls_url: null,
-            dash_url: null,
-            visibility: 'freemium',
-            status: 'published',
-            is_free: true,
-            price: null,
-            episode_number: null,
-            sort_order: 1,
-            tags: ['directo', 'live', 'modelado'],
-            views: 2500,
-            unique_views: 1800,
-            rating: '4.9',
-            rating_count: 150,
-            completion_rate: 85,
-            published_at: new Date().toISOString(),
-            scheduled_at: null,
-            downloadable_resources: null,
-            allow_download: false,
-            meta_title: null,
-            meta_description: null,
-            meta_keywords: null,
-            processing_status: 'completed',
-            processing_error: null,
-            processed_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          setLatestVideo(sampleLatest);
-          setCurrentSeasonVideos([sampleLatest]);
+          // No videos found
+          setLatestVideo(null);
+          setCurrentSeasonVideos([]);
           setArchiveVideos([]);
           setTalksVideos([]);
         }
       } catch (error: any) {
         console.error('Error loading directos archive:', error);
-        toast.error(error.message || t('directos.error_load', 'Error al cargar el archivo de directos'));
+        toast.error(error.message || t('directos.error_load'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchVideos();
-  }, [t]);
+  }, [t, selectedEra, selectedYear, selectedTheme, debouncedSearchQuery]);
 
-  const handleVideoClick = (video: Video) => {
-    navigateWithLocale(`/video/${video.id}`);
+  // Fetch progress for all videos
+  useEffect(() => {
+    const fetchProgress = async () => {
+      if (!user || currentSeasonVideos.length === 0 && archiveVideos.length === 0 && talksVideos.length === 0) {
+        return;
+      }
+
+      const allVideos = [...currentSeasonVideos, ...archiveVideos, ...talksVideos];
+      const progressMap: Record<number, number> = {};
+
+      try {
+        await Promise.all(
+          allVideos.map(async (video) => {
+            try {
+              const progressResponse = await liveArchiveVideoApi.getProgress(video.id);
+              if (progressResponse.success && progressResponse.data) {
+                const progress = progressResponse.data.progress_percentage || 0;
+                progressMap[video.id] = progress;
+                console.log(`✅ Progress loaded for video ${video.id}: ${progress}%`);
+              } else {
+                console.debug(`No progress found for video ${video.id}`);
+              }
+            } catch (error) {
+              // Silently fail for individual progress fetches
+              console.debug('Failed to fetch progress for video', video.id, error);
+            }
+          })
+        );
+        setVideoProgress(progressMap);
+      } catch (error) {
+        console.error('Error fetching video progress:', error);
+      }
+    };
+
+    fetchProgress();
+  }, [user, currentSeasonVideos, archiveVideos, talksVideos]);
+
+  const handleVideoClick = (video: LiveArchiveVideo) => {
+    navigateWithLocale(`/live-archive/${video.id}`);
   };
 
-  const VideoCard = ({ video, isArchive = false, showProgress = false }: { video: Video; isArchive?: boolean; showProgress?: boolean }) => {
-    const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
-    const progress = Math.random() * 100; // Sample progress, replace with real data
+  const VideoCard = memo(({ video, isArchive = false, showProgress = false, videoProgress, handleVideoClick }: { 
+    video: LiveArchiveVideo; 
+    isArchive?: boolean; 
+    showProgress?: boolean;
+    videoProgress: Record<number, number>;
+    handleVideoClick: (video: LiveArchiveVideo) => void;
+  }) => {
+    const thumbnailUrl = getImageUrl(video.bunny_thumbnail_url || video.thumbnail_url || '');
+    const progress = videoProgress[video.id] || 0;
     
     return (
       <div
@@ -510,26 +382,31 @@ const DirectosArchive = () => {
             {!isArchive ? (
               <>
                 <p className="text-[11px] text-gray-400 mt-1 font-medium">
-                  Sacrart Live • {formatDate(video.created_at)}
+                  {t('directos.sacrart_live')} • {formatDate(video.published_at || video.created_at || null)}
                 </p>
                 <p className="text-[10px] text-gray-500 mt-0.5">
-                  {video.tags?.[0] || 'Directo'}
+                  {video.tags?.[0] || t('directos.directo')}
                 </p>
               </>
             ) : (
               <p className="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-wide">
-                {video.created_at ? new Date(video.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                {(video.published_at || video.created_at) ? new Date(video.published_at || video.created_at || '').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
               </p>
             )}
           </div>
         </div>
       </div>
     );
-  };
+  });
+  VideoCard.displayName = 'VideoCard';
 
-  const TalksVideoCard = ({ video }: { video: Video }) => {
-    const thumbnailUrl = getImageUrl(video.intro_image_url || video.intro_image || video.thumbnail_url || video.thumbnail || '');
-    const progress = Math.random() * 100;
+  const TalksVideoCard = memo(({ video, videoProgress, handleVideoClick }: { 
+    video: LiveArchiveVideo;
+    videoProgress: Record<number, number>;
+    handleVideoClick: (video: LiveArchiveVideo) => void;
+  }) => {
+    const thumbnailUrl = getImageUrl(video.bunny_thumbnail_url || video.thumbnail_url || '');
+    const progress = videoProgress[video.id] || 0;
     
     return (
       <div
@@ -547,7 +424,7 @@ const DirectosArchive = () => {
             <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900"></div>
           )}
           <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-            <Search className="h-8 w-8 text-white/50 group-hover:text-[#A05245] transition-colors" />
+            <Mic className="h-10 w-10 text-white/50 group-hover:text-[#A05245] transition-colors" />
           </div>
           {progress > 0 && (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800/50">
@@ -563,29 +440,24 @@ const DirectosArchive = () => {
             {video.title || ''}
           </h3>
           <p className="text-[11px] text-gray-400 mt-1 font-medium">
-            {video.tags?.some(tag => tag.toLowerCase().includes('podcast')) ? 'Podcast Visual' : 
-             video.tags?.some(tag => tag.toLowerCase().includes('chat')) ? 'Just Chatting' : 
-             'Entrevistas'} • {formatDate(video.created_at)}
+            {video.tags?.some(tag => tag.toLowerCase().includes('podcast')) ? t('directos.podcast_visual') : 
+             video.tags?.some(tag => tag.toLowerCase().includes('chat')) ? t('directos.just_chatting') : 
+             t('directos.interviews')} • {formatDate(video.published_at || video.created_at || null)}
           </p>
         </div>
       </div>
     );
-  };
+  });
+  TalksVideoCard.displayName = 'TalksVideoCard';
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A05245]"></div>
-      </main>
-    );
-  }
+  // All hooks must be called before any conditional returns
+  const latestThumbnail = useMemo(() => {
+    return latestVideo ? getImageUrl(latestVideo.bunny_thumbnail_url || latestVideo.thumbnail_url || '') : '';
+  }, [latestVideo]);
 
-  const latestThumbnail = latestVideo ? getImageUrl(latestVideo.intro_image_url || latestVideo.intro_image || latestVideo.thumbnail_url || latestVideo.thumbnail || '') : '';
-
-  return (
-    <main className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased">
-      {/* Hero Section */}
-      <section className="relative w-full h-[65vh] md:h-[75vh] flex items-end">
+  // Memoize hero section to prevent re-renders when searchQuery changes
+  const heroSection = useMemo(() => (
+    <section className="relative w-full h-[65vh] md:h-[75vh] flex items-end">
         <div className="absolute inset-0 w-full h-full">
           {latestThumbnail ? (
             <img
@@ -606,24 +478,24 @@ const DirectosArchive = () => {
                 <div className="flex items-center gap-3 mb-4">
                   <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                    Live Replay
+                    {t('directos.live_replay')}
                   </span>
                   <span className="text-gray-300 text-xs font-medium tracking-wide">
-                    {formatDate(latestVideo.created_at)}
+                    {formatDate(latestVideo.published_at || latestVideo.created_at || null)}
                   </span>
                 </div>
                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
-                  Último Directo: <br /> {latestVideo.title || 'Modelado de Manos en Vivo'}
+                  {t('directos.latest_directo')}: <br /> {latestVideo.title || ''}
                 </h1>
                 <p className="text-gray-300 text-sm md:text-base mb-8 max-w-xl leading-relaxed drop-shadow-md">
-                  {latestVideo.description || latestVideo.short_description || 'Acompaña al maestro en esta sesión intensiva donde exploramos técnicas avanzadas de arte sacro.'}
+                  {latestVideo.description || ''}
                 </p>
                 <button
                   onClick={() => handleVideoClick(latestVideo)}
                   className="group bg-[#A05245] hover:bg-red-700 text-white px-8 py-3.5 rounded-[4px] font-semibold text-sm md:text-base flex items-center gap-3 transition-all duration-300 shadow-xl shadow-black/30 hover:shadow-[#A05245]/20 hover:-translate-y-0.5"
                 >
                   <Play className="h-5 w-5 fill-white" />
-                  <span>Ver Repetición ({formatDuration(latestVideo.duration || 0)})</span>
+                  <span>{t('directos.watch_replay')} ({formatDuration(latestVideo.duration || 0)})</span>
                 </button>
               </>
             ) : (
@@ -631,73 +503,157 @@ const DirectosArchive = () => {
                 <div className="flex items-center gap-3 mb-4">
                   <span className="inline-flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-[2px] uppercase tracking-wider shadow-lg shadow-red-900/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                    Directos Archive
+                    {t('directos.directos_archive')}
                   </span>
                 </div>
                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
-                  Archivo de Directos
+                  {t('directos.archive_title')}
                 </h1>
                 <p className="text-gray-300 text-sm md:text-base mb-8 max-w-xl leading-relaxed drop-shadow-md">
-                  Explora nuestra colección de directos en vivo, sesiones de trabajo y charlas con el maestro.
+                  {t('directos.archive_description')}
                 </p>
               </>
             )}
           </div>
         </div>
       </section>
+  ), [latestVideo, latestThumbnail, t]);
 
+  // Memoize filter dropdowns separately - exclude searchQuery to prevent re-renders when typing
+  const filterDropdowns = useMemo(() => (
+    <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2 md:pb-0">
+      {/* Era Filter */}
+      <Select value={selectedEra} onValueChange={setSelectedEra}>
+        <SelectTrigger className="w-[160px] h-9 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-white text-xs font-medium rounded-full">
+          <span className="text-white">
+            {t('directos.era')}: <SelectValue>
+              {selectedEra === 'all' ? t('directos.all') : (selectedEra === 'vintage' ? t('directos.vintage_era') : selectedEra === 'current' ? t('directos.current_era') : selectedEra)}
+            </SelectValue>
+          </span>
+        </SelectTrigger>
+        <SelectContent className="bg-[#18181b] border-white/10 text-white z-50">
+          <SelectItem value="all" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.all')}</SelectItem>
+          <SelectItem value="vintage" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.vintage_era')}</SelectItem>
+          <SelectItem value="current" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.current_era')}</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Year Filter */}
+      <Select value={selectedYear} onValueChange={setSelectedYear}>
+        <SelectTrigger className="w-[130px] h-9 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-gray-300 hover:text-white text-xs font-medium rounded-full">
+          <span className="text-gray-300">
+            {t('directos.year')}: <SelectValue>
+              {selectedYear === 'all' ? t('directos.all') : selectedYear}
+            </SelectValue>
+          </span>
+        </SelectTrigger>
+        <SelectContent className="bg-[#18181b] border-white/10 text-white z-50">
+          <SelectItem value="all" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.all')}</SelectItem>
+          {availableYears.map((year) => (
+            <SelectItem key={year} value={year} className="text-white focus:bg-[#27272a] cursor-pointer">
+              {year}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Theme Filter */}
+      <Select value={selectedTheme} onValueChange={setSelectedTheme}>
+        <SelectTrigger className="w-[180px] h-9 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-gray-300 hover:text-white text-xs font-medium rounded-full">
+          <span className="text-gray-300">
+            {t('directos.theme')}: <SelectValue>
+              {selectedTheme === 'all' ? t('directos.all') : (selectedTheme === 'talla' ? t('directos.theme_talla') : selectedTheme === 'modelado' ? t('directos.theme_modelado') : selectedTheme === 'policromia' ? t('directos.theme_policromia') : selectedTheme === 'tecnica_mixta' ? t('directos.theme_tecnica_mixta') : selectedTheme)}
+            </SelectValue>
+          </span>
+        </SelectTrigger>
+        <SelectContent className="bg-[#18181b] border-white/10 text-white z-50">
+          <SelectItem value="all" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.all')}</SelectItem>
+          <SelectItem value="talla" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.theme_talla')}</SelectItem>
+          <SelectItem value="modelado" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.theme_modelado')}</SelectItem>
+          <SelectItem value="policromia" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.theme_policromia')}</SelectItem>
+          <SelectItem value="tecnica_mixta" className="text-white focus:bg-[#27272a] cursor-pointer">{t('directos.theme_tecnica_mixta')}</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  ), [selectedEra, setSelectedEra, selectedYear, setSelectedYear, selectedTheme, setSelectedTheme, availableYears, t]);
+
+  // Conditional return must come AFTER all hooks
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A05245]"></div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased">
+      {heroSection}
       {/* Sticky Filters */}
       <div className="sticky top-20 z-40 w-full bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-white/5 shadow-lg">
         <div className="container mx-auto px-6 md:px-12 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2 md:pb-0">
-              <div className="relative group">
-                <button className="flex items-center gap-2 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-white text-xs font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap">
-                  Era: {selectedEra}
-                  <ChevronRight className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="relative group">
-                <button className="flex items-center gap-2 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-gray-300 hover:text-white text-xs font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap">
-                  Año: {selectedYear}
-                  <ChevronRight className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="relative group">
-                <button className="flex items-center gap-2 bg-[#18181b] hover:bg-[#27272a] border border-white/10 text-gray-300 hover:text-white text-xs font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap">
-                  Tema: {selectedTheme}
-                  <ChevronRight className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center border-b border-white/10 focus-within:border-white/50 transition-colors py-1 w-full md:w-64">
+            {filterDropdowns}
+            <div className="flex items-center border-b border-white/10 focus-within:border-transparent transition-colors py-1 w-full md:w-64">
+              <Search className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
               <input
-                className="bg-transparent border-none text-sm text-white placeholder-gray-500 w-full focus:ring-0 px-2"
-                placeholder="Buscar en archivo..."
+                ref={searchInputRef}
+                className="bg-transparent border-none text-sm text-white placeholder-gray-500 w-full focus:ring-0 px-2 focus:outline-none"
+                placeholder={t('directos.search_archive')}
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                defaultValue={searchQuery}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only update clear button visibility, minimal re-render
+                  setShowClearButton(value.length > 0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const value = (e.target as HTMLInputElement).value;
+                    setSearchQuery(value);
+                    setDebouncedSearchQuery(value);
+                    setShowClearButton(value.length > 0);
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  setSearchQuery(value);
+                  setShowClearButton(value.length > 0);
+                }}
               />
-              <button className="text-gray-400 hover:text-white transition-colors">
-                <Search className="h-4 w-4" />
-              </button>
+              {showClearButton && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setDebouncedSearchQuery('');
+                    setShowClearButton(false);
+                    if (searchInputRef.current) {
+                      searchInputRef.current.value = '';
+                    }
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors ml-2 flex-shrink-0"
+                  aria-label="Clear search"
+                  title="Clear search"
+                >
+                  <span className="text-lg leading-none">×</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
-
       {/* Video Sections */}
       <div className="pt-8 pb-16 space-y-12">
         {/* Current Season */}
-        {currentSeasonVideos.length > 0 && (
-          <section className="container mx-auto px-6 md:px-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                Esta Temporada ({currentYear})
-                <span className="bg-[#A05245]/20 text-[#A05245] text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-[#A05245]/20">
-                  Nuevo
-                </span>
-              </h2>
+        <section className="container mx-auto px-6 md:px-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              {t('directos.this_season')} ({currentYear})
+              <span className="bg-[#A05245]/20 text-[#A05245] text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-[#A05245]/20">
+                {t('directos.new')}
+              </span>
+            </h2>
+            {currentSeasonVideos.length > 0 && (
               <div className="flex gap-2">
                 <button className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
                   <ChevronLeft className="h-4 w-4 text-white" />
@@ -706,46 +662,55 @@ const DirectosArchive = () => {
                   <ChevronRight className="h-4 w-4 text-white" />
                 </button>
               </div>
-            </div>
+            )}
+          </div>
+          {currentSeasonVideos.length > 0 ? (
             <div className="flex overflow-x-auto gap-5 pb-8 snap-x scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
               {currentSeasonVideos.map((video) => (
-                <VideoCard key={video.id} video={video} showProgress={true} />
+                <VideoCard key={video.id} video={video} showProgress={true} videoProgress={videoProgress} handleVideoClick={handleVideoClick} />
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <p className="text-gray-400 text-sm">No videos in this section yet.</p>
+          )}
+        </section>
 
         {/* Archive Section */}
-        {archiveVideos.length > 0 && (
-          <section className="container mx-auto px-6 md:px-12">
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-xl font-bold text-white tracking-tight">Los Clásicos de Twitch (Archivo)</h2>
-              <div className="bg-[#9146FF]/10 border border-[#9146FF]/30 px-2 py-0.5 rounded flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-[#9146FF] rounded-sm"></span>
-                <span className="text-[9px] font-bold text-[#9146FF] uppercase tracking-wider">Vintage Era</span>
-              </div>
+        <section className="container mx-auto px-6 md:px-12">
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-xl font-bold text-white tracking-tight">{t('directos.twitch_classics')}</h2>
+            <div className="bg-[#9146FF]/10 border border-[#9146FF]/30 px-2 py-0.5 rounded flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-[#9146FF] rounded-sm"></span>
+              <span className="text-[9px] font-bold text-[#9146FF] uppercase tracking-wider">{t('directos.vintage_era')}</span>
             </div>
+          </div>
+          {archiveVideos.length > 0 ? (
             <div className="flex overflow-x-auto gap-4 pb-8 snap-x scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
               {archiveVideos.map((video) => (
-                <VideoCard key={video.id} video={video} isArchive={true} />
+                <VideoCard key={video.id} video={video} isArchive={true} videoProgress={videoProgress} handleVideoClick={handleVideoClick} />
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <p className="text-gray-400 text-sm">No videos in this section yet.</p>
+          )}
+        </section>
 
         {/* Talks Section */}
-        {talksVideos.length > 0 && (
-          <section className="container mx-auto px-6 md:px-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white tracking-tight">Charlas y Preguntas</h2>
-            </div>
+        <section className="container mx-auto px-6 md:px-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white tracking-tight">{t('directos.talks_questions')}</h2>
+          </div>
+          {talksVideos.length > 0 ? (
             <div className="flex overflow-x-auto gap-5 pb-8 snap-x scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
               {talksVideos.map((video) => (
-                <TalksVideoCard key={video.id} video={video} />
+                <TalksVideoCard key={video.id} video={video} videoProgress={videoProgress} handleVideoClick={handleVideoClick} />
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <p className="text-gray-400 text-sm">No videos in this section yet.</p>
+          )}
+        </section>
+
       </div>
     </main>
   );

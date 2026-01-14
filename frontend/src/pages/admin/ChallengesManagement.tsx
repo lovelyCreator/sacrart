@@ -151,19 +151,19 @@ const ChallengesManagement = () => {
       const translations = (challenge as any).translations || {};
       setChallengeMultilingual({
         title: {
-          en: translations.title?.en || challenge.title_en || challenge.title || '',
-          es: translations.title?.es || challenge.title_es || '',
-          pt: translations.title?.pt || challenge.title_pt || '',
+          en: translations.title?.en || challenge.title || '',
+          es: translations.title?.es || '',
+          pt: translations.title?.pt || '',
         },
         description: {
-          en: translations.description?.en || challenge.description_en || challenge.description || '',
-          es: translations.description?.es || challenge.description_es || '',
-          pt: translations.description?.pt || challenge.description_pt || '',
+          en: translations.description?.en || challenge.description || '',
+          es: translations.description?.es || '',
+          pt: translations.description?.pt || '',
         },
         instructions: {
-          en: translations.instructions?.en || challenge.instructions_en || challenge.instructions || '',
-          es: translations.instructions?.es || challenge.instructions_es || '',
-          pt: translations.instructions?.pt || challenge.instructions_pt || '',
+          en: translations.instructions?.en || challenge.instructions || '',
+          es: translations.instructions?.es || '',
+          pt: translations.instructions?.pt || '',
         },
       });
       

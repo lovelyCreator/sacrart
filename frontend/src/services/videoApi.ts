@@ -1166,6 +1166,7 @@ export interface LiveArchiveVideo {
   visibility: 'freemium' | 'premium' | 'exclusive';
   is_free: boolean;
   tags?: string[] | null;
+  section?: 'current_season' | 'twitch_classics' | 'talks_questions' | null;
   views: number;
   unique_views: number;
   meta_title?: string | null;
@@ -1247,6 +1248,45 @@ export const liveArchiveVideoApi = {
       headers,
     });
     return handleResponse<{ success: boolean; data: { data: LiveArchiveVideo[]; total: number; per_page: number; current_page: number } }>(response);
+  },
+
+  getPublicById: async (id: number) => {
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+      'Accept-Language': getLocale(),
+    };
+    const response = await fetch(`${API_BASE_URL}/live-archive-videos/public/${id}`, {
+      headers,
+    });
+    return handleResponse<{ success: boolean; data: LiveArchiveVideo }>(response);
+  },
+
+  updateProgress: async (id: number, data: { time_watched: number; video_duration: number; progress_percentage?: number; is_completed?: boolean }) => {
+    const response = await fetch(`${API_BASE_URL}/live-archive-videos/${id}/progress`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; message: string; data: any }>(response);
+  },
+
+  getProgress: async (id: number) => {
+    const response = await fetch(`${API_BASE_URL}/live-archive-videos/${id}/progress`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; data: any }>(response);
+  },
+
+  processTranscription: async (id: number, languages?: string[], sourceLanguage?: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/live-archive-videos/${id}/process-transcription`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        languages: languages || ['en', 'es', 'pt'],
+        source_language: sourceLanguage || 'en',
+      }),
+    });
+    return handleResponse<{ success: boolean; message: string; data?: any }>(response);
   },
 };
 

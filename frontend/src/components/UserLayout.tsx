@@ -345,7 +345,7 @@ const UserLayout = () => {
               </button>
 
               {/* Search - Desktop */}
-              <div className="hidden md:flex items-center bg-[#39282e]/50 rounded-full border border-white/10 px-3 py-1.5 w-48 lg:w-64 focus-within:bg-black/80 focus-within:border-primary transition-all">
+              <div className="hidden md:flex items-center bg-[#39282e]/50 rounded-full border border-white/10 px-3 py-1.5 w-48 lg:w-64 focus-within:bg-black/80 focus-within:border-transparent transition-all">
                 <i className="fa-solid fa-magnifying-glass text-gray-400 text-sm"></i>
                 <Input
                   type="text"
@@ -477,7 +477,7 @@ const UserLayout = () => {
           <div className="flex flex-col h-[calc(100vh-4rem)] overflow-y-auto">
             {/* Search Section */}
             <div className="px-4 py-4 border-b border-white/10">
-              <div className="flex items-center bg-[#39282e]/50 rounded-full border border-white/10 px-3 py-2 focus-within:bg-black/80 focus-within:border-primary transition-all">
+              <div className="flex items-center bg-[#39282e]/50 rounded-full border border-white/10 px-3 py-2 focus-within:bg-black/80 focus-within:border-transparent transition-all">
                 <i className="fa-solid fa-magnifying-glass text-gray-400 text-sm"></i>
                 <Input
                   type="text"

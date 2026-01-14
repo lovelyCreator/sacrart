@@ -33,6 +33,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Reels from "./pages/Reels";
 import ReelDetail from "./pages/ReelDetail";
 import DirectosArchive from "./pages/DirectosArchive";
+import LiveArchiveDetail from "./pages/LiveArchiveDetail";
 import Live from "./pages/Live";
 import ChallengeArchive from "./pages/ChallengeArchive";
 import Challenges from "./pages/Challenges";
@@ -189,6 +190,11 @@ const App = () => (
                 <Route path="directos" element={
                   <ProtectedRoute>
                     <DirectosArchive />
+                  </ProtectedRoute>
+                } />
+                <Route path="live-archive/:id" element={
+                  <ProtectedRoute>
+                    <LiveArchiveDetail />
                   </ProtectedRoute>
                 } />
                 <Route path="challenges" element={

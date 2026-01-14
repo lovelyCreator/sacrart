@@ -23,6 +23,7 @@ class LiveArchiveVideo extends Model
         'visibility',
         'is_free',
         'tags',
+        'section',
         'views',
         'unique_views',
         'meta_title',

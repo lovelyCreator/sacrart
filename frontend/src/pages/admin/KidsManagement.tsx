@@ -55,6 +55,7 @@ import { videoApi } from '@/services/videoApi';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { LanguageTabs } from '@/components/admin/LanguageTabs';
+import TranslateButton from '@/components/admin/TranslateButton';
 import { Textarea } from '@/components/ui/textarea';
 
 const KidsManagement = () => {
@@ -239,7 +240,7 @@ const KidsManagement = () => {
     try {
       console.log('💾 Saving hero video ID:', selectedVideoId);
       const response = await kidsApi.admin.setHeroVideo(selectedVideoId);
-      console.log('📦 Save response:', response.data);
+      console.log('📦 Save response:', response);
       
       setHeroVideoId(selectedVideoId);
       setHeroVideoDialogOpen(false);
@@ -408,7 +409,7 @@ const KidsManagement = () => {
     try {
       const response = await kidsApi.admin.getResource(resource.id);
       if (response.success && response.data) {
-        const allTranslations = response.data.all_translations || {};
+        const allTranslations = (response.data as any).all_translations || (response.data as any).translations || {};
         setResourceMultilingual({
           title: allTranslations.title || { en: resource.title, es: '', pt: '' },
           description: allTranslations.description || { en: resource.description || '', es: '', pt: '' },
@@ -594,7 +595,7 @@ const KidsManagement = () => {
     try {
       const response = await kidsApi.admin.getProduct(product.id);
       if (response.success && response.data) {
-        const allTranslations = response.data.all_translations || {};
+        const allTranslations = (response.data as any).all_translations || (response.data as any).translations || {};
         setProductMultilingual({
           title: allTranslations.title || { en: product.title, es: '', pt: '' },
           description: allTranslations.description || { en: product.description || '', es: '', pt: '' },
@@ -990,7 +991,7 @@ const KidsManagement = () => {
                         <div className="font-semibold text-primary">
                           {typeof product.price === 'number' ? product.price.toFixed(2) : parseFloat(product.price || 0).toFixed(2)} {product.currency}
                         </div>
-                        {product.original_price && parseFloat(product.original_price || 0) > parseFloat(product.price || 0) && (
+                        {product.original_price && parseFloat(String(product.original_price || 0)) > parseFloat(String(product.price || 0)) && (
                           <div className="text-sm text-gray-500 line-through">
                             {typeof product.original_price === 'number' ? product.original_price.toFixed(2) : parseFloat(product.original_price || 0).toFixed(2)} {product.currency}
                           </div>
