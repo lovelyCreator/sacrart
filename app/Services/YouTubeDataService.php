@@ -62,9 +62,13 @@ class YouTubeDataService
             $statistics = $video['statistics'] ?? [];
             $liveDetails = $video['liveStreamingDetails'] ?? [];
             $snippet = $video['snippet'] ?? [];
+            
+            // Extract live chat ID if available
+            $liveChatId = $liveDetails['activeLiveChatId'] ?? null;
 
             return [
                 'success' => true,
+                'liveChatId' => $liveChatId,
                 'data' => [
                     'viewCount' => isset($statistics['viewCount']) ? (int)$statistics['viewCount'] : null,
                     'likeCount' => isset($statistics['likeCount']) ? (int)$statistics['likeCount'] : null,

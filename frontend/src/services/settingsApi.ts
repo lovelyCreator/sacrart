@@ -124,6 +124,7 @@ export const settingsApi = {
   // Get YouTube video statistics
   async getYouTubeStats(videoId: string): Promise<{ 
     success: boolean; 
+    liveChatId?: string | null;
     data?: {
       viewCount: number | null;
       likeCount: number | null;

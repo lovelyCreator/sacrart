@@ -62,7 +62,9 @@
     "show_controls": "Show YouTube Controls",
     "hide_controls": "Hide YouTube Controls",
     "controls_toggle_error": "Error toggling controls",
-    "chat_unavailable": "Chat unavailable"
+    "chat_unavailable": "Chat unavailable",
+    "chat_disabled": "Chat Disabled",
+    "chat_disabled_message": "Chat is disabled for this live stream. Please enable chat in YouTube Studio for it to appear here."
   },
   "kids": {
     "hero_description": "Learn, draw and create your first collection of Sacred Art.",

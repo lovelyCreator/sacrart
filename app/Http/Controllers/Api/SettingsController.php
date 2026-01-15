@@ -11,6 +11,13 @@ use Illuminate\Support\Facades\Validator;
 
 class SettingsController extends Controller
 {
+    protected $youtubeService;
+
+    public function __construct(YouTubeDataService $youtubeService)
+    {
+        $this->youtubeService = $youtubeService;
+    }
+
     public function index(Request $request)
     {
         $locale = $request->header('Accept-Language') ? 
@@ -330,6 +337,7 @@ class SettingsController extends Controller
 
         return response()->json([
             'success' => true,
+            'liveChatId' => $result['liveChatId'] ?? null,
             'data' => $result['data'],
         ]);
     }

@@ -62,7 +62,9 @@
     "show_controls": "Mostrar controles do YouTube",
     "hide_controls": "Ocultar controles do YouTube",
     "controls_toggle_error": "Erro ao alternar controles",
-    "chat_unavailable": "Chat indisponível"
+    "chat_unavailable": "Chat indisponível",
+    "chat_disabled": "Chat Desabilitado",
+    "chat_disabled_message": "O chat está desabilitado para esta transmissão ao vivo. Por favor, habilite o chat no YouTube Studio para que apareça aqui."
   },
   "kids": {
     "hero_description": "Aprenda, desenhe e crie sua primeira coleção de Arte Sacra.",

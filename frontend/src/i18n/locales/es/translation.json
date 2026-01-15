@@ -62,7 +62,9 @@
     "show_controls": "Mostrar controles de YouTube",
     "hide_controls": "Ocultar controles de YouTube",
     "controls_toggle_error": "Error al cambiar controles",
-    "chat_unavailable": "Chat no disponible"
+    "chat_unavailable": "Chat no disponible",
+    "chat_disabled": "Chat Deshabilitado",
+    "chat_disabled_message": "El chat está deshabilitado para esta transmisión en vivo. Por favor, habilita el chat en YouTube Studio para que aparezca aquí."
   },
   "kids": {
     "hero_description": "Aprende, dibuja y crea tu primera colección de Arte Sacro.",

@@ -46,6 +46,7 @@ const Live = () => {
   });
   const [viewerCount, setViewerCount] = useState<number | null>(null);
   const [likeCount, setLikeCount] = useState<number | null>(null);
+  const [liveChatId, setLiveChatId] = useState<string | null>(null);
   
   // Common caption languages with their display names
   const captionLanguages = [
@@ -304,6 +305,11 @@ const Live = () => {
           // Update like count
           if (result.data.likeCount !== null) {
             setLikeCount(result.data.likeCount);
+          }
+          
+          // Update live chat ID if available (from API response top level)
+          if (result.liveChatId) {
+            setLiveChatId(result.liveChatId);
           }
         }
       } catch (error) {
@@ -1047,22 +1053,36 @@ const Live = () => {
               <div className="flex items-center justify-center h-full text-gray-400 text-sm text-center p-4">
                 {t('live.cookie_required_for_chat', 'Se requiere consentimiento de cookies para ver el chat')}
               </div>
-            ) : videoId ? (
-              <iframe
-                src={`https://www.youtube.com/live_chat?is_popout=1&v=${videoId}&embed_domain=${window.location.hostname}`}
-                className="w-full h-full border-0 min-h-[400px]"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                title="YouTube Live Chat"
-                allowFullScreen
-                frameBorder="0"
-                onError={() => {
-                  console.error('Live chat iframe failed to load');
-                }}
-              />
-            ) : (
+            ) : !videoId ? (
               <div className="flex items-center justify-center h-full text-gray-400 text-sm text-center p-4">
                 {t('live.chat_unavailable', 'Chat no disponible')}
               </div>
+            ) : !liveChatId ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm text-center p-4">
+                <MessageCircle className="h-12 w-12 mb-4 text-gray-600" />
+                <p className="font-semibold mb-2">{t('live.chat_disabled', 'Chat deshabilitado')}</p>
+                <p className="text-xs text-gray-500 max-w-md">
+                  {t('live.chat_disabled_message', 'El chat está deshabilitado para esta transmisión en vivo. Por favor, habilita el chat en YouTube Studio para que aparezca aquí.')}
+                </p>
+              </div>
+            ) : (
+              <iframe
+                key={`live-chat-${liveChatId}`}
+                src={`https://www.youtube.com/live_chat?is_popout=1&v=${liveChatId}&embed_domain=${window.location.hostname}`}
+                className="w-full h-full border-0 min-h-[400px]"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                title="YouTube Live Chat"
+                allowFullScreen
+                frameBorder="0"
+                // Note: Removed sandbox attribute as it can interfere with YouTube's Polymer.js dependencies
+                // The InjectionToken errors are from YouTube's internal code and don't prevent chat from working
+                onError={() => {
+                  console.error('Live chat iframe failed to load');
+                }}
+                onLoad={() => {
+                  console.log('Live chat iframe loaded successfully with chat ID:', liveChatId);
+                }}
+              />
             )}
           </div>
         </div>
