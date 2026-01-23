@@ -1115,6 +1115,10 @@ class BunnyNetService
      */
     public function getSignedTranscriptionUrl(string $videoId, int $expirationMinutes = 60, ?string $audioLanguage = null): ?string
     {
+        // ALWAYS add token for API-generated URLs regardless of global tokenAuthEnabled setting
+        // This ensures frontend HLS playback works even if global token auth is disabled
+        $forceTokenAuth = !empty($this->tokenAuthKey);
+        
         // Priority 1: Try Stream URL first (most common for Bunny.net Stream videos)
         // Stream videos are accessible via HLS URLs which work better with Deepgram
         // Note: Stream HLS URLs don't include library ID in path: /{videoId}/playlist.m3u8
@@ -1126,8 +1130,8 @@ class BunnyNetService
             // Stream HLS format: {streamHost}/{videoId}/playlist.m3u8 (no library ID in path)
             $hlsUrl = "{$streamHost}/{$videoId}/playlist.m3u8";
             
-            // If token authentication is enabled, add token for secure access
-            if ($this->tokenAuthEnabled && !empty($this->tokenAuthKey)) {
+            // Always add token for secure access when key is available
+            if ($forceTokenAuth) {
                 $expiration = time() + ($expirationMinutes * 60);
                 $token = $this->generateToken($hlsUrl, $expiration, $this->tokenAuthKey);
                 $hlsUrl .= "?token=" . urlencode($token);
@@ -1138,7 +1142,7 @@ class BunnyNetService
                 'audio_language' => $audioLanguage ?? 'not specified',
                 'stream_host' => $streamHost,
                 'hls_url' => $hlsUrl, // Log full URL for debugging
-                'has_token' => $this->tokenAuthEnabled,
+                'has_token' => $forceTokenAuth,
                 'note' => 'Stream HLS URLs use format: {streamHost}/{videoId}/playlist.m3u8 (no library ID)',
             ]);
             
@@ -1153,8 +1157,8 @@ class BunnyNetService
             $cdnHost = rtrim($cdnHost, '/');
             $hlsUrl = "https://{$cdnHost}/{$videoId}/playlist.m3u8";
             
-            // If token authentication is enabled, add token for secure access
-            if ($this->tokenAuthEnabled && !empty($this->tokenAuthKey)) {
+            // Always add token for secure access when key is available
+            if ($forceTokenAuth) {
                 $expiration = time() + ($expirationMinutes * 60);
                 $token = $this->generateToken($hlsUrl, $expiration, $this->tokenAuthKey);
                 $hlsUrl .= "?token=" . urlencode($token);
@@ -1167,13 +1171,13 @@ class BunnyNetService
                     'has_token' => true,
                 ]);
             } else {
-                Log::info('Using CDN HLS URL for transcription (no token auth)', [
+                Log::info('Using CDN HLS URL for transcription (no token auth key)', [
                     'video_id' => $videoId,
                     'audio_language' => $audioLanguage ?? 'not specified',
                     'cdn_host' => $cdnHost,
                     'hls_url' => $hlsUrl, // Log full URL for debugging
                     'has_token' => false,
-                    'warning' => 'CDN URL may require authentication - check Bunny.net settings',
+                    'warning' => 'No token auth key configured - CDN URL may require authentication',
                 ]);
             }
             

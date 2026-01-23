@@ -16,6 +16,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { liveArchiveVideoApi, LiveArchiveVideo } from '@/services/videoApi';
 import { userProgressApi } from '@/services/userProgressApi';
 import { toast } from 'sonner';
+import Hls from 'hls.js';
 
 const LiveArchiveDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,11 +41,14 @@ const LiveArchiveDetail = () => {
   const [activeTab, setActiveTab] = useState<'transcription' | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [captionOverlayEnabled, setCaptionOverlayEnabled] = useState<boolean>(true);
+  const [activeCaptionText, setActiveCaptionText] = useState<string>('');
   const lastSavedProgress = useRef<number>(0);
   const progressSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const hasSeekedToSavedPosition = useRef<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const bunnyPlayerRef = useRef<any>(null);
   const shouldAutoPlayRef = useRef<boolean>(false);
   const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
@@ -53,7 +57,165 @@ const LiveArchiveDetail = () => {
   const { t } = useTranslation();
   const { navigateWithLocale, locale } = useLocale();
 
-  // Load Player.js library for Bunny.net iframe control
+  // Helper function to construct HLS URL from video data
+  const getHlsUrl = useCallback((videoData: any): string | null => {
+    if (!videoData) return null;
+    
+    // Priority 1: Use bunny_hls_url if available
+    if (videoData.bunny_hls_url) {
+      console.log('✅ Using bunny_hls_url:', videoData.bunny_hls_url);
+      return videoData.bunny_hls_url;
+    }
+    
+    // Priority 2: Construct from bunny_embed_url or bunny_player_url
+    const embedUrl = videoData.bunny_embed_url || videoData.bunny_player_url || '';
+    if (embedUrl) {
+      const embedMatch = embedUrl.match(/\/(embed|play)\/(\d+)\/([a-f0-9-]+)/i);
+      if (embedMatch) {
+        const videoId = embedMatch[3];
+        const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
+        const constructedUrl = `https://${cdnHost}/${videoId}/playlist.m3u8`;
+        console.log('✅ Constructed HLS URL from embed URL:', constructedUrl);
+        return constructedUrl;
+      }
+    }
+    
+    return null;
+  }, []);
+
+  // Initialize HLS.js player
+  useEffect(() => {
+    if (!video || !videoRef.current || !showVideoPlayer) return;
+    
+    const hlsUrl = getHlsUrl(video);
+    if (!hlsUrl) {
+      console.log('❌ HLS Init: No HLS URL available');
+      return;
+    }
+
+    console.log('🔗 Using HLS URL:', hlsUrl);
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 90
+      });
+
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(videoRef.current);
+
+      // Function to switch audio track based on locale
+      const switchAudioToLocale = () => {
+        const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
+        console.log('🔊 Audio tracks available:', hls.audioTracks);
+        console.log('🌐 Current locale:', currentLocale);
+        
+        if (!hls.audioTracks || hls.audioTracks.length === 0) {
+          console.log('⚠️ No audio tracks available');
+          return;
+        }
+
+        const trackIndex = hls.audioTracks.findIndex((track: any) => {
+          const trackLang = (track.lang || '').toLowerCase();
+          const trackName = (track.name || '').toLowerCase();
+          return trackLang === currentLocale || 
+                 trackLang.startsWith(currentLocale) ||
+                 trackName.includes(currentLocale) ||
+                 (currentLocale === 'es' && (trackLang === 'spa' || trackName.includes('spanish') || trackName.includes('español'))) ||
+                 (currentLocale === 'en' && (trackLang === 'eng' || trackName.includes('english') || trackName.includes('inglés'))) ||
+                 (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
+        });
+
+        if (trackIndex !== -1 && trackIndex !== hls.audioTrack) {
+          console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
+          hls.audioTrack = trackIndex;
+        } else if (trackIndex === -1) {
+          console.log(`⚠️ No audio track found for locale "${currentLocale}", using default track`);
+        }
+      };
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('✅ HLS manifest parsed');
+        switchAudioToLocale();
+      });
+
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+        console.log('🔊 Audio tracks updated');
+        switchAudioToLocale();
+      });
+
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (event: any, data: any) => {
+        const track = hls.audioTracks[data.id];
+        console.log(`🔊 Audio track switched to: ${track?.name || 'Track ' + data.id} (${track?.lang || 'unknown'})`);
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error('HLS network error, trying to recover...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error('HLS media error, trying to recover...');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('HLS fatal error:', data);
+              hls.destroy();
+              break;
+          }
+        }
+      });
+
+      hlsRef.current = hls;
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      videoRef.current.src = hlsUrl;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id, showVideoPlayer]);
+
+  // Effect to switch audio track when locale changes (if HLS is already initialized)
+  useEffect(() => {
+    if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) {
+      return;
+    }
+
+    const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
+    console.log('🌐 Locale changed, switching audio track to:', currentLocale);
+
+    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+      const trackLang = (track.lang || '').toLowerCase();
+      const trackName = (track.name || '').toLowerCase();
+      return trackLang === currentLocale || 
+             trackLang.startsWith(currentLocale) ||
+             trackName.includes(currentLocale) ||
+             (currentLocale === 'es' && (trackLang === 'spa' || trackName.includes('spanish') || trackName.includes('español'))) ||
+             (currentLocale === 'en' && (trackLang === 'eng' || trackName.includes('english') || trackName.includes('inglés'))) ||
+             (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
+    });
+
+    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
+      console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
+      hlsRef.current.audioTrack = trackIndex;
+    }
+  }, [locale]);
+
+  // Load Player.js library for Bunny.net iframe control (kept for backward compatibility)
   useEffect(() => {
     if ((window as any).playerjs) {
       return;
@@ -742,6 +904,13 @@ const LiveArchiveDetail = () => {
       segment => currentTime >= segment.startTime && currentTime < segment.endTime
     );
 
+    // Update the active caption text for overlay
+    if (activeIndex >= 0) {
+      setActiveCaptionText(transcriptionSegments[activeIndex].text);
+    } else {
+      setActiveCaptionText('');
+    }
+
     // Update the active state
     setTranscriptionSegments(prevSegments => {
       const updated = prevSegments.map((segment, index) => ({
@@ -791,15 +960,15 @@ const LiveArchiveDetail = () => {
       setVideoEnded(false);
       setShowVideoPlayer(true);
       
-      if (video.bunny_embed_url || video.bunny_player_url || video.bunny_video_url) {
-        if (bunnyPlayerRef.current) {
-          try {
-            bunnyPlayerRef.current.play();
-            setIsPlaying(true);
-          } catch (error) {
-            console.error('Error restarting Bunny.net player:', error);
-          }
-        }
+      // Restart video using HLS video element
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().then(() => {
+          console.log('▶️ Restarting video via HLS');
+          setIsPlaying(true);
+        }).catch((error) => {
+          console.error('Error restarting video:', error);
+        });
       }
       return;
     }
@@ -808,61 +977,31 @@ const LiveArchiveDetail = () => {
       setVideoStarted(true);
       setShowVideoPlayer(true);
       
-      if (video.bunny_embed_url || video.bunny_player_url || video.bunny_video_url) {
-        if (bunnyPlayerRef.current) {
-          try {
-            bunnyPlayerRef.current.getPaused((paused: boolean) => {
-              if (paused) {
-                bunnyPlayerRef.current.play();
-                setIsPlaying(true);
-              } else {
-                setIsPlaying(true);
-              }
-            });
-          } catch (error) {
-            console.error('Error starting Bunny.net player:', error);
-            // Fallback: try to play directly
-            try {
-              bunnyPlayerRef.current.play();
-              setIsPlaying(true);
-            } catch (playError) {
-              console.error('Error playing video:', playError);
-            }
-          }
-        }
+      // Start video using HLS video element
+      if (videoRef.current) {
+        videoRef.current.play().then(() => {
+          console.log('▶️ Starting video via HLS');
+          setIsPlaying(true);
+        }).catch((error) => {
+          console.error('Error starting video:', error);
+        });
       }
       return;
     }
     
-    // Video is already started, toggle play/pause
-    if (video.bunny_embed_url || video.bunny_player_url || video.bunny_video_url) {
-      if (bunnyPlayerRef.current) {
-        try {
-          bunnyPlayerRef.current.getPaused((paused: boolean) => {
-            if (paused) {
-              // Video is paused, play it
-              bunnyPlayerRef.current.play();
-              setIsPlaying(true);
-            } else {
-              // Video is playing, pause it
-              bunnyPlayerRef.current.pause();
-              setIsPlaying(false);
-            }
-          });
-        } catch (error) {
-          console.error('Error controlling Bunny.net player:', error);
-          // Fallback: toggle state manually
-          setIsPlaying(!isPlaying);
-          try {
-            if (isPlaying) {
-              bunnyPlayerRef.current.pause();
-            } else {
-              bunnyPlayerRef.current.play();
-            }
-          } catch (fallbackError) {
-            console.error('Error in fallback play/pause:', fallbackError);
-          }
-        }
+    // Video is already started, toggle play/pause using the video element
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+        console.log('⏸️ Pausing video via HLS');
+        // State will be updated by onPause event
+      } else {
+        videoRef.current.play().then(() => {
+          console.log('▶️ Playing video via HLS');
+          // State will be updated by onPlay event
+        }).catch((error) => {
+          console.error('Error playing video:', error);
+        });
       }
     }
   };
@@ -955,62 +1094,124 @@ const LiveArchiveDetail = () => {
                       </div>
                     </div>
                   )}
-                  <iframe
-                    key={`bunny-video-${video.id}-${locale.substring(0, 2)}-${showVideoPlayer}`}
-                    id={`bunny-iframe-${video.id}`}
-                    src={(() => {
-                      // Use the videoUrl that was already determined (checks all fields)
-                      const embedUrl = videoUrl || '';
-                      
-                      if (!embedUrl || !embedUrl.trim()) {
-                        console.error('❌ No video URL found in video data', {
-                          bunnyEmbedUrl: video.bunny_embed_url,
-                          bunnyPlayerUrl: video.bunny_player_url,
-                          bunnyVideoUrl: video.bunny_video_url,
-                          videoUrl: videoUrl
-                        });
-                        return '';
-                      }
-                      
-                      // Convert /play/ URLs to /embed/ URLs
-                      let finalUrl = String(embedUrl).trim();
-                      if (finalUrl.includes('/play/')) {
-                        // Extract library ID and video ID from /play/ URL
-                        const playMatch = finalUrl.match(/\/play\/(\d+)\/([^/?]+)/);
-                        if (playMatch) {
-                          const libraryId = playMatch[1];
-                          const videoId = playMatch[2];
-                          // Convert to /embed/ URL
-                          finalUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
-                          console.log('✅ Converted /play/ to /embed/ URL:', finalUrl);
+                  {/* CC Toggle Button - Top Position */}
+                  {transcriptionSegments.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCaptionOverlayEnabled(!captionOverlayEnabled);
+                      }}
+                      className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                        captionOverlayEnabled 
+                          ? 'bg-primary text-white border border-primary' 
+                          : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                      }`}
+                      title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                    >
+                      CC
+                    </button>
+                  )}
+                  {/* HLS Video Player */}
+                  <video
+                    ref={videoRef}
+                    key={`hls-video-${video.id}`}
+                    className="w-full h-full object-contain"
+                    controls
+                    playsInline
+                    onPlay={() => {
+                      console.log('✅ HLS Video started playing');
+                      setIsPlaying(true);
+                    }}
+                    onPause={() => {
+                      setIsPlaying(false);
+                      if (videoRef.current && user && video) {
+                        const current = videoRef.current.currentTime;
+                        const dur = videoRef.current.duration || video.duration;
+                        if (dur > 0 && current > 0) {
+                          const videoDuration = video.duration || dur;
+                          const progressPercentage = (current / videoDuration) * 100;
+                          userProgressApi.updateVideoProgress(video.id, {
+                            time_watched: Math.floor(current),
+                            video_duration: Math.floor(videoDuration),
+                            progress_percentage: Math.floor(progressPercentage),
+                            is_completed: progressPercentage >= 90,
+                          }).then(() => {
+                            lastSavedProgress.current = Math.floor(current);
+                          }).catch(console.error);
                         }
                       }
-                      
-                      // Enable autoplay - video should start playing automatically
-                      const separator = finalUrl.includes('?') ? '&' : '?';
-                      finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
-                      
-                      console.log('🎥 Final iframe URL:', finalUrl);
-                      return finalUrl;
-                    })()}
-                    className="border-0 absolute top-0 left-0"
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      zIndex: 1
-                    }}
-                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                    allowFullScreen
-                    title={video.title}
-                    onLoad={() => {
-                      // console.log('✅ Bunny.net iframe loaded successfully');
                     }}
                     onError={(e) => {
-                      console.error('❌ Bunny.net iframe failed to load:', e);
+                      console.error('❌ HLS Video failed to load:', e);
                       setPlaybackError(t('video.load_error', 'Error al cargar el video. Por favor, verifique su conexión.'));
-                      toast.error(t('video.load_error', 'Error al cargar el video. Por favor, verifique su conexión.'));
+                    }}
+                    onLoadedData={() => {
+                      console.log('✅ HLS Video data loaded');
+                      if (videoRef.current && !hasSeekedToSavedPosition.current) {
+                        hasSeekedToSavedPosition.current = true;
+                        
+                        if (userProgress) {
+                          const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+                          const videoDuration = videoRef.current.duration || video.duration || 0;
+                          const progressPercent = userProgress.progress_percentage || 0;
+                          
+                          if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+                            console.log(`⏩ Seeking HLS video to saved position: ${savedTime} seconds`);
+                            videoRef.current.currentTime = savedTime;
+                            setCurrentTime(savedTime);
+                          }
+                        }
+                        
+                        videoRef.current.play().then(() => {
+                          setIsPlaying(true);
+                          setVideoStarted(true);
+                          console.log('▶️ HLS video autoplay started');
+                        }).catch((error) => {
+                          console.error('Error autoplaying HLS video:', error);
+                        });
+                      }
+                    }}
+                    onTimeUpdate={(e) => {
+                      const current = e.currentTarget.currentTime;
+                      const dur = e.currentTarget.duration;
+                      setCurrentTime(current);
+                      if (dur > 0 && user && video) {
+                        const videoDuration = video.duration || dur;
+                        const progressPercentage = (current / videoDuration) * 100;
+                        const timeWatched = Math.floor(current);
+                        
+                        const timeSinceLastSave = timeWatched - lastSavedProgress.current;
+                        if (timeSinceLastSave >= 5) {
+                          if (progressSaveTimeout.current) {
+                            clearTimeout(progressSaveTimeout.current);
+                          }
+                          progressSaveTimeout.current = setTimeout(() => {
+                            userProgressApi.updateVideoProgress(video.id, {
+                              time_watched: timeWatched,
+                              video_duration: Math.floor(videoDuration),
+                              progress_percentage: Math.floor(progressPercentage),
+                              is_completed: progressPercentage >= 90,
+                            }).then(() => {
+                              lastSavedProgress.current = timeWatched;
+                            }).catch(console.error);
+                          }, 1000);
+                        }
+                      }
+                    }}
+                    onEnded={() => {
+                      setVideoEnded(true);
+                      setIsPlaying(false);
                     }}
                   />
+                  {/* Caption Overlay */}
+                  {captionOverlayEnabled && activeCaptionText && (
+                    <div 
+                      className="absolute bottom-16 left-1/2 transform -translate-x-1/2 max-w-[90%] px-4 py-2 bg-black/80 text-white text-center rounded pointer-events-none z-10 transition-opacity duration-200"
+                      style={{ fontSize: '18px', lineHeight: '1.4' }}
+                    >
+                      {activeCaptionText}
+                    </div>
+                  )}
                 </div>
               ) : null}
             </>

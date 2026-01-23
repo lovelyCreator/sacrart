@@ -7,6 +7,7 @@ import { reelApi, Reel } from '@/services/videoApi';
 import { toast } from 'sonner';
 import { Play, Pause, RotateCcw, Subtitles, Settings, Maximize, X } from 'lucide-react';
 import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer';
+import Hls from 'hls.js';
 
 // Sample transcription data structure
 interface TranscriptionSegment {
@@ -46,13 +47,221 @@ const ReelDetail = () => {
   const [mobileModalType, setMobileModalType] = useState<'videos' | 'transcription' | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const bunnyPlayerRef = useRef<any>(null);
   const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
 
   // Transcription data
   const [transcription, setTranscription] = useState<TranscriptionSegment[]>([]);
+  const [captionOverlayEnabled, setCaptionOverlayEnabled] = useState<boolean>(true);
+  const [activeCaptionText, setActiveCaptionText] = useState<string>('');
 
-  // Load Player.js library for Bunny.net iframe control
+  // Helper function to construct HLS URL from video data
+  const getHlsUrl = (reelData: any): string | null => {
+    if (!reelData) return null;
+    
+    // Priority 1: Use bunny_hls_url if available
+    if (reelData.bunny_hls_url) {
+      console.log('✅ Using bunny_hls_url:', reelData.bunny_hls_url);
+      return reelData.bunny_hls_url;
+    }
+    
+    // Priority 2: Construct from bunny_embed_url or bunny_player_url
+    const embedUrl = reelData.bunny_embed_url || reelData.bunny_player_url || '';
+    if (embedUrl) {
+      const embedMatch = embedUrl.match(/\/(embed|play)\/(\d+)\/([a-f0-9-]+)/i);
+      if (embedMatch) {
+        const videoId = embedMatch[3];
+        const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
+        const constructedUrl = `https://${cdnHost}/${videoId}/playlist.m3u8`;
+        console.log('✅ Constructed HLS URL from embed URL:', constructedUrl);
+        return constructedUrl;
+      }
+    }
+    
+    // Priority 3: Construct from bunny_video_id if available
+    if (reelData.bunny_video_id) {
+      const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
+      const constructedUrl = `https://${cdnHost}/${reelData.bunny_video_id}/playlist.m3u8`;
+      console.log('✅ Constructed HLS URL from bunny_video_id:', constructedUrl);
+      return constructedUrl;
+    }
+    
+    return null;
+  };
+
+  // Initialize HLS.js player
+  useEffect(() => {
+    console.log('🎬 Reel HLS Init Check:', {
+      hasReel: !!reel,
+      reelId: reel?.id,
+      bunny_hls_url: reel?.bunny_hls_url,
+      bunny_embed_url: reel?.bunny_embed_url,
+      bunny_video_id: reel?.bunny_video_id,
+    });
+
+    if (!reel) {
+      console.log('⏳ HLS Init: Waiting for reel data');
+      return;
+    }
+    
+    const hlsUrl = getHlsUrl(reel);
+    if (!hlsUrl) {
+      console.log('❌ HLS Init: No HLS URL available');
+      return;
+    }
+
+    console.log('🔗 Using HLS URL:', hlsUrl);
+
+    let retryCount = 0;
+    const maxRetries = 50; // 5 seconds max wait
+
+    // Wait for video element to be available
+    const initHls = () => {
+      retryCount++;
+      if (!videoRef.current) {
+        if (retryCount < maxRetries) {
+          console.log(`⏳ HLS Init: Waiting for video element... (attempt ${retryCount}/${maxRetries})`);
+          setTimeout(initHls, 100);
+        } else {
+          console.error('❌ HLS Init: Video element not found after max retries');
+        }
+        return;
+      }
+
+      console.log('✅ HLS Init: Video element ready, initializing HLS.js for reel', videoRef.current);
+
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90
+        });
+
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(videoRef.current);
+
+        // Function to switch audio track based on locale
+        const switchAudioToLocale = () => {
+          const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
+          console.log('🔊 Reel audio tracks available:', hls.audioTracks);
+          console.log('🌐 Current locale:', currentLocale);
+          
+          if (!hls.audioTracks || hls.audioTracks.length === 0) {
+            console.log('⚠️ No audio tracks available');
+            return;
+          }
+
+          const trackIndex = hls.audioTracks.findIndex((track: any) => {
+            const trackLang = (track.lang || '').toLowerCase();
+            const trackName = (track.name || '').toLowerCase();
+            return trackLang === currentLocale || 
+                   trackLang.startsWith(currentLocale) ||
+                   trackName.includes(currentLocale) ||
+                   (currentLocale === 'es' && (trackLang === 'spa' || trackName.includes('spanish') || trackName.includes('español'))) ||
+                   (currentLocale === 'en' && (trackLang === 'eng' || trackName.includes('english') || trackName.includes('inglés'))) ||
+                   (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
+          });
+
+          if (trackIndex !== -1 && trackIndex !== hls.audioTrack) {
+            console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
+            hls.audioTrack = trackIndex;
+          } else if (trackIndex === -1) {
+            console.log(`⚠️ No audio track found for locale "${currentLocale}", using default track`);
+          }
+        };
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('✅ Reel HLS manifest parsed');
+          switchAudioToLocale();
+        });
+
+        hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+          console.log('🔊 Audio tracks updated');
+          switchAudioToLocale();
+        });
+
+        hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (event: any, data: any) => {
+          const track = hls.audioTracks[data.id];
+          console.log(`🔊 Audio track switched to: ${track?.name || 'Track ' + data.id} (${track?.lang || 'unknown'})`);
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('❌ HLS Error:', {
+            type: data.type,
+            details: data.details,
+            fatal: data.fatal,
+            url: data.url,
+          });
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.log('🔄 Attempting to recover from network error...');
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.log('🔄 Attempting to recover from media error...');
+                hls.recoverMediaError();
+                break;
+              default:
+                console.error('💥 Fatal HLS error, cannot recover');
+                hls.destroy();
+                break;
+            }
+          }
+        });
+
+        hlsRef.current = hls;
+      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        videoRef.current.src = hlsUrl;
+      }
+    };
+
+    // Start initialization with a small delay to ensure DOM is ready
+    setTimeout(initHls, 100);
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reel?.id]);
+
+  // Effect to switch audio track when locale changes (if HLS is already initialized)
+  useEffect(() => {
+    if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) {
+      return;
+    }
+
+    const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
+    console.log('🌐 Locale changed, switching audio track to:', currentLocale);
+
+    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+      const trackLang = (track.lang || '').toLowerCase();
+      const trackName = (track.name || '').toLowerCase();
+      return trackLang === currentLocale || 
+             trackLang.startsWith(currentLocale) ||
+             trackName.includes(currentLocale) ||
+             (currentLocale === 'es' && (trackLang === 'spa' || trackName.includes('spanish') || trackName.includes('español'))) ||
+             (currentLocale === 'en' && (trackLang === 'eng' || trackName.includes('english') || trackName.includes('inglés'))) ||
+             (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
+    });
+
+    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
+      console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
+      hlsRef.current.audioTrack = trackIndex;
+    }
+  }, [locale]);
+
+  // Load Player.js library for Bunny.net iframe control (kept for backward compatibility)
   useEffect(() => {
     // Check if Player.js is already loaded
     if ((window as any).playerjs) {
@@ -443,6 +652,13 @@ const ReelDetail = () => {
       segment => currentTime >= segment.startTime && currentTime < segment.endTime
     );
 
+    // Update the active caption text for overlay
+    if (activeIndex >= 0) {
+      setActiveCaptionText(transcription[activeIndex].text);
+    } else {
+      setActiveCaptionText('');
+    }
+
     // Update the active state
     setTranscription(prevSegments => {
       const updated = prevSegments.map((segment, index) => ({
@@ -607,29 +823,19 @@ const ReelDetail = () => {
   };
 
   const handlePlayPause = () => {
-    // For Bunny.net videos, use Player.js API
-    if (reel && (reel.bunny_embed_url || reel.bunny_player_url)) {
-      if (bunnyPlayerRef.current) {
-        try {
-          bunnyPlayerRef.current.getPaused((paused: boolean) => {
-            if (paused) {
-              bunnyPlayerRef.current.play();
-            } else {
-              bunnyPlayerRef.current.pause();
-            }
-          });
-        } catch (error) {
-          console.error('Error controlling Bunny.net player:', error);
-        }
-      }
-    } else if (videoRef.current) {
-      // Fallback to HTML5 video
+    // Use HLS video element directly
+    if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause();
+        console.log('⏸️ Pausing video via HLS');
       } else {
-        videoRef.current.play();
+        videoRef.current.play().then(() => {
+          console.log('▶️ Playing video via HLS');
+        }).catch((error) => {
+          console.error('Error playing video:', error);
+        });
       }
-      setIsPlaying(!isPlaying);
+      // State will be updated by onPlay/onPause events
     }
   };
 
@@ -641,19 +847,8 @@ const ReelDetail = () => {
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
     
-    // For Bunny.net videos, use Player.js API
-    if (reel && (reel.bunny_embed_url || reel.bunny_player_url)) {
-      if (bunnyPlayerRef.current) {
-        try {
-          bunnyPlayerRef.current.setCurrentTime(newTime);
-          setCurrentTime(newTime);
-          setProgress(percentage * 100);
-        } catch (error) {
-          console.error('Error seeking Bunny.net player:', error);
-        }
-      }
-    } else if (videoRef.current) {
-      // Fallback to HTML5 video
+    // Use HLS video element directly
+    if (videoRef.current) {
       videoRef.current.currentTime = newTime;
       setCurrentTime(newTime);
       setProgress(percentage * 100);
@@ -858,6 +1053,20 @@ const ReelDetail = () => {
   const thumbnailUrl = reel ? getImageUrl(reel.thumbnail_url || reel.thumbnail || reel.bunny_thumbnail_url || '') : '';
   const videoUrl = reel?.bunny_player_url || reel?.bunny_embed_url || reel?.bunny_video_url || '';
 
+  // Debug logging for video rendering
+  console.log('🎥 Reel Video Rendering Check:', {
+    hasReel: !!reel,
+    reelId: reel?.id,
+    bunny_hls_url: reel?.bunny_hls_url,
+    bunny_embed_url: reel?.bunny_embed_url,
+    bunny_player_url: reel?.bunny_player_url,
+    bunny_video_id: reel?.bunny_video_id,
+    videoUrl,
+    willRenderHlsVideo: !!(reel && (reel.bunny_embed_url || reel.bunny_player_url || reel.bunny_hls_url || reel.bunny_video_id)),
+    willRenderNativeVideo: !!(!(reel && (reel.bunny_embed_url || reel.bunny_player_url || reel.bunny_hls_url || reel.bunny_video_id)) && videoUrl),
+    isMobile,
+  });
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
@@ -884,75 +1093,117 @@ const ReelDetail = () => {
       <main className="w-full h-[calc(100vh-80px)] bg-[#0A0A0A] text-white relative overflow-hidden flex flex-col">
         {/* Video Container - Takes most of the screen, above buttons */}
         <div className="flex-1 relative z-0 min-h-0">
-          {reel && (reel.bunny_embed_url || reel.bunny_player_url) ? (
-            <iframe
-              key={`bunny-iframe-${reel.id}-${(i18n.language || locale || 'en').substring(0, 2)}`}
-              id={`bunny-iframe-${reel.id}`}
-              src={(() => {
-                const embedUrl = reel.bunny_embed_url || reel.bunny_player_url || '';
-                let finalUrl = embedUrl;
-                if (embedUrl.includes('/play/')) {
-                  const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
-                  if (playMatch) {
-                    const libraryId = playMatch[1];
-                    const videoId = playMatch[2];
-                    finalUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+          {reel && (reel.bunny_embed_url || reel.bunny_player_url || reel.bunny_hls_url || reel.bunny_video_id) ? (
+            <>
+              {/* CC Toggle Button - Top Position */}
+              {transcription.length > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCaptionOverlayEnabled(!captionOverlayEnabled);
+                  }}
+                  className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                    captionOverlayEnabled 
+                      ? 'bg-primary text-white border border-primary' 
+                      : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                  }`}
+                  style={{ zIndex: 60 }}
+                  title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                >
+                  CC
+                </button>
+              )}
+              {/* HLS Video Player */}
+              <video
+                ref={videoRef}
+                key={`hls-video-${reel.id}`}
+                className="w-full h-full object-cover"
+                controls
+                playsInline
+                onTimeUpdate={(e) => {
+                  setCurrentTime(e.currentTarget.currentTime);
+                  setProgress((e.currentTarget.currentTime / (duration || 1)) * 100);
+                }}
+                onLoadedMetadata={(e) => {
+                  setDuration(e.currentTarget.duration);
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onLoadedData={() => {
+                  if (videoRef.current) {
+                    videoRef.current.play().catch(() => {});
                   }
-                }
-                const separator = finalUrl.includes('?') ? '&' : '?';
-                // Enable controls and captions - Bunny.net will show its native control bar
-                // Make sure controls are always visible on mobile
-                finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
-                
-                // Add captions if available
-                if (reel.caption_urls && Object.keys(reel.caption_urls).length > 0) {
-                  const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
-                  // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
-                  // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
-                  if (reel.caption_urls[currentLocale]) {
-                    finalUrl += `&defaultTextTrack=${currentLocale}`;
-                  } else if (reel.caption_urls['en']) {
-                    finalUrl += `&defaultTextTrack=en`;
-                  }
-                }
-                
-                return finalUrl;
-              })()}
-              className="border-0"
-              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-              allowFullScreen
-              title={reelTitle}
-              style={{ 
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                zIndex: 50, // Higher than modal (z-30) to keep controls visible
-                border: 'none'
-              }}
-            />
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  zIndex: 50
+                }}
+              />
+              {/* Caption Overlay */}
+              {captionOverlayEnabled && activeCaptionText && (
+                <div 
+                  className="absolute bottom-20 left-1/2 transform -translate-x-1/2 max-w-[90%] px-4 py-2 bg-black/80 text-white text-center rounded pointer-events-none transition-opacity duration-200"
+                  style={{ fontSize: '16px', lineHeight: '1.4', zIndex: 60 }}
+                >
+                  {activeCaptionText}
+                </div>
+              )}
+            </>
           ) : videoUrl ? (
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              className="w-full h-full object-cover"
-              controls
-              playsInline
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                zIndex: 50 // Higher than modal (z-30) to keep controls visible
-              }}
-            />
+            <>
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                className="w-full h-full object-cover"
+                controls
+                playsInline
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  zIndex: 50 // Higher than modal (z-30) to keep controls visible
+                }}
+              />
+              {/* Caption Overlay for native video */}
+              {captionOverlayEnabled && activeCaptionText && (
+                <div 
+                  className="absolute bottom-20 left-1/2 transform -translate-x-1/2 max-w-[90%] px-4 py-2 bg-black/80 text-white text-center rounded pointer-events-none transition-opacity duration-200"
+                  style={{ fontSize: '16px', lineHeight: '1.4', zIndex: 60 }}
+                >
+                  {activeCaptionText}
+                </div>
+              )}
+              {/* CC Toggle Button for native video - Top Position */}
+              {transcription.length > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCaptionOverlayEnabled(!captionOverlayEnabled);
+                  }}
+                  className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                    captionOverlayEnabled 
+                      ? 'bg-primary text-white border border-primary' 
+                      : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                  }`}
+                  style={{ zIndex: 60 }}
+                  title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                >
+                  CC
+                </button>
+              )}
+            </>
           ) : thumbnailUrl ? (
             <img 
               src={thumbnailUrl} 
@@ -1195,45 +1446,58 @@ const ReelDetail = () => {
       {/* Left Side - Video Player (40%) */}
       <div className="relative z-10 w-[40%] h-full flex items-center justify-center p-8 lg:p-12 border-r border-white/5">
         <div className="relative aspect-[9/16] h-full max-h-[85vh] bg-black rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 group">
-          {reel && (reel.bunny_embed_url || reel.bunny_player_url) ? (
-            <iframe
-              key={`bunny-iframe-mobile-${reel.id}-${(i18n.language || locale || 'en').substring(0, 2)}`}
-              id={`bunny-iframe-${reel.id}`}
-              src={(() => {
-                const embedUrl = reel.bunny_embed_url || reel.bunny_player_url || '';
-                let finalUrl = embedUrl;
-                if (embedUrl.includes('/play/')) {
-                  const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
-                  if (playMatch) {
-                    const libraryId = playMatch[1];
-                    const videoId = playMatch[2];
-                    finalUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+          {reel && (reel.bunny_embed_url || reel.bunny_player_url || reel.bunny_hls_url || reel.bunny_video_id) ? (
+            <>
+              {/* CC Toggle Button - Top Position */}
+              {transcription.length > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCaptionOverlayEnabled(!captionOverlayEnabled);
+                  }}
+                  className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                    captionOverlayEnabled 
+                      ? 'bg-primary text-white border border-primary' 
+                      : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                  }`}
+                  title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                >
+                  CC
+                </button>
+              )}
+              {/* HLS Video Player */}
+              <video
+                ref={videoRef}
+                key={`hls-video-desktop-${reel.id}`}
+                className="w-full h-full object-cover opacity-90"
+                controls
+                playsInline
+                onTimeUpdate={(e) => {
+                  setCurrentTime(e.currentTarget.currentTime);
+                  setProgress((e.currentTarget.currentTime / (duration || 1)) * 100);
+                }}
+                onLoadedMetadata={(e) => {
+                  setDuration(e.currentTarget.duration);
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onLoadedData={() => {
+                  if (videoRef.current) {
+                    videoRef.current.play().catch(() => {});
                   }
-                }
-                const separator = finalUrl.includes('?') ? '&' : '?';
-                // Enable controls and captions - Bunny.net will show its native control bar
-                finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
-                
-                // Add captions if available
-                if (reel.caption_urls && Object.keys(reel.caption_urls).length > 0) {
-                  const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
-                  // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
-                  // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
-                  if (reel.caption_urls[currentLocale]) {
-                    finalUrl += `&defaultTextTrack=${currentLocale}`;
-                  } else if (reel.caption_urls['en']) {
-                    finalUrl += `&defaultTextTrack=en`;
-                  }
-                }
-                
-                return finalUrl;
-              })()}
-              className="w-full h-full object-cover border-0 opacity-90"
-              style={{ width: '100%', height: '100%' }}
-              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-              allowFullScreen
-              title={reelTitle}
-            />
+                }}
+                style={{ width: '100%', height: '100%' }}
+              />
+              {/* Caption Overlay */}
+              {captionOverlayEnabled && activeCaptionText && (
+                <div 
+                  className="absolute bottom-16 left-1/2 transform -translate-x-1/2 max-w-[90%] px-4 py-2 bg-black/80 text-white text-center rounded pointer-events-none z-10 transition-opacity duration-200"
+                  style={{ fontSize: '16px', lineHeight: '1.4' }}
+                >
+                  {activeCaptionText}
+                </div>
+              )}
+            </>
           ) : videoUrl ? (
             <video
               ref={videoRef}

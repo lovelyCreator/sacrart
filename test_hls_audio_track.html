@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HLS Audio Track Control Test</title>
+    <title>HLS Audio Track & Live Caption Test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
             background: #0A0A0A;
@@ -17,6 +17,16 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+        }
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
         }
         .video-container {
             position: relative;
@@ -29,6 +39,53 @@
             width: 100%;
             height: auto;
             display: block;
+        }
+        /* Caption Overlay on Video */
+        .caption-overlay {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 90%;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 18px;
+            line-height: 1.4;
+            text-align: center;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .caption-overlay.visible {
+            opacity: 1;
+        }
+        .caption-overlay.hidden {
+            opacity: 0;
+        }
+        /* Toggle button for captions */
+        .caption-toggle {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 11;
+            transition: background 0.2s;
+        }
+        .caption-toggle:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+        .caption-toggle.active {
+            background: #A05245;
+            border-color: #A05245;
         }
         .controls {
             display: flex;
@@ -54,6 +111,12 @@
             background: #666;
             cursor: not-allowed;
         }
+        button.secondary {
+            background: #A05245;
+        }
+        button.secondary:hover {
+            background: #8a4639;
+        }
         .info {
             padding: 15px;
             background: #1a1a1a;
@@ -64,7 +127,7 @@
         .info-item {
             margin: 5px 0;
         }
-        .audio-tracks {
+        .audio-tracks, .caption-tracks {
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -82,7 +145,7 @@
         .track-item.active {
             background: #4CAF50;
         }
-        input[type="text"] {
+        input[type="text"], textarea {
             width: 100%;
             padding: 10px;
             background: #2a2a2a;
@@ -91,6 +154,11 @@
             border-radius: 4px;
             font-family: monospace;
             font-size: 12px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
         }
         label {
             display: block;
@@ -102,49 +170,212 @@
             padding: 15px;
             border-radius: 8px;
         }
+        
+        /* Live Caption Styles */
+        .caption-container {
+            background: #1a1a1a;
+            border-radius: 8px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .caption-header {
+            padding: 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .caption-header h3 {
+            margin: 0;
+        }
+        .caption-scroll {
+            flex: 1;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #A05245 #2a2a2a;
+        }
+        .caption-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .caption-scroll::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+        .caption-scroll::-webkit-scrollbar-thumb {
+            background: #A05245;
+            border-radius: 4px;
+        }
+        .caption-segment {
+            display: flex;
+            gap: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
+        }
+        .caption-segment:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .caption-segment.active {
+            background: rgba(160, 82, 69, 0.15);
+            border-left-color: #A05245;
+        }
+        .caption-time {
+            font-family: monospace;
+            font-size: 13px;
+            color: #888;
+            min-width: 60px;
+            flex-shrink: 0;
+        }
+        .caption-segment.active .caption-time {
+            color: #A05245;
+            font-weight: bold;
+        }
+        .caption-text {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #ccc;
+        }
+        .caption-segment.active .caption-text {
+            color: white;
+            font-weight: 500;
+        }
+        .current-caption {
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .no-captions {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 8px 16px;
+            background: #2a2a2a;
+            border: none;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+        }
+        .tab.active {
+            background: #A05245;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>HLS Audio Track Control Test</h1>
+        <h1>HLS Audio Track & Live Caption Test</h1>
         
         <div class="section">
             <label for="hls-url">HLS URL (playlist.m3u8):</label>
             <input type="text" id="hls-url" placeholder="https://vz-0cc8af54-835.b-cdn.net/{videoId}/playlist.m3u8" />
-            <button onclick="loadVideo()">Load Video</button>
-        </div>
-
-        <div class="section">
-            <div class="video-container">
-                <video id="video" controls></video>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button onclick="loadVideo()">Load Video</button>
             </div>
         </div>
 
-        <div class="section">
-            <h3>Audio Tracks</h3>
-            <div id="audio-tracks" class="audio-tracks">
-                <p>No audio tracks available. Load a video first.</p>
-            </div>
-        </div>
+        <div class="main-content">
+            <div class="left-column">
+                <div class="section">
+                    <div class="video-container">
+                        <video id="video" controls></video>
+                        <div id="caption-overlay" class="caption-overlay"></div>
+                        <button id="caption-toggle" class="caption-toggle active" onclick="toggleCaptionOverlay()">CC</button>
+                    </div>
+                </div>
 
-        <div class="section">
-            <h3>Controls</h3>
-            <div class="controls">
-                <button onclick="playVideo()">Play</button>
-                <button onclick="pauseVideo()">Pause</button>
-                <button onclick="toggleMute()">Toggle Mute</button>
-                <button onclick="getCurrentTime()">Get Current Time</button>
-                <button onclick="getDuration()">Get Duration</button>
-            </div>
-        </div>
+                <div class="section">
+                    <h3>Caption Source</h3>
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchCaptionTab('url')">VTT URL</button>
+                        <button class="tab" onclick="switchCaptionTab('paste')">Paste VTT</button>
+                    </div>
+                    <div id="caption-url-section">
+                        <label for="vtt-url">VTT Caption URL:</label>
+                        <input type="text" id="vtt-url" placeholder="https://storage.bunnycdn.com/.../captions/EN.vtt" />
+                        <button onclick="loadCaptionsFromUrl()" class="secondary" style="margin-top: 10px;">Load Captions</button>
+                    </div>
+                    <div id="caption-paste-section" style="display: none;">
+                        <label for="vtt-content">Paste VTT Content:</label>
+                        <textarea id="vtt-content" placeholder="WEBVTT
 
-        <div class="section">
-            <h3>Info</h3>
-            <div id="info" class="info">
-                <div class="info-item">Status: <span id="status">Ready</span></div>
-                <div class="info-item">Current Audio Track: <span id="current-track">None</span></div>
-                <div class="info-item">Available Tracks: <span id="track-count">0</span></div>
-                <div class="info-item">Video URL: <span id="video-url">-</span></div>
+00:00:00.000 --> 00:00:05.000
+First caption line
+
+00:00:05.000 --> 00:00:10.000
+Second caption line"></textarea>
+                        <button onclick="loadCaptionsFromText()" class="secondary" style="margin-top: 10px;">Parse Captions</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Current Caption</h3>
+                    <div id="current-caption" class="current-caption">
+                        No caption loaded
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Audio Tracks</h3>
+                    <div id="audio-tracks" class="audio-tracks">
+                        <p>No audio tracks available. Load a video first.</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Controls</h3>
+                    <div class="controls">
+                        <button onclick="playVideo()">Play</button>
+                        <button onclick="pauseVideo()">Pause</button>
+                        <button onclick="toggleMute()">Toggle Mute</button>
+                        <button onclick="getCurrentTime()">Get Current Time</button>
+                        <button onclick="getDuration()">Get Duration</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Info</h3>
+                    <div id="info" class="info">
+                        <div class="info-item">Status: <span id="status">Ready</span></div>
+                        <div class="info-item">Current Audio Track: <span id="current-track">None</span></div>
+                        <div class="info-item">Available Tracks: <span id="track-count">0</span></div>
+                        <div class="info-item">Caption Segments: <span id="caption-count">0</span></div>
+                        <div class="info-item">Video URL: <span id="video-url">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-column">
+                <div class="caption-container">
+                    <div class="caption-header">
+                        <h3>Live Transcription</h3>
+                        <span id="active-caption-time">--:--</span>
+                    </div>
+                    <div id="caption-scroll" class="caption-scroll">
+                        <div class="no-captions">
+                            Load captions to see live transcription
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -156,6 +387,9 @@
         let hls = null;
         let video = document.getElementById('video');
         let currentAudioTrack = -1;
+        let captionSegments = [];
+        let activeSegmentIndex = -1;
+        let captionOverlayEnabled = true;
 
         // Initialize HLS player
         function initHLS(url) {
@@ -222,7 +456,6 @@
                 updateStatus('Using native HLS support (Safari)');
                 video.addEventListener('loadedmetadata', function() {
                     updateStatus('Video loaded (native HLS)');
-                    // Note: Native HLS doesn't expose audio track API
                     updateInfo('Native HLS - Audio track control may be limited');
                 });
             } else {
@@ -351,13 +584,288 @@
             infoDiv.appendChild(newItem);
         }
 
+        // ===== CAPTION FUNCTIONALITY =====
+
+        // Toggle caption overlay on/off
+        function toggleCaptionOverlay() {
+            captionOverlayEnabled = !captionOverlayEnabled;
+            const toggleBtn = document.getElementById('caption-toggle');
+            const overlay = document.getElementById('caption-overlay');
+            
+            if (captionOverlayEnabled) {
+                toggleBtn.classList.add('active');
+                // Show current caption if exists
+                if (activeSegmentIndex >= 0 && captionSegments[activeSegmentIndex]) {
+                    overlay.textContent = captionSegments[activeSegmentIndex].text;
+                    overlay.classList.add('visible');
+                    overlay.classList.remove('hidden');
+                }
+            } else {
+                toggleBtn.classList.remove('active');
+                overlay.classList.remove('visible');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Update caption overlay
+        function updateCaptionOverlay(text) {
+            const overlay = document.getElementById('caption-overlay');
+            if (!captionOverlayEnabled) {
+                overlay.classList.remove('visible');
+                overlay.classList.add('hidden');
+                return;
+            }
+            
+            if (text) {
+                overlay.textContent = text;
+                overlay.classList.add('visible');
+                overlay.classList.remove('hidden');
+            } else {
+                overlay.classList.remove('visible');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Switch caption input tab
+        function switchCaptionTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (tab === 'url') {
+                document.getElementById('caption-url-section').style.display = 'block';
+                document.getElementById('caption-paste-section').style.display = 'none';
+            } else {
+                document.getElementById('caption-url-section').style.display = 'none';
+                document.getElementById('caption-paste-section').style.display = 'block';
+            }
+        }
+
+        // Load captions from URL
+        async function loadCaptionsFromUrl() {
+            const url = document.getElementById('vtt-url').value.trim();
+            if (!url) {
+                alert('Please enter a VTT URL');
+                return;
+            }
+
+            updateStatus('Loading captions from URL...');
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const vttContent = await response.text();
+                parseVTT(vttContent);
+                updateStatus('Captions loaded successfully');
+            } catch (error) {
+                updateStatus('Error loading captions: ' + error.message);
+                console.error('Error loading captions:', error);
+            }
+        }
+
+        // Load captions from pasted text
+        function loadCaptionsFromText() {
+            const vttContent = document.getElementById('vtt-content').value.trim();
+            if (!vttContent) {
+                alert('Please paste VTT content');
+                return;
+            }
+
+            parseVTT(vttContent);
+            updateStatus('Captions parsed successfully');
+        }
+
+        // Parse VTT content
+        function parseVTT(vtt) {
+            captionSegments = [];
+            const lines = vtt.split('\n');
+            let currentStartTime = '';
+            let currentEndTime = '';
+            let currentText = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+
+                // Skip WEBVTT header and empty lines
+                if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '' || /^\d+$/.test(line)) {
+                    // Save previous segment if exists
+                    if (currentStartTime && currentText) {
+                        captionSegments.push({
+                            startTime: vttTimeToSeconds(currentStartTime),
+                            endTime: vttTimeToSeconds(currentEndTime || currentStartTime),
+                            text: currentText.trim()
+                        });
+                        currentText = '';
+                    }
+                    continue;
+                }
+
+                // Check for timestamp line
+                const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[.,]\d{3})/);
+                if (timeMatch) {
+                    // Save previous segment if exists
+                    if (currentStartTime && currentText) {
+                        captionSegments.push({
+                            startTime: vttTimeToSeconds(currentStartTime),
+                            endTime: vttTimeToSeconds(currentEndTime || currentStartTime),
+                            text: currentText.trim()
+                        });
+                    }
+                    currentStartTime = timeMatch[1];
+                    currentEndTime = timeMatch[2];
+                    currentText = '';
+                } else if (line && currentStartTime) {
+                    // This is caption text
+                    currentText += (currentText ? ' ' : '') + line;
+                }
+            }
+
+            // Don't forget the last segment
+            if (currentStartTime && currentText) {
+                captionSegments.push({
+                    startTime: vttTimeToSeconds(currentStartTime),
+                    endTime: vttTimeToSeconds(currentEndTime || currentStartTime),
+                    text: currentText.trim()
+                });
+            }
+
+            document.getElementById('caption-count').textContent = captionSegments.length;
+            renderCaptionList();
+            console.log('Parsed captions:', captionSegments);
+        }
+
+        // Convert VTT time to seconds
+        function vttTimeToSeconds(timeStr) {
+            const parts = timeStr.replace(',', '.').split(':');
+            if (parts.length === 3) {
+                return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+            } else if (parts.length === 2) {
+                return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+            }
+            return 0;
+        }
+
+        // Format seconds to display time
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Render caption list
+        function renderCaptionList() {
+            const container = document.getElementById('caption-scroll');
+            
+            if (captionSegments.length === 0) {
+                container.innerHTML = '<div class="no-captions">Load captions to see live transcription</div>';
+                return;
+            }
+
+            let html = '';
+            captionSegments.forEach((segment, index) => {
+                html += `
+                    <div id="caption-segment-${index}" class="caption-segment" onclick="seekToCaption(${index})">
+                        <span class="caption-time">${formatTime(segment.startTime)}</span>
+                        <span class="caption-text">${segment.text}</span>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Seek video to caption
+        function seekToCaption(index) {
+            if (index >= 0 && index < captionSegments.length) {
+                video.currentTime = captionSegments[index].startTime;
+                video.play().catch(e => console.error('Play error:', e));
+            }
+        }
+
+        // Update active caption based on video time
+        function updateActiveCaption() {
+            const currentTime = video.currentTime;
+            let newActiveIndex = -1;
+
+            // Find active segment
+            for (let i = 0; i < captionSegments.length; i++) {
+                if (currentTime >= captionSegments[i].startTime && currentTime < captionSegments[i].endTime) {
+                    newActiveIndex = i;
+                    break;
+                }
+            }
+
+            // Update current caption display
+            const currentCaptionDiv = document.getElementById('current-caption');
+            if (newActiveIndex >= 0) {
+                const captionText = captionSegments[newActiveIndex].text;
+                currentCaptionDiv.textContent = captionText;
+                document.getElementById('active-caption-time').textContent = formatTime(currentTime);
+                // Update video overlay
+                updateCaptionOverlay(captionText);
+            } else {
+                currentCaptionDiv.textContent = captionSegments.length > 0 ? '...' : 'No caption loaded';
+                // Hide video overlay when no active caption
+                updateCaptionOverlay(null);
+            }
+
+            // Only update if active segment changed
+            if (newActiveIndex !== activeSegmentIndex) {
+                // Remove active class from previous
+                if (activeSegmentIndex >= 0) {
+                    const prevElement = document.getElementById(`caption-segment-${activeSegmentIndex}`);
+                    if (prevElement) {
+                        prevElement.classList.remove('active');
+                    }
+                }
+
+                // Add active class to new
+                if (newActiveIndex >= 0) {
+                    const newElement = document.getElementById(`caption-segment-${newActiveIndex}`);
+                    if (newElement) {
+                        newElement.classList.add('active');
+                        
+                        // Auto-scroll within container only
+                        const container = document.getElementById('caption-scroll');
+                        const containerRect = container.getBoundingClientRect();
+                        const elementRect = newElement.getBoundingClientRect();
+                        
+                        const elementTopRelative = elementRect.top - containerRect.top;
+                        const elementBottomRelative = elementRect.bottom - containerRect.top;
+                        const containerHeight = container.clientHeight;
+                        
+                        const isAbove = elementTopRelative < 0;
+                        const isBelow = elementBottomRelative > containerHeight;
+                        
+                        if (isAbove || isBelow) {
+                            const scrollOffset = elementTopRelative - (containerHeight / 2) + (elementRect.height / 2);
+                            container.scrollTop = container.scrollTop + scrollOffset;
+                        }
+                    }
+                }
+
+                activeSegmentIndex = newActiveIndex;
+            }
+        }
+
+        // Video time update listener
+        video.addEventListener('timeupdate', updateActiveCaption);
+
         // Example: Auto-load a test URL if provided in query string
         window.addEventListener('DOMContentLoaded', function() {
             const params = new URLSearchParams(window.location.search);
             const testUrl = params.get('url');
+            const vttUrl = params.get('vtt');
+            
             if (testUrl) {
                 document.getElementById('hls-url').value = testUrl;
                 loadVideo();
+            }
+            
+            if (vttUrl) {
+                document.getElementById('vtt-url').value = vttUrl;
+                setTimeout(() => loadCaptionsFromUrl(), 1000);
             }
         });
     </script>

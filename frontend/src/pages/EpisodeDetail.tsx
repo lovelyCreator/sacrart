@@ -24,6 +24,7 @@ import { commentsApi, VideoComment } from '@/services/commentsApi';
 import { toast } from 'sonner';
 import { MultiLanguageAudioPlayer } from '@/components/MultiLanguageAudioPlayer';
 import { isVideoLocked, shouldShowLockIcon, getLockMessageKey } from '@/utils/videoAccess';
+import Hls from 'hls.js';
 
 const EpisodeDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -62,11 +63,14 @@ const EpisodeDetail = () => {
   const [activeTab, setActiveTab] = useState<'description' | 'transcription' | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [captionOverlayEnabled, setCaptionOverlayEnabled] = useState<boolean>(true);
+  const [activeCaptionText, setActiveCaptionText] = useState<string>('');
   const lastSavedProgress = useRef<number>(0); // Track last saved progress to avoid duplicate saves
   const progressSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const hasSeekedToSavedPosition = useRef<boolean>(false); // Track if we've already seeked to saved position
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const bunnyPlayerRef = useRef<any>(null);
   const shouldAutoPlayRef = useRef<boolean>(false); // Track if we should autoplay when player is ready
   const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
@@ -75,7 +79,157 @@ const EpisodeDetail = () => {
   const { t } = useTranslation();
   const { navigateWithLocale, locale } = useLocale();
 
-  // Load Player.js library for Bunny.net iframe control
+  // Helper function to construct HLS URL from video data
+  const getHlsUrl = useCallback((videoData: any): string | null => {
+    if (!videoData) return null;
+    
+    // Priority 1: Use bunny_hls_url if available
+    if (videoData.bunny_hls_url) {
+      console.log('✅ Using bunny_hls_url:', videoData.bunny_hls_url);
+      return videoData.bunny_hls_url;
+    }
+    
+    // Priority 2: Construct from bunny_embed_url or bunny_player_url
+    const embedUrl = videoData.bunny_embed_url || videoData.bunny_player_url || '';
+    if (embedUrl) {
+      const embedMatch = embedUrl.match(/\/(embed|play)\/(\d+)\/([a-f0-9-]+)/i);
+      if (embedMatch) {
+        const videoId = embedMatch[3];
+        const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
+        const constructedUrl = `https://${cdnHost}/${videoId}/playlist.m3u8`;
+        console.log('✅ Constructed HLS URL from embed URL:', constructedUrl);
+        return constructedUrl;
+      }
+    }
+    
+    // Priority 3: Construct from bunny_video_id if available
+    if (videoData.bunny_video_id) {
+      const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
+      const constructedUrl = `https://${cdnHost}/${videoData.bunny_video_id}/playlist.m3u8`;
+      console.log('✅ Constructed HLS URL from bunny_video_id:', constructedUrl);
+      return constructedUrl;
+    }
+    
+    return null;
+  }, []);
+
+  // Initialize HLS.js player
+  useEffect(() => {
+    if (!video || !showVideoPlayer) return;
+    
+    const hlsUrl = getHlsUrl(video);
+    console.log('🎬 HLS Init - URL:', hlsUrl, 'video:', video?.id);
+    if (!hlsUrl) {
+      console.log('❌ No HLS URL available');
+      return;
+    }
+
+    let retryCount = 0;
+    const maxRetries = 50; // 5 seconds max wait
+
+    const initHls = () => {
+      retryCount++;
+      if (!videoRef.current) {
+        if (retryCount < maxRetries) {
+          console.log(`⏳ Waiting for video element... (${retryCount}/${maxRetries})`);
+          setTimeout(initHls, 100);
+        } else {
+          console.error('❌ Video element not found after max retries');
+        }
+        return;
+      }
+
+      console.log('✅ Video element ready, initializing HLS.js');
+
+      // Clean up existing HLS instance
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90
+        });
+
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(videoRef.current);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('✅ HLS manifest parsed');
+        // Autoplay if needed
+        if (videoRef.current && !hasSeekedToSavedPosition.current) {
+          // Will be handled by the userProgress useEffect
+        }
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error('HLS network error, trying to recover...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error('HLS media error, trying to recover...');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('HLS fatal error, cannot recover:', data);
+              hls.destroy();
+              break;
+          }
+        }
+      });
+
+        hlsRef.current = hls;
+      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        videoRef.current.src = hlsUrl;
+      }
+    };
+
+    // Start initialization with a small delay to ensure DOM is ready
+    setTimeout(initHls, 100);
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id, showVideoPlayer]);
+
+  // Effect to switch audio track when locale changes (if HLS is already initialized)
+  useEffect(() => {
+    if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) {
+      return;
+    }
+
+    const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
+    console.log('🌐 Locale changed, switching audio track to:', currentLocale);
+
+    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+      const trackLang = (track.lang || '').toLowerCase();
+      const trackName = (track.name || '').toLowerCase();
+      return trackLang === currentLocale || 
+             trackLang.startsWith(currentLocale) ||
+             trackName.includes(currentLocale) ||
+             (currentLocale === 'es' && (trackLang === 'spa' || trackName.includes('spanish') || trackName.includes('español'))) ||
+             (currentLocale === 'en' && (trackLang === 'eng' || trackName.includes('english') || trackName.includes('inglés'))) ||
+             (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
+    });
+
+    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
+      console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
+      hlsRef.current.audioTrack = trackIndex;
+    }
+  }, [locale]);
+
+  // Load Player.js library for Bunny.net iframe control (kept for backward compatibility)
   useEffect(() => {
     // Check if Player.js is already loaded
     if ((window as any).playerjs) {
@@ -1241,6 +1395,13 @@ const EpisodeDetail = () => {
       segment => currentTime >= segment.startTime && currentTime < segment.endTime
     );
 
+    // Update the active caption text for overlay
+    if (activeIndex >= 0) {
+      setActiveCaptionText(transcriptionSegments[activeIndex].text);
+    } else {
+      setActiveCaptionText('');
+    }
+
     // Update the active state
     setTranscriptionSegments(prevSegments => {
       const updated = prevSegments.map((segment, index) => ({
@@ -1297,22 +1458,13 @@ const EpisodeDetail = () => {
       setShowVideoPlayer(true);
       setVideoStarted(true);
       
-      // Start playback immediately
-      if (video.bunny_embed_url || video.bunny_player_url) {
-        if (bunnyPlayerRef.current) {
-          try {
-            bunnyPlayerRef.current.play();
-            console.log('▶️ Restarting video via Player.js');
-            setIsPlaying(true);
-          } catch (error) {
-            console.error('Error restarting Bunny.net player:', error);
-          }
-        }
-      } else if (videoRef.current) {
+      // Use HLS video element directly
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
         videoRef.current.play().then(() => {
-          setIsPlaying(true);
+          console.log('▶️ Restarting video');
         }).catch((error) => {
-          console.error('Error playing video:', error);
+          console.error('Error restarting video:', error);
         });
       }
       return;
@@ -1324,40 +1476,10 @@ const EpisodeDetail = () => {
       setVideoStarted(true);
       setShowVideoPlayer(true);
       
-      // Start playback immediately
-      if (video.bunny_embed_url || video.bunny_player_url) {
-        // Try to play immediately if player is already ready
-        if (bunnyPlayerRef.current) {
-          try {
-            console.log('Player.js is already ready, calling play() immediately');
-            // Use a callback to ensure play() is called correctly
-            bunnyPlayerRef.current.getPaused((paused: boolean) => {
-              if (paused) {
-                bunnyPlayerRef.current.play();
-                console.log('▶️ Starting video via Player.js');
-                // Optimistically set state - Player.js event will confirm
-                setIsPlaying(true);
-                // Reset flag since we're playing
-                shouldAutoPlayRef.current = false;
-              } else {
-                console.log('Video is already playing');
-                setIsPlaying(true);
-                shouldAutoPlayRef.current = false;
-              }
-            });
-          } catch (error) {
-            console.error('Error starting Bunny.net player:', error);
-            // If play fails, set flag to retry when ready
-            shouldAutoPlayRef.current = true;
-          }
-        } else {
-          console.log('Player.js not ready yet, setting flag to play when ready');
-          // Set flag to autoplay when player becomes ready
-          shouldAutoPlayRef.current = true;
-        }
-      } else if (videoRef.current) {
+      // Use HLS video element directly
+      if (videoRef.current) {
         videoRef.current.play().then(() => {
-          setIsPlaying(true);
+          console.log('▶️ Starting video');
         }).catch((error) => {
           console.error('Error playing video:', error);
         });
@@ -1365,49 +1487,17 @@ const EpisodeDetail = () => {
       return;
     }
     
-    // If video has started, toggle play/pause
-    if (video.bunny_embed_url || video.bunny_player_url) {
-      // For Bunny.net iframes, use Player.js API
-      if (bunnyPlayerRef.current) {
-        try {
-          bunnyPlayerRef.current.getPaused((paused: boolean) => {
-            if (paused) {
-              bunnyPlayerRef.current.play();
-              console.log('▶️ Playing video via Player.js - state will update via event');
-              // Don't set isPlaying here - let the 'play' event handle it
-            } else {
-              bunnyPlayerRef.current.pause();
-              console.log('⏸️ Pausing video via Player.js - state will update via event');
-              // Don't set isPlaying here - let the 'pause' event handle it
-            }
-          });
-        } catch (error) {
-          console.error('Error controlling Bunny.net player:', error);
-          // Fallback: toggle UI state only if Player.js fails
-          setIsPlaying(!isPlaying);
-        }
-      } else {
-        console.log('Player.js not initialized yet, waiting...');
-        // Wait a bit for player to initialize
-        setTimeout(() => {
-          if (bunnyPlayerRef.current) {
-            handlePlay();
-          } else {
-            console.log('Player.js still not ready, toggling UI state as fallback');
-            setIsPlaying(!isPlaying);
-          }
-        }, 200);
-      }
-    } else if (videoRef.current) {
-      // For native video elements, control playback directly
-      if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        videoRef.current.play().catch((error) => {
+    // Toggle play/pause using HLS video element directly
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().then(() => {
+          console.log('▶️ Playing video');
+        }).catch((error) => {
           console.error('Error playing video:', error);
         });
-        setIsPlaying(true);
+      } else {
+        videoRef.current.pause();
+        console.log('⏸️ Pausing video');
       }
     }
   };
@@ -2063,7 +2153,7 @@ const EpisodeDetail = () => {
                     </div>
                   </div>
                 </>
-              ) : !videoEnded && (video.bunny_embed_url || video.bunny_player_url) ? (
+              ) : !videoEnded && (video.bunny_embed_url || video.bunny_player_url || video.bunny_hls_url) ? (
                 <div className="w-full h-full relative">
                   {playbackError && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-50 p-4">
@@ -2083,129 +2173,224 @@ const EpisodeDetail = () => {
                       </div>
                     </div>
                   )}
-                  <iframe
-                    key={`bunny-video-${video.id}-${locale.substring(0, 2)}-${showVideoPlayer}`}
-                    id={`bunny-iframe-${video.id}`}
-                    src={(() => {
-                      const embedUrl = video.bunny_embed_url || video.bunny_player_url || '';
-                      // console.log('Original embed URL:', embedUrl);
-                      
-                      // Convert /play/ URLs to /embed/ URLs
-                      let finalUrl = embedUrl;
-                      if (embedUrl.includes('/play/')) {
-                        // Extract library ID and video ID from /play/ URL
-                        const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
-                        if (playMatch) {
-                          const libraryId = playMatch[1];
-                          const videoId = playMatch[2];
-                          // Convert to /embed/ URL
-                          finalUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
-                          // console.log('Converted /play/ to /embed/ URL:', finalUrl);
-                        }
-                      }
-                      
-                      // Enable autoplay - video should start playing automatically
-                      const separator = finalUrl.includes('?') ? '&' : '?';
-                      finalUrl = `${finalUrl}${separator}autoplay=true&responsive=true&controls=true`;
-                      
-                      // Add captions if available
-                      if (video.caption_urls && Object.keys(video.caption_urls).length > 0) {
-                        const currentLocale = locale.substring(0, 2);
-                        // Bunny.net uses 'defaultTextTrack' parameter to set the active caption language
-                        // Must match the 'srclang' attribute of the caption track uploaded to Bunny.net
-                        if (video.caption_urls[currentLocale]) {
-                          finalUrl += `&defaultTextTrack=${currentLocale}`;
-                        } else if (video.caption_urls['en']) {
-                          finalUrl += `&defaultTextTrack=en`;
-                        }
-                      }
-                      
-                      // console.log('Final iframe URL (with autoplay):', finalUrl);
-                      return finalUrl;
-                    })()}
-                    className="border-0 absolute top-0 left-0"
-                    style={{ 
-                      width: '100%',
-                      height: '100%'
+                  {/* CC Toggle Button - Top Position */}
+                  {transcriptionSegments.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCaptionOverlayEnabled(!captionOverlayEnabled);
+                      }}
+                      className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                        captionOverlayEnabled 
+                          ? 'bg-primary text-white border border-primary' 
+                          : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                      }`}
+                      title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                    >
+                      CC
+                    </button>
+                  )}
+                  {/* HLS Video Player */}
+                  <video
+                    ref={videoRef}
+                    key={`hls-video-${video.id}`}
+                    className="w-full h-full object-contain"
+                    controls
+                    playsInline
+                    onPlay={() => {
+                      console.log('✅ HLS Video started playing');
+                      setIsPlaying(true);
                     }}
-                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                    allowFullScreen
-                    title={video.title}
-                    onLoad={() => {
-                      // console.log('✅ Bunny.net iframe loaded successfully');
+                    onPause={() => {
+                      setIsPlaying(false);
+                      // Save progress immediately when user pauses
+                      if (videoRef.current && user && video) {
+                        const current = videoRef.current.currentTime;
+                        const dur = videoRef.current.duration || video.duration;
+                        if (dur > 0 && current > 0) {
+                          const videoDuration = video.duration || dur;
+                          const progressPercentage = (current / videoDuration) * 100;
+                          userProgressApi.updateVideoProgress(video.id, {
+                            time_watched: Math.floor(current),
+                            video_duration: Math.floor(videoDuration),
+                            progress_percentage: Math.floor(progressPercentage),
+                            is_completed: progressPercentage >= 90,
+                          }).then(() => {
+                            lastSavedProgress.current = Math.floor(current);
+                          }).catch(console.error);
+                        }
+                      }
                     }}
                     onError={(e) => {
-                      console.error('❌ Bunny.net iframe failed to load:', e);
+                      console.error('❌ HLS Video failed to load:', e);
                       setPlaybackError(t('video.load_error', 'Error al cargar el video. Por favor, verifique su conexión.'));
-                      toast.error(t('video.load_error', 'Error al cargar el video. Por favor, verifique su conexión.'));
                     }}
-                  />
-                </div>
-              ) : videoUrl ? (
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="w-full h-full object-contain"
-                  controls
-                  onPlay={() => {
-                    console.log('✅ Video started playing');
-                    setIsPlaying(true);
-                  }}
-                  onPause={() => {
-                    setIsPlaying(false);
-                    // Save progress immediately when user pauses
-                    if (videoRef.current && user && video) {
-                      const current = videoRef.current.currentTime;
-                      const dur = videoRef.current.duration || video.duration;
-                      if (dur > 0 && current > 0) {
+                    onLoadedData={() => {
+                      console.log('✅ HLS Video data loaded');
+                      // Seek to saved position if user has progress (only once), then autoplay
+                      if (videoRef.current && !hasSeekedToSavedPosition.current) {
+                        hasSeekedToSavedPosition.current = true;
+                        
+                        if (userProgress) {
+                          const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+                          const videoDuration = videoRef.current.duration || video.duration || 0;
+                          const progressPercent = userProgress.progress_percentage || 0;
+                          
+                          // Only seek if there's a saved position and video isn't completed
+                          if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+                            console.log(`⏩ Seeking HLS video to saved position: ${savedTime} seconds`);
+                            videoRef.current.currentTime = savedTime;
+                            setCurrentTime(savedTime);
+                          }
+                        }
+                        
+                        // Autoplay
+                        videoRef.current.play().then(() => {
+                          setIsPlaying(true);
+                          setVideoStarted(true);
+                          console.log('▶️ HLS video autoplay started');
+                        }).catch((error) => {
+                          console.error('Error autoplaying HLS video:', error);
+                        });
+                      }
+                    }}
+                    onTimeUpdate={(e) => {
+                      const current = e.currentTarget.currentTime;
+                      const dur = e.currentTarget.duration;
+                      setCurrentTime(current);
+                      // Duration comes from database, not from video element
+                      if (dur > 0 && user && video) {
                         const videoDuration = video.duration || dur;
                         const progressPercentage = (current / videoDuration) * 100;
-                        userProgressApi.updateVideoProgress(video.id, {
-                          time_watched: Math.floor(current),
-                          video_duration: Math.floor(videoDuration),
-                          progress_percentage: Math.floor(progressPercentage),
-                          is_completed: progressPercentage >= 90,
-                        }).then(() => {
-                          lastSavedProgress.current = Math.floor(current);
-                        }).catch(console.error);
-                      }
-                    }
-                  }}
-                  onError={(e) => {
-                    console.error('❌ Video failed to load:', e);
-                    console.error('Video URL:', videoUrl);
-                  }}
-                  onLoadedData={() => {
-                    // console.log('✅ Video data loaded');
-                    // Seek to saved position if user has progress (only once), then autoplay
-                    if (videoRef.current && !hasSeekedToSavedPosition.current) {
-                      hasSeekedToSavedPosition.current = true;
-                      
-                      if (userProgress) {
-                        const savedTime = userProgress.time_watched || userProgress.last_position || 0;
-                        const videoDuration = videoRef.current.duration || video.duration || 0;
-                        const progressPercent = userProgress.progress_percentage || 0;
+                        const timeWatched = Math.floor(current);
                         
-                        // Only seek if there's a saved position and video isn't completed
-                        if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
-                          console.log(`⏩ Seeking native video to saved position: ${savedTime} seconds, then autoplay`);
-                          videoRef.current.currentTime = savedTime;
-                          setCurrentTime(savedTime);
+                        // Save progress every 5 seconds
+                        const timeSinceLastSave = timeWatched - lastSavedProgress.current;
+                        if (timeSinceLastSave >= 5) {
+                          if (progressSaveTimeout.current) {
+                            clearTimeout(progressSaveTimeout.current);
+                          }
+                          progressSaveTimeout.current = setTimeout(() => {
+                            userProgressApi.updateVideoProgress(video.id, {
+                              time_watched: timeWatched,
+                              video_duration: Math.floor(videoDuration),
+                              progress_percentage: Math.floor(progressPercentage),
+                              is_completed: progressPercentage >= 90,
+                            }).then(() => {
+                              lastSavedProgress.current = timeWatched;
+                            }).catch(console.error);
+                          }, 1000);
+                        }
+                      }
+                    }}
+                    onEnded={() => {
+                      setVideoEnded(true);
+                      setIsPlaying(false);
+                    }}
+                  />
+                  {/* Caption Overlay */}
+                  {captionOverlayEnabled && activeCaptionText && (
+                    <div 
+                      className="absolute bottom-16 left-1/2 transform -translate-x-1/2 max-w-[90%] px-4 py-2 bg-black/80 text-white text-center rounded pointer-events-none z-10 transition-opacity duration-200"
+                      style={{ fontSize: '18px', lineHeight: '1.4' }}
+                    >
+                      {activeCaptionText}
+                    </div>
+                  )}
+                </div>
+              ) : videoUrl ? (
+                <div className="w-full h-full relative">
+                  {/* CC Toggle Button - Top Position */}
+                  {transcriptionSegments.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCaptionOverlayEnabled(!captionOverlayEnabled);
+                      }}
+                      className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                        captionOverlayEnabled 
+                          ? 'bg-primary text-white border border-primary' 
+                          : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                      }`}
+                      title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                    >
+                      CC
+                    </button>
+                  )}
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className="w-full h-full object-contain"
+                    controls
+                    onPlay={() => {
+                      console.log('✅ Video started playing');
+                      setIsPlaying(true);
+                    }}
+                    onPause={() => {
+                      setIsPlaying(false);
+                      // Save progress immediately when user pauses
+                      if (videoRef.current && user && video) {
+                        const current = videoRef.current.currentTime;
+                        const dur = videoRef.current.duration || video.duration;
+                        if (dur > 0 && current > 0) {
+                          const videoDuration = video.duration || dur;
+                          const progressPercentage = (current / videoDuration) * 100;
+                          userProgressApi.updateVideoProgress(video.id, {
+                            time_watched: Math.floor(current),
+                            video_duration: Math.floor(videoDuration),
+                            progress_percentage: Math.floor(progressPercentage),
+                            is_completed: progressPercentage >= 90,
+                          }).then(() => {
+                            lastSavedProgress.current = Math.floor(current);
+                          }).catch(console.error);
+                        }
+                      }
+                    }}
+                    onError={(e) => {
+                      console.error('❌ Video failed to load:', e);
+                      console.error('Video URL:', videoUrl);
+                    }}
+                    onLoadedData={() => {
+                      // console.log('✅ Video data loaded');
+                      // Seek to saved position if user has progress (only once), then autoplay
+                      if (videoRef.current && !hasSeekedToSavedPosition.current) {
+                        hasSeekedToSavedPosition.current = true;
+                        
+                        if (userProgress) {
+                          const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+                          const videoDuration = videoRef.current.duration || video.duration || 0;
+                          const progressPercent = userProgress.progress_percentage || 0;
                           
-                          // Autoplay after seeking
-                          setTimeout(() => {
-                            if (videoRef.current) {
-                              videoRef.current.play().then(() => {
-                                setIsPlaying(true);
-                                setVideoStarted(true);
-                                console.log('▶️ Native video autoplay started from saved position');
-                              }).catch((error) => {
-                                console.error('Error autoplaying native video:', error);
-                              });
-                            }
-                          }, 100); // Small delay to ensure seek completes
+                          // Only seek if there's a saved position and video isn't completed
+                          if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+                            console.log(`⏩ Seeking native video to saved position: ${savedTime} seconds, then autoplay`);
+                            videoRef.current.currentTime = savedTime;
+                            setCurrentTime(savedTime);
+                            
+                            // Autoplay after seeking
+                            setTimeout(() => {
+                              if (videoRef.current) {
+                                videoRef.current.play().then(() => {
+                                  setIsPlaying(true);
+                                  setVideoStarted(true);
+                                  console.log('▶️ Native video autoplay started from saved position');
+                                }).catch((error) => {
+                                  console.error('Error autoplaying native video:', error);
+                                });
+                              }
+                            }, 100); // Small delay to ensure seek completes
+                          } else {
+                            // No saved progress or completed, just autoplay from start
+                            videoRef.current.play().then(() => {
+                              setIsPlaying(true);
+                              setVideoStarted(true);
+                              console.log('▶️ Native video autoplay started from beginning');
+                            }).catch((error) => {
+                              console.error('Error autoplaying native video:', error);
+                            });
+                          }
                         } else {
-                          // No saved progress or completed, just autoplay from start
+                          // No user progress, just autoplay from start
                           videoRef.current.play().then(() => {
                             setIsPlaying(true);
                             setVideoStarted(true);
@@ -2214,51 +2399,51 @@ const EpisodeDetail = () => {
                             console.error('Error autoplaying native video:', error);
                           });
                         }
-                      } else {
-                        // No user progress, just autoplay from start
-                        videoRef.current.play().then(() => {
-                          setIsPlaying(true);
-                          setVideoStarted(true);
-                          console.log('▶️ Native video autoplay started from beginning');
-                        }).catch((error) => {
-                          console.error('Error autoplaying native video:', error);
-                        });
                       }
-                    }
-                  }}
-                  onTimeUpdate={(e) => {
-                    const current = e.currentTarget.currentTime;
-                    const dur = e.currentTarget.duration;
-                    setCurrentTime(current);
-                    // Duration comes from database, not from video element
-                    if (dur > 0 && user && video) {
-                      const videoDuration = video.duration || dur; // Use database duration if available
-                      const progressPercentage = (current / videoDuration) * 100;
-                      const timeWatched = Math.floor(current);
-                      
-                      // Save progress more frequently (every 5 seconds) or if significant change
-                      const timeSinceLastSave = timeWatched - lastSavedProgress.current;
-                      if (timeSinceLastSave >= 5 || Math.abs(progressPercentage - (lastSavedProgress.current / videoDuration * 100)) >= 5) {
-                        // Clear any pending save
-                        if (progressSaveTimeout.current) {
-                          clearTimeout(progressSaveTimeout.current);
-                        }
+                    }}
+                    onTimeUpdate={(e) => {
+                      const current = e.currentTarget.currentTime;
+                      const dur = e.currentTarget.duration;
+                      setCurrentTime(current);
+                      // Duration comes from database, not from video element
+                      if (dur > 0 && user && video) {
+                        const videoDuration = video.duration || dur; // Use database duration if available
+                        const progressPercentage = (current / videoDuration) * 100;
+                        const timeWatched = Math.floor(current);
                         
-                        // Debounce: Save after 1 second of no updates (to catch when user pauses)
-                        progressSaveTimeout.current = setTimeout(() => {
-                          userProgressApi.updateVideoProgress(video.id, {
-                            time_watched: timeWatched,
-                            video_duration: Math.floor(videoDuration),
-                            progress_percentage: Math.floor(progressPercentage),
-                            is_completed: progressPercentage >= 90,
-                          }).then(() => {
-                            lastSavedProgress.current = timeWatched;
-                          }).catch(console.error);
-                        }, 1000);
+                        // Save progress more frequently (every 5 seconds) or if significant change
+                        const timeSinceLastSave = timeWatched - lastSavedProgress.current;
+                        if (timeSinceLastSave >= 5 || Math.abs(progressPercentage - (lastSavedProgress.current / videoDuration * 100)) >= 5) {
+                          // Clear any pending save
+                          if (progressSaveTimeout.current) {
+                            clearTimeout(progressSaveTimeout.current);
+                          }
+                          
+                          // Debounce: Save after 1 second of no updates (to catch when user pauses)
+                          progressSaveTimeout.current = setTimeout(() => {
+                            userProgressApi.updateVideoProgress(video.id, {
+                              time_watched: timeWatched,
+                              video_duration: Math.floor(videoDuration),
+                              progress_percentage: Math.floor(progressPercentage),
+                              is_completed: progressPercentage >= 90,
+                            }).then(() => {
+                              lastSavedProgress.current = timeWatched;
+                            }).catch(console.error);
+                          }, 1000);
+                        }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                  {/* Caption Overlay for native video */}
+                  {captionOverlayEnabled && activeCaptionText && (
+                    <div 
+                      className="absolute bottom-16 left-1/2 transform -translate-x-1/2 max-w-[90%] px-4 py-2 bg-black/80 text-white text-center rounded pointer-events-none z-10 transition-opacity duration-200"
+                      style={{ fontSize: '18px', lineHeight: '1.4' }}
+                    >
+                      {activeCaptionText}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                   <div className="text-center">
