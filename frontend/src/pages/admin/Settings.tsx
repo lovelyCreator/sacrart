@@ -2030,6 +2030,10 @@ const Settings = () => {
             <Mail className="mr-2 h-4 w-4" />
             {t('admin.settings_page.tabs.contact')}
           </TabsTrigger>
+          <TabsTrigger value="homepage" className="flex items-center">
+            <Home className="mr-2 h-4 w-4" />
+            Homepage Thumbnails
+          </TabsTrigger>
         </TabsList>
 
         {/* Hero Section Settings (textual/content only). Background images are controlled via About image. */}
@@ -4895,6 +4899,150 @@ const Settings = () => {
             <div className="flex justify-end pt-4 border-t mt-6">
               <Button 
                 onClick={() => handleSaveSettings('contact')}
+                disabled={saving}
+                className="flex items-center"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {t('admin.common_save')}
+              </Button>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Homepage Thumbnails Settings */}
+        <TabsContent value="homepage" className="mt-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-6">Homepage Section Thumbnails</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure thumbnail images for Reels, Rewind, Challenges, and Live sections displayed on the homepage.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Reels Thumbnail */}
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="homepage_reels_thumbnail">Reels Thumbnail</Label>
+                  <Input
+                    id="homepage_reels_thumbnail"
+                    value={settings.homepage?.find(s => s && s.key === 'homepage_reels_thumbnail')?.value || ''}
+                    onChange={(e) => updateSetting('homepage', 'homepage_reels_thumbnail', e.target.value)}
+                    placeholder="https://example.com/reels-thumbnail.jpg"
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Image URL for the Reels section thumbnail
+                  </p>
+                </div>
+                {settings.homepage?.find(s => s && s.key === 'homepage_reels_thumbnail')?.value && (
+                  <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50">
+                    <img 
+                      src={settings.homepage.find(s => s && s.key === 'homepage_reels_thumbnail')?.value || ''} 
+                      alt="Reels thumbnail preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Rewind Thumbnail */}
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="homepage_rewind_thumbnail">Rewind Thumbnail</Label>
+                  <Input
+                    id="homepage_rewind_thumbnail"
+                    value={settings.homepage?.find(s => s && s.key === 'homepage_rewind_thumbnail')?.value || ''}
+                    onChange={(e) => updateSetting('homepage', 'homepage_rewind_thumbnail', e.target.value)}
+                    placeholder="https://example.com/rewind-thumbnail.jpg"
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Image URL for the Rewind section thumbnail
+                  </p>
+                </div>
+                {settings.homepage?.find(s => s && s.key === 'homepage_rewind_thumbnail')?.value && (
+                  <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50">
+                    <img 
+                      src={settings.homepage.find(s => s && s.key === 'homepage_rewind_thumbnail')?.value || ''} 
+                      alt="Rewind thumbnail preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Challenges Thumbnail */}
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="homepage_challenges_thumbnail">Challenges Thumbnail</Label>
+                  <Input
+                    id="homepage_challenges_thumbnail"
+                    value={settings.homepage?.find(s => s && s.key === 'homepage_challenges_thumbnail')?.value || ''}
+                    onChange={(e) => updateSetting('homepage', 'homepage_challenges_thumbnail', e.target.value)}
+                    placeholder="https://example.com/challenges-thumbnail.jpg"
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Image URL for the Challenges section thumbnail
+                  </p>
+                </div>
+                {settings.homepage?.find(s => s && s.key === 'homepage_challenges_thumbnail')?.value && (
+                  <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50">
+                    <img 
+                      src={settings.homepage.find(s => s && s.key === 'homepage_challenges_thumbnail')?.value || ''} 
+                      alt="Challenges thumbnail preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Live Thumbnail */}
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="homepage_live_thumbnail">Live Thumbnail</Label>
+                  <Input
+                    id="homepage_live_thumbnail"
+                    value={settings.homepage?.find(s => s && s.key === 'homepage_live_thumbnail')?.value || ''}
+                    onChange={(e) => updateSetting('homepage', 'homepage_live_thumbnail', e.target.value)}
+                    placeholder="https://example.com/live-thumbnail.jpg"
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Image URL for the Live section thumbnail
+                  </p>
+                </div>
+                {settings.homepage?.find(s => s && s.key === 'homepage_live_thumbnail')?.value && (
+                  <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50">
+                    <img 
+                      src={settings.homepage.find(s => s && s.key === 'homepage_live_thumbnail')?.value || ''} 
+                      alt="Live thumbnail preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Save button */}
+            <div className="flex justify-end pt-4 border-t mt-6">
+              <Button 
+                onClick={() => handleSaveSettings('homepage')}
                 disabled={saving}
                 className="flex items-center"
               >

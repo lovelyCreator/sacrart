@@ -4,11 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use App\Traits\HasTranslations;
 
 class LiveArchiveVideo extends Model
 {
     use HasFactory, HasTranslations;
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleted(function ($video) {
+            // Delete all user progress records for this live archive video
+            // Check if the progress table exists and has records
+            if (Schema::hasTable('live_archive_video_progress')) {
+                DB::table('live_archive_video_progress')
+                    ->where('live_archive_video_id', $video->id)
+                    ->delete();
+            }
+        });
+    }
 
     protected $fillable = [
         'title',
@@ -16,6 +33,7 @@ class LiveArchiveVideo extends Model
         'bunny_video_id',
         'bunny_video_url',
         'bunny_embed_url',
+        'bunny_hls_url',
         'bunny_thumbnail_url',
         'duration',
         'thumbnail_url',

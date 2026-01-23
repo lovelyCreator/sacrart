@@ -47,6 +47,7 @@ const LiveArchiveDetail = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const bunnyPlayerRef = useRef<any>(null);
   const shouldAutoPlayRef = useRef<boolean>(false);
+  const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -736,14 +737,48 @@ const LiveArchiveDetail = () => {
   useEffect(() => {
     if (transcriptionSegments.length === 0 || currentTime === undefined) return;
 
-    setTranscriptionSegments(prevSegments => {
-      const updated = prevSegments.map(segment => {
-        const isActive = currentTime >= segment.startTime && currentTime < segment.endTime;
-        return { ...segment, isActive };
-      });
+    // Find the active segment index first (synchronously)
+    const activeIndex = transcriptionSegments.findIndex(
+      segment => currentTime >= segment.startTime && currentTime < segment.endTime
+    );
 
+    // Update the active state
+    setTranscriptionSegments(prevSegments => {
+      const updated = prevSegments.map((segment, index) => ({
+        ...segment,
+        isActive: index === activeIndex
+      }));
       return updated;
     });
+
+    // Auto-scroll within container only (don't scroll the page)
+    if (activeIndex >= 0 && transcriptionScrollRef.current) {
+      setTimeout(() => {
+        const activeElement = document.getElementById(`transcript-segment-${activeIndex}`);
+        if (activeElement && transcriptionScrollRef.current) {
+          const container = transcriptionScrollRef.current;
+          
+          // Get accurate position using getBoundingClientRect
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = activeElement.getBoundingClientRect();
+          
+          // Calculate element's position relative to the container's visible area
+          const elementTopRelative = elementRect.top - containerRect.top;
+          const elementBottomRelative = elementRect.bottom - containerRect.top;
+          const containerHeight = container.clientHeight;
+          
+          // Check if element is outside visible area
+          const isAbove = elementTopRelative < 0;
+          const isBelow = elementBottomRelative > containerHeight;
+          
+          if (isAbove || isBelow) {
+            // Calculate how much to scroll to center the element
+            const scrollOffset = elementTopRelative - (containerHeight / 2) + (elementRect.height / 2);
+            container.scrollTop = container.scrollTop + scrollOffset;
+          }
+        }
+      }, 50);
+    }
   }, [currentTime, transcriptionSegments.length]);
 
   const handlePlay = () => {
@@ -756,7 +791,7 @@ const LiveArchiveDetail = () => {
       setVideoEnded(false);
       setShowVideoPlayer(true);
       
-      if (video.bunny_embed_url) {
+      if (video.bunny_embed_url || video.bunny_player_url || video.bunny_video_url) {
         if (bunnyPlayerRef.current) {
           try {
             bunnyPlayerRef.current.play();
@@ -773,36 +808,60 @@ const LiveArchiveDetail = () => {
       setVideoStarted(true);
       setShowVideoPlayer(true);
       
-      if (video.bunny_embed_url) {
+      if (video.bunny_embed_url || video.bunny_player_url || video.bunny_video_url) {
         if (bunnyPlayerRef.current) {
           try {
             bunnyPlayerRef.current.getPaused((paused: boolean) => {
               if (paused) {
                 bunnyPlayerRef.current.play();
                 setIsPlaying(true);
+              } else {
+                setIsPlaying(true);
               }
             });
           } catch (error) {
             console.error('Error starting Bunny.net player:', error);
+            // Fallback: try to play directly
+            try {
+              bunnyPlayerRef.current.play();
+              setIsPlaying(true);
+            } catch (playError) {
+              console.error('Error playing video:', playError);
+            }
           }
         }
       }
       return;
     }
     
-    if (video.bunny_embed_url) {
+    // Video is already started, toggle play/pause
+    if (video.bunny_embed_url || video.bunny_player_url || video.bunny_video_url) {
       if (bunnyPlayerRef.current) {
         try {
           bunnyPlayerRef.current.getPaused((paused: boolean) => {
             if (paused) {
+              // Video is paused, play it
               bunnyPlayerRef.current.play();
+              setIsPlaying(true);
             } else {
+              // Video is playing, pause it
               bunnyPlayerRef.current.pause();
+              setIsPlaying(false);
             }
           });
         } catch (error) {
           console.error('Error controlling Bunny.net player:', error);
+          // Fallback: toggle state manually
           setIsPlaying(!isPlaying);
+          try {
+            if (isPlaying) {
+              bunnyPlayerRef.current.pause();
+            } else {
+              bunnyPlayerRef.current.play();
+            }
+          } catch (fallbackError) {
+            console.error('Error in fallback play/pause:', fallbackError);
+          }
         }
       }
     }
@@ -1109,48 +1168,77 @@ const LiveArchiveDetail = () => {
               </p>
             </div>
             {/* Transcription Content */}
+            {/* Transcription Content - TED Talks style with clickable timestamps */}
             {activeTab === 'transcription' && (
-                <div data-transcription-section className="py-6 space-y-6 max-w-3xl">
+                <div data-transcription-section className="py-6 max-w-4xl">
                   {transcriptionSegments.length > 0 ? (
-                    transcriptionSegments.map((segment, index) => (
-                      <div
-                        id={`transcript-segment-${index}`}
-                        key={index}
-                        onClick={() => {
-                          if (video && video.bunny_embed_url) {
-                            if (bunnyPlayerRef.current) {
-                              try {
-                                bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                setCurrentTime(segment.startTime);
-                              } catch (error) {
-                                console.error('Error seeking to segment:', error);
+                    <div 
+                      ref={transcriptionScrollRef}
+                      className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                      style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#A05245 #2a2a2a'
+                      }}
+                    >
+                      <div className="space-y-4">
+                      {transcriptionSegments.map((segment, index) => (
+                        <div
+                          id={`transcript-segment-${index}`}
+                          key={index}
+                          onClick={() => {
+                            if (video && video.bunny_embed_url) {
+                              if (bunnyPlayerRef.current) {
+                                try {
+                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                  setCurrentTime(segment.startTime);
+                                } catch (error) {
+                                  console.error('Error seeking to segment:', error);
+                                }
                               }
                             }
-                          }
-                        }}
-                        className={`group flex gap-6 transition-all duration-200 ${
-                          segment.isActive
-                            ? 'relative opacity-100'
-                            : 'opacity-60 hover:opacity-90 cursor-pointer'
-                        }`}
-                      >
-                        {segment.isActive && (
-                          <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r transition-all"></div>
-                        )}
-                        <span className={`font-mono text-xs pt-1 min-w-[3rem] transition-colors ${
-                          segment.isActive ? 'text-[#A05245] font-bold' : 'text-gray-500'
-                        }`}>
-                          {segment.time}
-                        </span>
-                        <p className={`leading-relaxed transition-all ${
-                          segment.isActive
-                            ? 'text-lg text-white font-semibold'
-                            : 'text-base text-gray-300 font-normal'
-                        }`}>
-                          {segment.text}
-                        </p>
+                          }}
+                          className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                            segment.isActive
+                              ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
+                              : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                          }`}
+                        >
+                          {/* Timestamp - TED Talks style */}
+                          <button
+                            className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                              segment.isActive 
+                                ? 'text-[#A05245] font-bold' 
+                                : 'text-gray-400 hover:text-[#A05245]'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (video && video.bunny_embed_url) {
+                                if (bunnyPlayerRef.current) {
+                                  try {
+                                    bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                    setCurrentTime(segment.startTime);
+                                  } catch (error) {
+                                    console.error('Error seeking to segment:', error);
+                                  }
+                                }
+                              }
+                            }}
+                          >
+                            {segment.time}
+                          </button>
+                          
+                          {/* Text content */}
+                          <p className={`flex-1 leading-relaxed transition-all ${
+                            segment.isActive
+                              ? 'text-white font-medium text-base'
+                              : 'text-gray-300 font-normal text-base'
+                          }`}>
+                            {segment.text}
+                          </p>
+                        </div>
+                      ))}
                       </div>
-                    ))
+                    </div>
                   ) : transcription ? (
                     <div className="prose dark:prose-invert max-w-none">
                       <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">

@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => ({
       // Use localhost for HMR WebSocket - browsers can't connect to 0.0.0.0
       // The HTTP server can still be on 0.0.0.0 for external access
       host: "localhost",
-      port: 3000,
+      // Port will be automatically set to match the server port
+      // This ensures HMR works even when server uses a different port
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

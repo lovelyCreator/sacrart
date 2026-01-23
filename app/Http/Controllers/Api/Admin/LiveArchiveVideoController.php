@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\LiveArchiveVideo;
 use App\Services\BunnyNetService;
+use App\Services\VideoTranscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -13,10 +14,12 @@ use Illuminate\Support\Facades\Validator;
 class LiveArchiveVideoController extends Controller
 {
     protected $bunnyNetService;
+    protected $transcriptionService;
 
-    public function __construct(BunnyNetService $bunnyNetService)
+    public function __construct(BunnyNetService $bunnyNetService, VideoTranscriptionService $transcriptionService)
     {
         $this->bunnyNetService = $bunnyNetService;
+        $this->transcriptionService = $transcriptionService;
     }
 
     /**
@@ -328,13 +331,26 @@ class LiveArchiveVideoController extends Controller
                 }
                 $request->merge($requestData);
             }
+            
+            // Normalize empty strings to null for URL fields
+            if ($request->has('bunny_hls_url') && $request->get('bunny_hls_url') === '') {
+                $requestData['bunny_hls_url'] = null;
+            }
+            if ($request->has('bunny_embed_url') && $request->get('bunny_embed_url') === '') {
+                $requestData['bunny_embed_url'] = null;
+            }
+            if ($request->has('bunny_video_url') && $request->get('bunny_video_url') === '') {
+                $requestData['bunny_video_url'] = null;
+            }
+            $request->merge($requestData);
 
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
                 'bunny_video_id' => 'nullable|string|max:255',
                 'bunny_video_url' => 'nullable|url|max:500',
-                'bunny_embed_url' => 'required|url|max:500',
+                'bunny_embed_url' => 'nullable|url|max:500',
+                'bunny_hls_url' => 'nullable|string|max:1000', // HLS URL for video playback
                 'bunny_thumbnail_url' => 'nullable|url|max:500',
                 'thumbnail_url' => 'nullable|url|max:500',
                 'duration' => 'nullable|integer|min:0',
@@ -352,7 +368,7 @@ class LiveArchiveVideoController extends Controller
 
             // Extract Bunny.net video ID from embed URL if not provided
             if (!isset($validated['bunny_video_id']) && isset($validated['bunny_embed_url'])) {
-                $bunnyVideoId = $this->extractBunnyVideoId($validated['bunny_embed_url']);
+                $bunnyVideoId = $this->extractBunnyVideoId($validated['bunny_embed_url'] ?? null, $validated['bunny_hls_url'] ?? null);
                 if ($bunnyVideoId) {
                     $validated['bunny_video_id'] = $bunnyVideoId;
                 }
@@ -516,13 +532,26 @@ class LiveArchiveVideoController extends Controller
                 }
                 $request->merge($requestData);
             }
+            
+            // Normalize empty strings to null for URL fields
+            if ($request->has('bunny_hls_url') && $request->get('bunny_hls_url') === '') {
+                $requestData['bunny_hls_url'] = null;
+            }
+            if ($request->has('bunny_embed_url') && $request->get('bunny_embed_url') === '') {
+                $requestData['bunny_embed_url'] = null;
+            }
+            if ($request->has('bunny_video_url') && $request->get('bunny_video_url') === '') {
+                $requestData['bunny_video_url'] = null;
+            }
+            $request->merge($requestData);
 
             $validated = $request->validate([
                 'title' => 'sometimes|required|string|max:255',
                 'description' => 'nullable|string',
                 'bunny_video_id' => 'nullable|string|max:255',
                 'bunny_video_url' => 'nullable|url|max:500',
-                'bunny_embed_url' => 'sometimes|required|url|max:500',
+                'bunny_embed_url' => 'nullable|url|max:500',
+                'bunny_hls_url' => 'nullable|string|max:1000', // HLS URL for video playback
                 'bunny_thumbnail_url' => 'nullable|url|max:500',
                 'thumbnail_url' => 'nullable|url|max:500',
                 'duration' => 'nullable|integer|min:0',
@@ -540,7 +569,7 @@ class LiveArchiveVideoController extends Controller
 
             // Extract Bunny.net video ID from embed URL if not provided
             if (!isset($validated['bunny_video_id']) && isset($validated['bunny_embed_url'])) {
-                $bunnyVideoId = $this->extractBunnyVideoId($validated['bunny_embed_url']);
+                $bunnyVideoId = $this->extractBunnyVideoId($validated['bunny_embed_url'] ?? null, $validated['bunny_hls_url'] ?? null);
                 if ($bunnyVideoId) {
                     $validated['bunny_video_id'] = $bunnyVideoId;
                 }
@@ -549,7 +578,7 @@ class LiveArchiveVideoController extends Controller
             // Auto-extract duration from Bunny.net if bunny_embed_url or bunny_video_id is updated
             if ((isset($validated['bunny_embed_url']) || isset($validated['bunny_video_id'])) && 
                 (!isset($validated['duration']) || $validated['duration'] == 0)) {
-                $bunnyVideoId = $validated['bunny_video_id'] ?? $this->extractBunnyVideoId($validated['bunny_embed_url'] ?? $video->bunny_embed_url);
+                $bunnyVideoId = $validated['bunny_video_id'] ?? $this->extractBunnyVideoId($validated['bunny_embed_url'] ?? $video->bunny_embed_url ?? null, $validated['bunny_hls_url'] ?? null);
                 if ($bunnyVideoId) {
                     try {
                         $bunnyMetadata = $this->bunnyNetService->getVideo($bunnyVideoId);
@@ -666,8 +695,33 @@ class LiveArchiveVideoController extends Controller
     /**
      * Extract Bunny.net video ID from embed URL
      */
-    private function extractBunnyVideoId(?string $embedUrl): ?string
+    private function extractBunnyVideoId(?string $embedUrl = null, ?string $hlsUrl = null): ?string
     {
+        // If HLS URL is provided, extract video ID from it (priority)
+        if ($hlsUrl) {
+            // Format 1: Extract from token_path parameter (URL encoded or not)
+            // Example: token_path=%2Ff70e8def-51c2-4998-84e4-090a30bc3fc6%2F or token_path=/f70e8def-51c2-4998-84e4-090a30bc3fc6/
+            if (preg_match('/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 2: Extract from path before playlist.m3u8 (with or without query params)
+            // Example: /f70e8def-51c2-4998-84e4-090a30bc3fc6/playlist.m3u8 or /f70e8def-51c2-4998-84e4-090a30bc3fc6/playlist.m3u8?token=...
+            if (preg_match('/\/([a-f0-9\-]{36})\/playlist\.m3u8/', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 3: https://video.bunnycdn.com/{libraryId}/{videoId}/playlist.m3u8
+            if (preg_match('/\/\d+\/([a-f0-9\-]{36})\/playlist\.m3u8/', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 4: Any UUID in the path (fallback)
+            if (preg_match('/\/([a-f0-9\-]{36})\//', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+        }
+        
         if (!$embedUrl) {
             return null;
         }
@@ -765,6 +819,86 @@ class LiveArchiveVideoController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch subtitles',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get HLS URL for live archive video playback
+     */
+    public function getHlsUrl(Request $request, $id)
+    {
+        try {
+            $video = LiveArchiveVideo::where('status', 'published')
+                ->where('id', $id)
+                ->first();
+
+            if (!$video) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Video not found'
+                ], 404);
+            }
+
+            // Get language preference from request or default to 'en'
+            $language = $request->input('language', 'en');
+            $language = in_array($language, ['en', 'es', 'pt']) ? $language : 'en';
+
+            // Get Bunny.net video ID
+            $bunnyVideoId = $video->bunny_video_id;
+            
+            if (!$bunnyVideoId) {
+                // Try to extract from embed URL
+                $bunnyVideoId = $this->extractBunnyVideoId($video->bunny_embed_url ?? null, null);
+            }
+
+            if (!$bunnyVideoId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bunny.net video ID not found.',
+                ], 404);
+            }
+
+            // Get HLS URL from BunnyNetService
+            try {
+                $hlsUrl = $this->bunnyNetService->getSignedTranscriptionUrl($bunnyVideoId, 60, $language);
+                
+                if (!$hlsUrl) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to generate HLS URL.',
+                    ], 500);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'hls_url' => $hlsUrl,
+                    'video_id' => $video->id,
+                    'bunny_video_id' => $bunnyVideoId,
+                    'language' => $language,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error generating HLS URL for live archive video', [
+                    'video_id' => $video->id,
+                    'bunny_video_id' => $bunnyVideoId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate HLS URL: ' . $e->getMessage(),
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error in getHlsUrl for live archive video', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get HLS URL',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -928,6 +1062,70 @@ class LiveArchiveVideoController extends Controller
                 'success' => false,
                 'message' => 'Failed to fetch progress',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Process transcription for a live archive video (AI Caption Processing)
+     * Downloads existing captions from Bunny.net Storage for all languages (en, es, pt)
+     * 
+     * @param Request $request
+     * @param int $id Live Archive Video ID
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function processTranscription(Request $request, $id)
+    {
+        try {
+            // Only admins can trigger transcription processing
+            if (!Auth::user() || !Auth::user()->isAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Admin access required.',
+                ], 403);
+            }
+
+            $video = LiveArchiveVideo::findOrFail($id);
+
+            $validated = $request->validate([
+                'languages' => 'nullable|array',
+                'languages.*' => 'string|in:en,es,pt,fr,de,it',
+                'source_language' => 'nullable|string|in:en,es,pt,fr,de,it',
+            ]);
+
+            $languages = $validated['languages'] ?? ['en', 'es', 'pt'];
+            $sourceLanguage = $validated['source_language'] ?? 'es';
+
+            Log::info('Processing transcription for live archive video', [
+                'video_id' => $id,
+                'languages' => $languages,
+                'source_language' => $sourceLanguage,
+            ]);
+
+            $result = $this->transcriptionService->processVideoTranscription(
+                $video,
+                $languages,
+                $sourceLanguage
+            );
+
+            return response()->json($result, $result['success'] ? 200 : 500);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Live archive video not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error processing live archive video transcription', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process transcription',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

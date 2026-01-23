@@ -3212,12 +3212,33 @@ const Home = () => {
               {t('index.formats.title', 'Formatos Exclusivos')}
             </h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             {[
-              { id: 'reels', title: t('index.formats.reels_title', 'Reels'), subtitle: t('index.formats.reels', 'Técnica Rápida'), image: cover1 },
-              { id: 'rewind', title: t('index.formats.rewind_title', 'Rewind'), subtitle: t('index.formats.rewind', 'Archivo Histórico'), image: cover2 },
-              { id: 'challenges', title: t('index.formats.challenges_title', 'Challenges'), subtitle: t('index.formats.challenges', 'Desafíos Creativos'), image: cover3 },
-              { id: 'live', title: t('index.formats.live_title', 'Live'), subtitle: t('index.formats.live', 'Live Studio'), image: cover4, isLive: true }
+              { 
+                id: 'reels', 
+                title: t('index.formats.reels_title', 'Reels'), 
+                subtitle: t('index.formats.reels', 'Técnica Rápida'), 
+                image: heroSettings.homepage_reels_thumbnail || cover1 
+              },
+              { 
+                id: 'rewind', 
+                title: t('index.formats.rewind_title', 'Rewind'), 
+                subtitle: t('index.formats.rewind', 'Archivo Histórico'), 
+                image: heroSettings.homepage_rewind_thumbnail || cover2 
+              },
+              { 
+                id: 'challenges', 
+                title: t('index.formats.challenges_title', 'Challenges'), 
+                subtitle: t('index.formats.challenges', 'Desafíos Creativos'), 
+                image: heroSettings.homepage_challenges_thumbnail || cover3 
+              },
+              { 
+                id: 'live', 
+                title: t('index.formats.live_title', 'Live'), 
+                subtitle: t('index.formats.live', 'Live Studio'), 
+                image: heroSettings.homepage_live_thumbnail || cover4, 
+                isLive: true 
+              }
             ].map((format, index) => (
               <div
                 key={format.id}
@@ -3234,7 +3255,7 @@ const Home = () => {
                     navigateWithLocale('/browse');
                   }
                 }}
-                className="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-2xl hover:z-10 transition-all duration-500 hover:scale-[1.02]"
+                className="group relative aspect-[9/16] bg-[#000] rounded-sm overflow-hidden cursor-pointer shadow-lg hover:z-10 transition-all duration-300 hover:scale-[1.05]"
               >
                 <div
                   className="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-100 group-hover:scale-110"
@@ -3242,16 +3263,16 @@ const Home = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
                 {format.isLive && (
-                  <div className="absolute top-4 left-4 flex items-center gap-1 bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white">
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-red-600 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider text-white">
                     <span className="size-1.5 bg-white rounded-full animate-pulse" />
                     Live
                   </div>
                 )}
-                <div className="absolute bottom-4 sm:bottom-8 left-0 w-full text-center z-10 p-2 sm:p-4">
-                  <h3 className="text-xl sm:text-2xl md:text-3xl font-serif font-medium text-white mb-1 sm:mb-2 tracking-wide group-hover:text-primary transition-colors">
+                <div className="absolute bottom-2 left-0 w-full text-center z-10 p-2 sm:p-3">
+                  <h3 className="text-xl font-serif font-medium text-white mb-1 tracking-wide group-hover:text-primary transition-colors">
                     {format.title}
                   </h3>
-                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 group-hover:text-white transition-colors">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 group-hover:text-white transition-colors">
                     {format.subtitle}
                   </p>
                 </div>

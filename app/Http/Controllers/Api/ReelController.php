@@ -31,10 +31,35 @@ class ReelController extends Controller
     /**
      * Extract Bunny.net video ID from embed URL or video ID
      */
-    private function extractBunnyVideoId(?string $embedUrl, ?string $videoId): ?string
+    private function extractBunnyVideoId(?string $embedUrl, ?string $videoId, ?string $hlsUrl = null): ?string
     {
         if ($videoId) {
             return $videoId;
+        }
+        
+        // If HLS URL is provided, extract video ID from it (priority)
+        if ($hlsUrl) {
+            // Format 1: Extract from token_path parameter (URL encoded or not)
+            // Example: token_path=%2Ff70e8def-51c2-4998-84e4-090a30bc3fc6%2F or token_path=/f70e8def-51c2-4998-84e4-090a30bc3fc6/
+            if (preg_match('/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 2: Extract from path before playlist.m3u8 (with or without query params)
+            // Example: /f70e8def-51c2-4998-84e4-090a30bc3fc6/playlist.m3u8 or /f70e8def-51c2-4998-84e4-090a30bc3fc6/playlist.m3u8?token=...
+            if (preg_match('/\/([a-f0-9\-]{36})\/playlist\.m3u8/', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 3: https://video.bunnycdn.com/{libraryId}/{videoId}/playlist.m3u8
+            if (preg_match('/\/\d+\/([a-f0-9\-]{36})\/playlist\.m3u8/', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
+            
+            // Format 4: Any UUID in the path (fallback)
+            if (preg_match('/\/([a-f0-9\-]{36})\//', $hlsUrl, $matches)) {
+                return $matches[1];
+            }
         }
         
         if ($embedUrl) {
@@ -165,6 +190,17 @@ class ReelController extends Controller
             $requestData['translations'] = null;
         }
         
+        // Normalize empty strings to null for URL fields
+        if ($request->has('bunny_hls_url') && $request->get('bunny_hls_url') === '') {
+            $requestData['bunny_hls_url'] = null;
+        }
+        if ($request->has('bunny_embed_url') && $request->get('bunny_embed_url') === '') {
+            $requestData['bunny_embed_url'] = null;
+        }
+        if ($request->has('bunny_video_url') && $request->get('bunny_video_url') === '') {
+            $requestData['bunny_video_url'] = null;
+        }
+        
         $request->merge($requestData);
 
         $validated = $request->validate([
@@ -173,7 +209,8 @@ class ReelController extends Controller
             'short_description' => 'nullable|string|max:500',
             'bunny_video_id' => 'nullable|string|max:255',
             'bunny_video_url' => 'nullable|url|max:500',
-            'bunny_embed_url' => 'required_without_all:video_url,video_file_path|url|max:500',
+            'bunny_embed_url' => 'nullable|url|max:500',
+            'bunny_hls_url' => 'nullable|string|max:1000', // HLS URL for video playback
             'bunny_thumbnail_url' => 'nullable|url|max:500',
             'video_url' => 'nullable|url|max:255',
             'video_file_path' => 'nullable|string|max:255',
@@ -317,6 +354,71 @@ class ReelController extends Controller
     /**
      * Display the specified reel.
      */
+    /**
+     * Get HLS URL for reel playback
+     */
+    public function getHlsUrl(Request $request, Reel $reel): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$reel->isAccessibleTo($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have access to this reel.',
+            ], 403);
+        }
+
+        // Get language preference from request or default to 'en'
+        $language = $request->input('language', 'en');
+        $language = in_array($language, ['en', 'es', 'pt']) ? $language : 'en';
+
+        // Get Bunny.net video ID
+        $bunnyVideoId = $reel->bunny_video_id;
+        
+        if (!$bunnyVideoId) {
+            // Try to extract from embed URL
+            $bunnyVideoId = $this->extractBunnyVideoId($reel->bunny_embed_url, null);
+        }
+
+        if (!$bunnyVideoId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bunny.net video ID not found.',
+            ], 404);
+        }
+
+        // Get HLS URL from BunnyNetService
+        try {
+            $hlsUrl = $this->bunnyNetService->getSignedTranscriptionUrl($bunnyVideoId, 60, $language);
+            
+            if (!$hlsUrl) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate HLS URL.',
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'hls_url' => $hlsUrl,
+                'reel_id' => $reel->id,
+                'bunny_video_id' => $bunnyVideoId,
+                'language' => $language,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error generating HLS URL for reel', [
+                'reel_id' => $reel->id,
+                'bunny_video_id' => $bunnyVideoId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate HLS URL: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function show(Reel $reel): JsonResponse
     {
         $user = Auth::user();
@@ -398,6 +500,17 @@ class ReelController extends Controller
             $requestData['translations'] = $translations;
         } else {
             $requestData['translations'] = null;
+        }
+        
+        // Normalize empty strings to null for URL fields
+        if ($request->has('bunny_hls_url') && $request->get('bunny_hls_url') === '') {
+            $requestData['bunny_hls_url'] = null;
+        }
+        if ($request->has('bunny_embed_url') && $request->get('bunny_embed_url') === '') {
+            $requestData['bunny_embed_url'] = null;
+        }
+        if ($request->has('bunny_video_url') && $request->get('bunny_video_url') === '') {
+            $requestData['bunny_video_url'] = null;
         }
         
         $request->merge($requestData);

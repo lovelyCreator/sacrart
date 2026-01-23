@@ -136,6 +136,7 @@ export interface Video {
   bunny_video_id?: string | null;
   bunny_video_url?: string | null;
   bunny_embed_url?: string | null;
+  bunny_hls_url?: string | null; // HLS URL for video playback
   bunny_thumbnail_url?: string | null;
   bunny_player_url?: string | null;
   thumbnail: string | null;
@@ -444,6 +445,13 @@ export const seriesApi = {
 
 // Video API
 export const videoApi = {
+  getHlsUrl: async (videoId: number, language: string = 'en') => {
+    const queryString = `?language=${language}`;
+    const response = await fetch(`${API_BASE_URL}/videos/${videoId}/hls-url${queryString}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; hls_url: string; video_id: number; bunny_video_id: string; language: string }>(response);
+  },
   async getAll(params?: { 
     search?: string; 
     category_id?: number; 
@@ -682,6 +690,7 @@ export interface Reel {
   bunny_video_id?: string | null;
   bunny_video_url?: string | null;
   bunny_embed_url?: string | null;
+  bunny_hls_url?: string | null; // HLS URL for video playback
   bunny_thumbnail_url?: string | null;
   bunny_player_url?: string | null;
   video_url?: string | null;
@@ -772,6 +781,13 @@ export interface Rewind {
 
 // Reel API
 export const reelApi = {
+  getHlsUrl: async (reelId: number, language: string = 'en') => {
+    const queryString = `?language=${language}`;
+    const response = await fetch(`${API_BASE_URL}/reels/${reelId}/hls-url${queryString}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; hls_url: string; reel_id: number; bunny_video_id: string; language: string }>(response);
+  },
   getAll: async (params?: Record<string, any>) => {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -1158,7 +1174,9 @@ export interface LiveArchiveVideo {
   description?: string | null;
   bunny_video_id?: string | null;
   bunny_video_url?: string | null;
-  bunny_embed_url: string;
+  bunny_embed_url?: string | null;
+  bunny_player_url?: string | null;
+  bunny_hls_url?: string | null; // HLS URL for video playback
   bunny_thumbnail_url?: string | null;
   thumbnail_url?: string | null;
   duration: number;
@@ -1176,6 +1194,7 @@ export interface LiveArchiveVideo {
   archived_at?: string | null;
   created_at: string;
   updated_at: string;
+  caption_urls?: Record<string, string> | null;
   translations?: {
     title?: { en?: string; es?: string; pt?: string };
     description?: { en?: string; es?: string; pt?: string };
@@ -1183,6 +1202,13 @@ export interface LiveArchiveVideo {
 }
 
 export const liveArchiveVideoApi = {
+  getHlsUrl: async (videoId: number, language: string = 'en') => {
+    const queryString = `?language=${language}`;
+    const response = await fetch(`${API_BASE_URL}/live-archive-videos/${videoId}/hls-url${queryString}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ success: boolean; hls_url: string; video_id: number; bunny_video_id: string; language: string }>(response);
+  },
   getAll: async (params?: Record<string, any>) => {
     const queryParams = new URLSearchParams();
     if (params) {

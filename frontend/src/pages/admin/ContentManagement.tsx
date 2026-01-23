@@ -60,7 +60,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Subtitles,
-  Loader2
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -161,6 +163,20 @@ const ContentManagement = () => {
   useEffect(() => {
     fetchContent();
   }, []); // Only fetch on mount, not when contentLocale changes
+
+  // Initialize filtered arrays when switching tabs
+  useEffect(() => {
+    // When switching to a tab, ensure filtered array is initialized
+    if (activeTab === 'videos' && videos.length > 0 && filteredVideos.length === 0 && searchTerm === '') {
+      // If switching to videos tab and videos are loaded but filteredVideos is empty and no search term, initialize it
+      console.log('📹 Initializing filteredVideos on tab switch:', videos.length, 'videos');
+      setFilteredVideos(videos);
+    } else if (activeTab === 'series' && series.length > 0 && filteredSeries.length === 0 && searchTerm === '') {
+      setFilteredSeries(series);
+    } else if (activeTab === 'categories' && categories.length > 0 && filteredCategories.length === 0 && searchTerm === '') {
+      setFilteredCategories(categories);
+    }
+  }, [activeTab, videos.length, series.length, categories.length]); // Trigger when tab changes or data loads
 
   const fetchContent = async () => {
     try {
@@ -277,6 +293,8 @@ const ContentManagement = () => {
       if (videosResponse.status === 'fulfilled') {
         const response = videosResponse.value;
         
+        console.log('📹 Videos API Response:', response);
+        
         // Handle paginated response structure
         let videosData: any[] = [];
         if (response && response.success && response.data) {
@@ -293,6 +311,8 @@ const ContentManagement = () => {
           console.error('Videos response not successful or missing data:', response);
           videosData = [];
         }
+        
+        console.log('📹 Processed videos data:', videosData.length, 'videos');
         
         // Ensure translations are loaded for each video
         const videosWithTranslations = videosData.map((video: any) => {
@@ -331,6 +351,7 @@ const ContentManagement = () => {
           }
           return video;
         });
+        console.log('📹 Setting videos state:', videosWithTranslations.length, 'videos');
         setVideos(videosWithTranslations);
         setFilteredVideos(videosWithTranslations);
       } else {
@@ -1207,7 +1228,7 @@ const ContentManagement = () => {
       setIsSubmitting(true);
 
       // Create payload with both category_id and series_id (videos belong to both Category and Series)
-      const { bunny_video_id, bunny_video_url, bunny_embed_url, bunny_thumbnail_url, ...restVideoData } = selectedVideo;
+      const { bunny_video_id, bunny_video_url, bunny_embed_url, bunny_hls_url, bunny_thumbnail_url, ...restVideoData } = selectedVideo;
       
       // Get category_id from the selected series if not already set
       const categoryId = selectedVideo.category_id || 
@@ -1236,8 +1257,11 @@ const ContentManagement = () => {
         },
       };
       
-      // Only include bunny fields if they have actual non-empty values
-      // This prevents errors if the database doesn't have these columns
+      // Always include bunny_hls_url (even if empty, to allow clearing the field)
+      // Use the value directly from selectedVideo to ensure it's included
+      // Trim the value and convert empty string to null
+      const hlsUrlValue = selectedVideo.bunny_hls_url?.trim() || '';
+      payload.bunny_hls_url = hlsUrlValue || null;
       if (bunny_embed_url && bunny_embed_url.trim()) {
         payload.bunny_embed_url = bunny_embed_url;
       }
@@ -1316,28 +1340,24 @@ const ContentManagement = () => {
 
   // Handle transcription processing
   const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
-  const [transcriptionDialogOpen, setTranscriptionDialogOpen] = useState(false);
-  const [selectedVideoForTranscription, setSelectedVideoForTranscription] = useState<number | null>(null);
-  const [selectedSourceLanguage, setSelectedSourceLanguage] = useState<'en' | 'es' | 'pt'>('en');
   
   const handleProcessTranscription = async (videoId: number) => {
-    // Open dialog to select source language
-    setSelectedVideoForTranscription(videoId);
-    setSelectedSourceLanguage('en'); // Default to English
-    setTranscriptionDialogOpen(true);
-  };
-
-  const handleConfirmProcessTranscription = async () => {
-    if (!selectedVideoForTranscription) return;
-
-    setTranscriptionDialogOpen(false);
-    setProcessingTranscription(prev => ({ ...prev, [selectedVideoForTranscription]: true }));
+    // Process transcription directly without showing modal
+    setProcessingTranscription(prev => ({ ...prev, [videoId]: true }));
 
     try {
+      const video = videos.find(v => v.id === videoId);
+      if (!video || (!video.bunny_video_id && !video.bunny_embed_url)) {
+        toast.error('Video does not have a Bunny.net video ID or embed URL');
+        setProcessingTranscription(prev => ({ ...prev, [videoId]: false }));
+        return;
+      }
+
+      // Use 'en' as default source language
       const result = await videoApi.processTranscription(
-        selectedVideoForTranscription, 
+        videoId, 
         ['en', 'es', 'pt'], 
-        selectedSourceLanguage
+        'en'
       );
       
       if (result.success) {
@@ -1351,9 +1371,13 @@ const ContentManagement = () => {
       console.error('Transcription processing error:', error);
       toast.error(error.message || 'An error occurred while processing transcription');
     } finally {
-      setProcessingTranscription(prev => ({ ...prev, [selectedVideoForTranscription]: false }));
-      setSelectedVideoForTranscription(null);
+      setProcessingTranscription(prev => ({ ...prev, [videoId]: false }));
     }
+  };
+
+  const handleConfirmProcessTranscription = async () => {
+    // This function is kept for backward compatibility but is no longer used
+    // The modal is no longer shown, so this function won't be called
   };
 
   const handleDeleteVideo = async (videoId: number) => {
@@ -2350,7 +2374,7 @@ const ContentManagement = () => {
                                 Fetch Duration
                             </DropdownMenuItem>
                               )}
-                            {video.bunny_video_id && (
+                            {(video.bunny_video_id || video.bunny_embed_url) && (
                               <DropdownMenuItem 
                                 onClick={() => handleProcessTranscription(video.id)}
                                 disabled={processingTranscription[video.id]}
@@ -2454,6 +2478,19 @@ const ContentManagement = () => {
                           ? 'Remove from Featured Process' 
                           : 'Add to Featured Process'}
                       </DropdownMenuItem>
+                      {(video.bunny_video_id || video.bunny_embed_url) && (
+                        <DropdownMenuItem 
+                          onClick={() => handleProcessTranscription(video.id)}
+                          disabled={processingTranscription[video.id]}
+                        >
+                          {processingTranscription[video.id] ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Subtitles className="mr-2 h-4 w-4" />
+                          )}
+                          Process Captions (AI)
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem 
                         onClick={() => handleDeleteVideo(video.id)}
                         className="text-destructive"
@@ -3135,58 +3172,93 @@ const ContentManagement = () => {
               {/* Bunny.net Video Settings */}
               <div className="border-t pt-4 mt-4">
                 <h3 className="text-lg font-semibold mb-4">Bunny.net Video Settings</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="bunnyEmbedUrl">
-                      Bunny Embed URL <span className="text-red-500">*</span>
+                      Embed URL (Iframe) <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="bunnyEmbedUrl"
-                      value={selectedVideo.bunny_embed_url || ''}
+                      value={selectedVideo.bunny_embed_url || selectedVideo.bunny_player_url || ''}
                       onChange={(e) => {
                         setSelectedVideo({
-                        ...selectedVideo,
-                        bunny_embed_url: e.target.value,
+                          ...selectedVideo,
+                          bunny_embed_url: e.target.value,
+                          bunny_player_url: e.target.value,
                         });
                       }}
-                      onBlur={() => {
-                        if (selectedVideo.bunny_embed_url || selectedVideo.bunny_video_id) {
-                          fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
+                      onBlur={async () => {
+                        if (selectedVideo.bunny_embed_url && selectedVideo.bunny_embed_url.trim()) {
+                          // Extract video ID from embed URL
+                          const embedUrl = selectedVideo.bunny_embed_url;
+                          let videoId = null;
+                          
+                          // Try to extract from /play/ format
+                          const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
+                          if (playMatch) {
+                            videoId = playMatch[2];
+                          } else {
+                            // Try to extract from /embed/ format
+                            const embedMatch = embedUrl.match(/\/embed\/(\d+)\/([^/?]+)/);
+                            if (embedMatch) {
+                              videoId = embedMatch[2];
+                            }
+                          }
+                          
+                          if (videoId) {
+                            setSelectedVideo({
+                              ...selectedVideo,
+                              bunny_video_id: videoId,
+                            });
+                            // Fetch metadata using extracted video ID
+                            fetchBunnyVideoMetadata(undefined, videoId);
+                          }
                         }
                       }}
-                      placeholder="https://iframe.mediadelivery.net/embed/{library}/{video}"
+                      placeholder="https://iframe.mediadelivery.net/embed/{libraryId}/{videoId}"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Paste the Bunny.net embed URL from your Bunny dashboard.
+                      Paste the Bunny.net embed URL (iframe URL). This is the primary method for video playback. Video ID will be auto-extracted.
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bunnyVideoId">Bunny Video ID (optional)</Label>
+                    <Label htmlFor="bunnyHlsUrl">
+                      HLS Video URL <span className="text-xs text-muted-foreground">(Optional)</span>
+                    </Label>
                     <Input
-                      id="bunnyVideoId"
-                      value={selectedVideo.bunny_video_id || ''}
+                      id="bunnyHlsUrl"
+                      value={selectedVideo.bunny_hls_url || ''}
                       onChange={(e) => {
-                        const videoId = e.target.value;
                         setSelectedVideo({
-                      ...selectedVideo,
-                          bunny_video_id: videoId,
+                          ...selectedVideo,
+                          bunny_hls_url: e.target.value,
                         });
-                        // Fetch metadata if video ID is provided
-                        if (videoId) {
-                          setTimeout(() => {
-                            fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, videoId);
-                          }, 1000);
+                      }}
+                      onBlur={async () => {
+                        if (selectedVideo.bunny_hls_url && selectedVideo.bunny_hls_url.trim()) {
+                          // Extract video ID from HLS URL and fetch metadata
+                          const hlsUrlValue = selectedVideo.bunny_hls_url;
+                          // Try to extract from token_path parameter first (URL encoded or not)
+                          let match = hlsUrlValue.match(/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/);
+                          // If not found, try to extract from path before playlist.m3u8
+                          if (!match || !match[1]) {
+                            match = hlsUrlValue.match(/\/([a-f0-9\-]{36})\/playlist\.m3u8/);
+                          }
+                          if (match && match[1]) {
+                            const videoId = match[1];
+                            setSelectedVideo({
+                              ...selectedVideo,
+                              bunny_video_id: videoId,
+                            });
+                            // Fetch metadata using extracted video ID
+                            fetchBunnyVideoMetadata(undefined, videoId);
+                          }
                         }
                       }}
-                      onBlur={() => {
-                        if (selectedVideo.bunny_video_id || selectedVideo.bunny_embed_url) {
-                          fetchBunnyVideoMetadata(selectedVideo.bunny_embed_url || undefined, selectedVideo.bunny_video_id || undefined);
-                        }
-                      }}
-                      placeholder="Video GUID from Bunny (optional)"
+                      placeholder="https://vz-xxxxx.b-cdn.net/{videoId}/playlist.m3u8"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Optional: Video ID will be auto-extracted from embed URL.
+                      Optional: Paste the Bunny.net HLS URL (playlist.m3u8) for advanced use cases. Video ID will be auto-extracted.
                     </p>
                   </div>
                 </div>
@@ -3290,110 +3362,6 @@ const ContentManagement = () => {
             </Button>
             <Button onClick={handleSaveVideo} disabled={isSubmitting} className="min-w-[140px]">
               {isSubmitting ? 'Saving...' : (selectedVideo?.id ? 'Save Changes' : 'Create Episode')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Source Language Selection Dialog */}
-      <Dialog open={transcriptionDialogOpen} onOpenChange={setTranscriptionDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>🎙️ Select Video Source Language</DialogTitle>
-            <DialogDescription>
-              Choose the original language of this video. This is important for audio dubbing:<br/><br/>
-              <strong>• Source language:</strong> Will use the video's original audio<br/>
-              <strong>• Other languages:</strong> Will generate TTS (text-to-speech) dubbed audio
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-3">
-              <Label>Original Video Language</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  type="button"
-                  variant={selectedSourceLanguage === 'en' ? 'default' : 'outline'}
-                  onClick={() => setSelectedSourceLanguage('en')}
-                  className="flex items-center justify-center h-20 flex-col gap-2"
-                >
-                  <span className="text-2xl">🇬🇧</span>
-                  <span className="font-semibold">English</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={selectedSourceLanguage === 'es' ? 'default' : 'outline'}
-                  onClick={() => setSelectedSourceLanguage('es')}
-                  className="flex items-center justify-center h-20 flex-col gap-2"
-                >
-                  <span className="text-2xl">🇪🇸</span>
-                  <span className="font-semibold">Español</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={selectedSourceLanguage === 'pt' ? 'default' : 'outline'}
-                  onClick={() => setSelectedSourceLanguage('pt')}
-                  className="flex items-center justify-center h-20 flex-col gap-2"
-                >
-                  <span className="text-2xl">🇧🇷</span>
-                  <span className="font-semibold">Português</span>
-                </Button>
-              </div>
-            </div>
-
-            <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
-              <div className="font-semibold">What will be generated:</div>
-              <div className="space-y-1">
-                {selectedSourceLanguage === 'en' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span>🎬</span> <strong>EN:</strong> Original video audio (best quality)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
-                    </div>
-                  </>
-                )}
-                {selectedSourceLanguage === 'es' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🎬</span> <strong>ES:</strong> Original video audio (best quality)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
-                    </div>
-                  </>
-                )}
-                {selectedSourceLanguage === 'pt' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🎬</span> <strong>PT:</strong> Original video audio (best quality)
-                    </div>
-                  </>
-                )}
-                <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
-                  <span>📝</span> All languages will have captions uploaded to Bunny.net
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTranscriptionDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmProcessTranscription}>
-              Process Transcription
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -32,6 +32,7 @@ const RewindEpisodes = () => {
   const [transcriptionText, setTranscriptionText] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const bunnyPlayerRef = useRef<any>(null);
+  const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
 
   // Load Player.js library for Bunny.net iframe control
   useEffect(() => {
@@ -207,15 +208,48 @@ const RewindEpisodes = () => {
   useEffect(() => {
     if (transcription.length === 0 || currentTime === undefined) return;
 
-    setTranscription(prevSegments => {
-      const updated = prevSegments.map(segment => {
-        // Check if current time is within this segment's time range
-        const isActive = currentTime >= segment.startTime && currentTime < segment.endTime;
-        return { ...segment, isActive };
-      });
+    // Find the active segment index first (synchronously)
+    const activeIndex = transcription.findIndex(
+      segment => currentTime >= segment.startTime && currentTime < segment.endTime
+    );
 
+    // Update the active state
+    setTranscription(prevSegments => {
+      const updated = prevSegments.map((segment, index) => ({
+        ...segment,
+        isActive: index === activeIndex
+      }));
       return updated;
     });
+
+    // Auto-scroll within container only (don't scroll the page)
+    if (activeIndex >= 0 && transcriptionScrollRef.current) {
+      setTimeout(() => {
+        const activeElement = document.getElementById(`transcript-segment-${activeIndex}`);
+        if (activeElement && transcriptionScrollRef.current) {
+          const container = transcriptionScrollRef.current;
+          
+          // Get accurate position using getBoundingClientRect
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = activeElement.getBoundingClientRect();
+          
+          // Calculate element's position relative to the container's visible area
+          const elementTopRelative = elementRect.top - containerRect.top;
+          const elementBottomRelative = elementRect.bottom - containerRect.top;
+          const containerHeight = container.clientHeight;
+          
+          // Check if element is outside visible area
+          const isAbove = elementTopRelative < 0;
+          const isBelow = elementBottomRelative > containerHeight;
+          
+          if (isAbove || isBelow) {
+            // Calculate how much to scroll to center the element
+            const scrollOffset = elementTopRelative - (containerHeight / 2) + (elementRect.height / 2);
+            container.scrollTop = container.scrollTop + scrollOffset;
+          }
+        }
+      }, 50);
+    }
   }, [currentTime, transcription.length]);
 
   // Load transcription from video data or API (like EpisodeDetail)
@@ -772,49 +806,77 @@ const RewindEpisodes = () => {
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto relative">
             {activeTab === 'transcripcion' ? (
-              <div className="py-6 space-y-8 max-w-3xl">
-                
+              <div className="py-6 max-w-4xl">
+                {/* TED Talks style transcription with clickable timestamps */}
                 {transcription.length > 0 ? (
-                  transcription.map((segment, index) => (
-                    <div
-                      id={`transcript-segment-${index}`}
-                      key={index}
-                      onClick={() => {
-                        // Seek to this segment's start time
-                        if (currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url)) {
-                          if (bunnyPlayerRef.current) {
-                            try {
-                              bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                              setCurrentTime(segment.startTime);
-                            } catch (error) {
-                              console.error('Error seeking to segment:', error);
+                  <div 
+                    ref={transcriptionScrollRef}
+                    className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: '#A05245 #2a2a2a'
+                    }}
+                  >
+                    <div className="space-y-4">
+                    {transcription.map((segment, index) => (
+                      <div
+                        id={`transcript-segment-${index}`}
+                        key={index}
+                        onClick={() => {
+                          // Seek to this segment's start time
+                          if (currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url)) {
+                            if (bunnyPlayerRef.current) {
+                              try {
+                                bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                setCurrentTime(segment.startTime);
+                              } catch (error) {
+                                console.error('Error seeking to segment:', error);
+                              }
                             }
                           }
-                        }
-                      }}
-                      className={`group flex gap-6 transition-all duration-200 ${
-                        segment.isActive
-                          ? 'relative opacity-100'
-                          : 'opacity-60 hover:opacity-90 cursor-pointer'
-                      }`}
-                    >
-                      {segment.isActive && (
-                        <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r transition-all"></div>
-                      )}
-                      <span className={`font-mono text-xs pt-1 min-w-[3rem] transition-colors ${
-                        segment.isActive ? 'text-[#A05245] font-bold' : 'text-gray-500'
-                      }`}>
-                        {segment.time}
-                      </span>
-                      <p className={`leading-relaxed transition-all ${
-                        segment.isActive
-                          ? 'text-lg text-white font-semibold'
-                          : 'text-base text-gray-300 font-normal'
-                      }`}>
-                        {segment.text}
-                      </p>
+                        }}
+                        className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                          segment.isActive
+                            ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
+                            : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                        }`}
+                      >
+                        {/* Timestamp - TED Talks style */}
+                        <button
+                          className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                            segment.isActive 
+                              ? 'text-[#A05245] font-bold' 
+                              : 'text-gray-400 hover:text-[#A05245]'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url)) {
+                              if (bunnyPlayerRef.current) {
+                                try {
+                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                  setCurrentTime(segment.startTime);
+                                } catch (error) {
+                                  console.error('Error seeking to segment:', error);
+                                }
+                              }
+                            }
+                          }}
+                        >
+                          {segment.time}
+                        </button>
+                        
+                        {/* Text content */}
+                        <p className={`flex-1 leading-relaxed transition-all ${
+                          segment.isActive
+                            ? 'text-white font-medium text-base'
+                            : 'text-gray-300 font-normal text-base'
+                        }`}>
+                          {segment.text}
+                        </p>
+                      </div>
+                    ))}
                     </div>
-                  ))
+                  </div>
                 ) : transcriptionText ? (
                   <div className="prose dark:prose-invert max-w-none">
                     <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
@@ -822,10 +884,8 @@ const RewindEpisodes = () => {
                     </pre>
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <p className="text-gray-400 text-lg">
-                      {t('rewind.no_transcription', 'No transcription available for this video')}
-                    </p>
+                  <div className="text-center text-gray-400 py-8">
+                    <p className="text-base">{t('rewind.no_transcription', 'No transcription available for this video')}</p>
                   </div>
                 )}
               </div>

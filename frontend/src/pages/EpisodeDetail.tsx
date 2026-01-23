@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Play, 
+  Pause,
   Lock,
   ThumbsUp,
   ThumbsDown,
@@ -68,6 +69,7 @@ const EpisodeDetail = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const bunnyPlayerRef = useRef<any>(null);
   const shouldAutoPlayRef = useRef<boolean>(false); // Track if we should autoplay when player is ready
+  const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -241,6 +243,18 @@ const EpisodeDetail = () => {
     }
   }, [userProgress, video]);
 
+  // Show video player automatically when video loads (if user has access)
+  useEffect(() => {
+    if (!video) return;
+    
+    const hasAccess = canAccessVideo(video.visibility);
+    if (hasAccess && (video.bunny_embed_url || video.bunny_player_url)) {
+      // Automatically show video player when page loads
+      setShowVideoPlayer(true);
+      setVideoStarted(true);
+    }
+  }, [video?.id, video?.visibility, video?.bunny_embed_url, video?.bunny_player_url]);
+
   // Initialize Bunny.net player when iframe loads (always show iframe if has access)
   useEffect(() => {
     if (!video) return;
@@ -275,7 +289,7 @@ const EpisodeDetail = () => {
           bunnyPlayerRef.current = player;
           // console.log('✅ Player stored in ref, waiting for userProgress to load...');
           
-          // Set up a timeout as fallback - if userProgress doesn't load within 3 seconds, play from start
+          // Set up a timeout as fallback - if userProgress doesn't load within 2 seconds, play from start
           const timeoutId = setTimeout(() => {
             if (!hasSeekedToSavedPosition.current) {
               console.log('⏰ Timeout waiting for userProgress, playing from start');
@@ -291,10 +305,28 @@ const EpisodeDetail = () => {
                 setIsPlaying(false);
               }
             }
-          }, 3000);
+          }, 2000); // Reduced from 3000 to 2000 for faster autoplay
           
           // Store timeout ID for cleanup
           (player as any)._seekTimeout = timeoutId;
+          
+          // Also try to autoplay immediately if no userProgress (for faster autoplay)
+          if (!userProgress && !hasSeekedToSavedPosition.current) {
+            setTimeout(() => {
+              if (!hasSeekedToSavedPosition.current && bunnyPlayerRef.current) {
+                try {
+                  bunnyPlayerRef.current.play();
+                  setIsPlaying(true);
+                  setVideoStarted(true);
+                  setShowVideoPlayer(true);
+                  hasSeekedToSavedPosition.current = true;
+                  console.log('▶️ Video autoplay started immediately (no userProgress)');
+                } catch (error) {
+                  console.error('Error autoplaying video immediately:', error);
+                }
+              }
+            }, 500);
+          }
           
           // Duration is already saved in database from backend, no need to fetch here
           // Just get current time for progress tracking
@@ -390,66 +422,67 @@ const EpisodeDetail = () => {
     };
   }, [video?.id, video?.bunny_embed_url, video?.bunny_player_url, video?.visibility, video?.duration, user, saveProgressToDatabase]);
 
-  // When userProgress loads and player is ready, seek and play
+  // Autoplay when player is ready and userProgress is available (or not)
   useEffect(() => {
-    if (!bunnyPlayerRef.current || hasSeekedToSavedPosition.current || !userProgress || !video) return;
+    if (!bunnyPlayerRef.current || !video || hasSeekedToSavedPosition.current) return;
     
-    const savedTime = userProgress.time_watched || userProgress.last_position || 0;
-    const videoDuration = video.duration || 0;
-    const progressPercent = userProgress.progress_percentage || 0;
-    
-    console.log('📊 UserProgress loaded, attempting seek and play:', {
-      savedTime,
-      videoDuration,
-      progressPercent,
-      hasSeeked: hasSeekedToSavedPosition.current
-    });
-    
-    // If there's saved progress and video isn't completed, seek first then play
-    if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
-      console.log(`⏩ Seeking to saved position before autoplay: ${savedTime} seconds`);
-      hasSeekedToSavedPosition.current = true;
+    // If userProgress exists, use it; otherwise autoplay from start
+    if (userProgress) {
+      const savedTime = userProgress.time_watched || userProgress.last_position || 0;
+      const videoDuration = video.duration || 0;
+      const progressPercent = userProgress.progress_percentage || 0;
       
-      // Clear any timeout that might be waiting
-      if ((bunnyPlayerRef.current as any)._seekTimeout) {
-        clearTimeout((bunnyPlayerRef.current as any)._seekTimeout);
-      }
+      console.log('📊 UserProgress loaded, attempting seek and play:', {
+        savedTime,
+        videoDuration,
+        progressPercent,
+        hasSeeked: hasSeekedToSavedPosition.current
+      });
       
-      // Seek to saved position first using setCurrentTime
-      try {
-        bunnyPlayerRef.current.setCurrentTime(savedTime);
-        setCurrentTime(savedTime);
-        console.log(`✅ Successfully seeked to ${savedTime} seconds, starting playback`);
+      // If there's saved progress and video isn't completed, seek first then play
+      if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90) {
+        console.log(`⏩ Seeking to saved position before autoplay: ${savedTime} seconds`);
+        hasSeekedToSavedPosition.current = true;
         
-        // Small delay to ensure seek completes before playing
-        setTimeout(() => {
+        // Clear any timeout that might be waiting
+        if ((bunnyPlayerRef.current as any)._seekTimeout) {
+          clearTimeout((bunnyPlayerRef.current as any)._seekTimeout);
+        }
+        
+        // Seek to saved position first using setCurrentTime
+        try {
+          bunnyPlayerRef.current.setCurrentTime(savedTime);
+          setCurrentTime(savedTime);
+          console.log(`✅ Successfully seeked to ${savedTime} seconds, starting playback`);
+          
+          // Small delay to ensure seek completes before playing
+          setTimeout(() => {
+            try {
+              bunnyPlayerRef.current.play();
+              setIsPlaying(true);
+              setVideoStarted(true);
+              setShowVideoPlayer(true);
+              console.log('▶️ Video autoplay started from saved position');
+            } catch (error) {
+              console.error('Error autoplaying video:', error);
+              setIsPlaying(false);
+            }
+          }, 100);
+        } catch (error) {
+          console.error('Error seeking to saved position:', error);
+          // Fallback: just play from start
           try {
             bunnyPlayerRef.current.play();
             setIsPlaying(true);
             setVideoStarted(true);
             setShowVideoPlayer(true);
-            console.log('▶️ Video autoplay started from saved position');
-          } catch (error) {
-            console.error('Error autoplaying video:', error);
+          } catch (playError) {
+            console.error('Error autoplaying video:', playError);
             setIsPlaying(false);
           }
-        }, 100);
-      } catch (error) {
-        console.error('Error seeking to saved position:', error);
-        // Fallback: just play from start
-        try {
-          bunnyPlayerRef.current.play();
-          setIsPlaying(true);
-          setVideoStarted(true);
-          setShowVideoPlayer(true);
-        } catch (playError) {
-          console.error('Error autoplaying video:', playError);
-          setIsPlaying(false);
         }
-      }
-    } else {
-      // No saved progress or already completed, just play from start
-      if (!hasSeekedToSavedPosition.current) {
+      } else {
+        // Saved progress exists but video is completed or no valid saved time, play from start
         hasSeekedToSavedPosition.current = true;
         
         // Clear any timeout
@@ -462,64 +495,37 @@ const EpisodeDetail = () => {
           setIsPlaying(true);
           setVideoStarted(true);
           setShowVideoPlayer(true);
-          console.log('▶️ Video autoplay started from beginning (no saved progress)');
+          console.log('▶️ Video autoplay started from beginning (saved progress but completed)');
         } catch (error) {
           console.error('Error autoplaying video:', error);
           setIsPlaying(false);
         }
       }
+    } else {
+      // No userProgress, autoplay from start
+      hasSeekedToSavedPosition.current = true;
+      
+      // Clear any timeout
+      if ((bunnyPlayerRef.current as any)._seekTimeout) {
+        clearTimeout((bunnyPlayerRef.current as any)._seekTimeout);
+      }
+      
+      try {
+        bunnyPlayerRef.current.play();
+        setIsPlaying(true);
+        setVideoStarted(true);
+        setShowVideoPlayer(true);
+        console.log('▶️ Video autoplay started from beginning (no saved progress)');
+      } catch (error) {
+        console.error('Error autoplaying video:', error);
+        setIsPlaying(false);
+      }
     }
   }, [userProgress, video]);
 
   // Seek to saved position when userProgress is loaded and player is ready
-  useEffect(() => {
-    if (!userProgress || !bunnyPlayerRef.current || !video || hasSeekedToSavedPosition.current) return;
-    
-    const savedTime = userProgress.time_watched || userProgress.last_position || 0;
-    const videoDuration = video.duration || 0;
-    const progressPercent = userProgress.progress_percentage || 0;
-    
-    // Only seek if there's a saved position, video isn't completed, and we haven't already seeked
-    // Check if currentTime is very close to 0 (within 2 seconds) to avoid seeking after video has progressed
-    if (savedTime > 0 && videoDuration > 0 && savedTime < videoDuration && progressPercent < 90 && currentTime < 2) {
-      console.log(`⏩ Seeking Bunny.net player to saved position: ${savedTime} seconds`);
-      hasSeekedToSavedPosition.current = true;
-      
-      try {
-        // Pause first, seek, then resume playing
-        bunnyPlayerRef.current.getPaused((paused: boolean) => {
-          const wasPlaying = !paused;
-          
-          if (!paused) {
-            bunnyPlayerRef.current.pause();
-          }
-          
-          try {
-            bunnyPlayerRef.current.setCurrentTime(savedTime);
-            setCurrentTime(savedTime);
-            console.log(`✅ Successfully seeked to ${savedTime} seconds`);
-            
-            // Small delay to ensure seek completes
-            setTimeout(() => {
-              // Resume playing if it was playing before
-              if (wasPlaying) {
-                bunnyPlayerRef.current.play();
-              }
-            }, 100);
-          } catch (error) {
-            console.error('Error seeking to saved position:', error);
-            // If seek fails, just resume playing
-            if (wasPlaying) {
-              bunnyPlayerRef.current.play();
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Error seeking to saved position:', error);
-        hasSeekedToSavedPosition.current = false; // Reset on error so we can retry
-      }
-    }
-  }, [userProgress, video, currentTime]);
+  // This useEffect is now handled by the main autoplay logic above
+  // Keeping this for backward compatibility but it should not trigger if the main one already handled it
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -873,6 +879,9 @@ const EpisodeDetail = () => {
       let transcriptionText: string | null = null;
       
       // First, try to get transcription from video data (if available)
+      // Prefer VTT format for proper timestamp parsing (like TED Talks)
+      let vttContent: string | null = null;
+      
       if (videoData && videoData.transcriptions && typeof videoData.transcriptions === 'object') {
         const transcriptions = videoData.transcriptions;
         console.log('📝 Transcriptions object:', transcriptions);
@@ -880,26 +889,54 @@ const EpisodeDetail = () => {
         
         if (transcriptions[finalLocale]) {
           console.log(`✅ Found transcription for locale "${finalLocale}":`, transcriptions[finalLocale]);
-          if (typeof transcriptions[finalLocale] === 'string') {
+          
+          // Prefer VTT content for proper timestamp parsing
+          if (transcriptions[finalLocale]?.vtt) {
+            vttContent = String(transcriptions[finalLocale].vtt).trim();
+            console.log('📄 Found VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions[finalLocale] === 'string') {
             const text = transcriptions[finalLocale].trim();
-            if (text) {
+            // Check if it's VTT format
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription string is VTT format, length:', vttContent.length);
+            } else {
               transcriptionText = text;
-              console.log('📄 Transcription is string, length:', transcriptionText.length);
+              console.log('📄 Transcription is plain text, length:', transcriptionText.length);
             }
           } else if (transcriptions[finalLocale]?.text) {
             const text = String(transcriptions[finalLocale].text).trim();
-            if (text) {
+            // Check if it's VTT format
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription .text field is VTT format, length:', vttContent.length);
+            } else {
               transcriptionText = text;
-              console.log('📄 Transcription from .text field, length:', transcriptionText.length);
+              console.log('📄 Transcription .text field is plain text, length:', transcriptionText.length);
             }
           }
         } else if (transcriptions.en) {
           // Fallback to English
           console.log('🔄 Falling back to English transcription:', transcriptions.en);
-          if (typeof transcriptions.en === 'string') {
-            transcriptionText = transcriptions.en;
+          
+          // Prefer VTT content
+          if (transcriptions.en?.vtt) {
+            vttContent = String(transcriptions.en.vtt).trim();
+            console.log('📄 Found English VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions.en === 'string') {
+            const text = transcriptions.en.trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           } else if (transcriptions.en?.text) {
-            transcriptionText = transcriptions.en.text;
+            const text = String(transcriptions.en.text).trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           }
         }
       } else if (videoData) {
@@ -921,10 +958,10 @@ const EpisodeDetail = () => {
       }
       
       // If not found in video data, try API endpoint
-      if (!transcriptionText) {
+      if (!transcriptionText && !vttContent) {
         console.log('🌐 Transcription not in video data, trying API endpoint...');
         try {
-          const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
           const response = await fetch(
             `${baseUrl}/videos/${videoId}/transcription?locale=${finalLocale}`,
             {
@@ -950,7 +987,19 @@ const EpisodeDetail = () => {
         }
       }
       
-      if (transcriptionText) {
+      // If we have VTT content, parse it directly (best option - has timestamps)
+      if (vttContent) {
+        console.log('📊 Parsing VTT content for segments...');
+        const segments = parseWebVTT(vttContent);
+        console.log('✅ Parsed VTT segments:', {
+          segmentCount: segments.length,
+          firstSegment: segments[0],
+          sampleSegments: segments.slice(0, 3),
+        });
+        setTranscriptionSegments(segments);
+        // Store VTT as transcription text for fallback
+        setTranscription(vttContent);
+      } else if (transcriptionText) {
         // Handle if transcription is an array of words instead of string
         if (Array.isArray(transcriptionText)) {
           console.log('🔄 Converting array to string, array length:', transcriptionText.length);
@@ -983,7 +1032,7 @@ const EpisodeDetail = () => {
         });
         setTranscriptionSegments(segments);
       } else {
-        console.warn('❌ No transcription text found, setting empty');
+        console.warn('❌ No transcription text or VTT found, setting empty');
         setTranscription(null);
         setTranscriptionSegments([]);
       }
@@ -1038,11 +1087,16 @@ const EpisodeDetail = () => {
         if (currentStartTime && currentText) {
           const startSeconds = vttTimeToSeconds(currentStartTime);
           const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
+          // Clean up text: Remove numbers at the end of sentences
+          let cleanedText = currentText.trim();
+          cleanedText = cleanedText.replace(/\s*[,\s]*\d+\s*$/g, ''); // Remove trailing numbers
+          cleanedText = cleanedText.replace(/\s+\d+(\s|$)/g, ' '); // Remove standalone numbers
+          cleanedText = cleanedText.replace(/\s+/g, ' ').trim(); // Clean up multiple spaces
           segments.push({
             time: formatDisplayTime(startSeconds),
             startTime: startSeconds,
             endTime: endSeconds,
-            text: currentText.trim(),
+            text: cleanedText,
             isActive: false,
           });
         }
@@ -1052,7 +1106,13 @@ const EpisodeDetail = () => {
         currentText = '';
       } else if (line && currentStartTime) {
         // Add text to current segment (remove HTML tags if any)
-        const cleanLine = line.replace(/<[^>]*>/g, '').trim();
+        let cleanLine = line.replace(/<[^>]*>/g, '').trim();
+        // Remove numbers at the end of sentences (like "2, 3, .." from SRT sequence numbers)
+        cleanLine = cleanLine.replace(/\s*[,\s]*\d+\s*$/g, '');
+        // Remove standalone numbers at the end
+        cleanLine = cleanLine.replace(/\s+\d+(\s|$)/g, ' ');
+        // Clean up multiple spaces
+        cleanLine = cleanLine.replace(/\s+/g, ' ').trim();
         if (cleanLine) {
           currentText += (currentText ? ' ' : '') + cleanLine;
         }
@@ -1063,11 +1123,16 @@ const EpisodeDetail = () => {
     if (currentStartTime && currentText) {
       const startSeconds = vttTimeToSeconds(currentStartTime);
       const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
+      // Clean up text: Remove numbers at the end of sentences
+      let cleanedText = currentText.trim();
+      cleanedText = cleanedText.replace(/\s*[,\s]*\d+\s*$/g, ''); // Remove trailing numbers
+      cleanedText = cleanedText.replace(/\s+\d+(\s|$)/g, ' '); // Remove standalone numbers
+      cleanedText = cleanedText.replace(/\s+/g, ' ').trim(); // Clean up multiple spaces
       segments.push({
         time: formatDisplayTime(startSeconds),
         startTime: startSeconds,
         endTime: endSeconds,
-        text: currentText.trim(),
+        text: cleanedText,
         isActive: false,
       });
     }
@@ -1171,15 +1236,48 @@ const EpisodeDetail = () => {
   useEffect(() => {
     if (transcriptionSegments.length === 0 || currentTime === undefined) return;
 
-    setTranscriptionSegments(prevSegments => {
-      const updated = prevSegments.map(segment => {
-        // Check if current time is within this segment's time range
-        const isActive = currentTime >= segment.startTime && currentTime < segment.endTime;
-        return { ...segment, isActive };
-      });
+    // Find the active segment index first (synchronously)
+    const activeIndex = transcriptionSegments.findIndex(
+      segment => currentTime >= segment.startTime && currentTime < segment.endTime
+    );
 
+    // Update the active state
+    setTranscriptionSegments(prevSegments => {
+      const updated = prevSegments.map((segment, index) => ({
+        ...segment,
+        isActive: index === activeIndex
+      }));
       return updated;
     });
+
+    // Auto-scroll within container only (don't scroll the page)
+    if (activeIndex >= 0 && transcriptionScrollRef.current) {
+      setTimeout(() => {
+        const activeElement = document.getElementById(`transcript-segment-${activeIndex}`);
+        if (activeElement && transcriptionScrollRef.current) {
+          const container = transcriptionScrollRef.current;
+          
+          // Get accurate position using getBoundingClientRect
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = activeElement.getBoundingClientRect();
+          
+          // Calculate element's position relative to the container's visible area
+          const elementTopRelative = elementRect.top - containerRect.top;
+          const elementBottomRelative = elementRect.bottom - containerRect.top;
+          const containerHeight = container.clientHeight;
+          
+          // Check if element is outside visible area
+          const isAbove = elementTopRelative < 0;
+          const isBelow = elementBottomRelative > containerHeight;
+          
+          if (isAbove || isBelow) {
+            // Calculate how much to scroll to center the element
+            const scrollOffset = elementTopRelative - (containerHeight / 2) + (elementRect.height / 2);
+            container.scrollTop = container.scrollTop + scrollOffset;
+          }
+        }
+      }, 50);
+    }
   }, [currentTime, transcriptionSegments.length]);
 
   const handlePlay = () => {
@@ -1918,6 +2016,33 @@ const EpisodeDetail = () => {
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-8">
         <div 
           className="relative w-full aspect-video md:aspect-[21/9] rounded-lg overflow-hidden shadow-2xl group cursor-pointer border border-border-dark/50"
+          onClick={() => {
+            if (!hasAccess || !video) return;
+            if (!showVideoPlayer) {
+              setShowVideoPlayer(true);
+              setVideoStarted(true);
+              
+              // Wait for iframe to render and player to initialize, then play
+              const tryPlay = (attempts = 0) => {
+                if (attempts > 20) { // Max 2 seconds (20 * 100ms)
+                  console.error('❌ Player not ready after 2 seconds');
+                  return;
+                }
+                
+                const iframe = document.getElementById(`bunny-iframe-${video?.id}`) as HTMLIFrameElement;
+                if (iframe && bunnyPlayerRef.current) {
+                  console.log('✅ Player is ready, attempting to play');
+                  handlePlay();
+                } else {
+                  console.log(`⏳ Waiting for player to be ready (attempt ${attempts + 1})...`);
+                  setTimeout(() => tryPlay(attempts + 1), 100);
+                }
+              };
+              
+              // Start checking after a short delay to allow iframe to render
+              setTimeout(() => tryPlay(), 200);
+            }
+          }}
         >
           {hasAccess ? (
             <>
@@ -2249,17 +2374,48 @@ const EpisodeDetail = () => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              console.log('▶️ Play button clicked:', {
+                showVideoPlayer,
+                videoUrl,
+                bunnyEmbedUrl: video?.bunny_embed_url,
+                hasPlayer: !!bunnyPlayerRef.current
+              });
+              
+              // If video player is not shown, show it first
               if (!showVideoPlayer) {
+                console.log('✅ Setting showVideoPlayer to true');
                 setShowVideoPlayer(true);
                 setVideoStarted(true);
+                
+                // Wait for iframe to render and player to initialize, then play
+                const tryPlay = (attempts = 0) => {
+                  if (attempts > 20) { // Max 2 seconds (20 * 100ms)
+                    console.error('❌ Player not ready after 2 seconds');
+                    return;
+                  }
+                  
+                  const iframe = document.getElementById(`bunny-iframe-${video?.id}`) as HTMLIFrameElement;
+                  if (iframe && bunnyPlayerRef.current) {
+                    console.log('✅ Player is ready, attempting to play');
+                    handlePlay();
+                  } else {
+                    console.log(`⏳ Waiting for player to be ready (attempt ${attempts + 1})...`);
+                    setTimeout(() => tryPlay(attempts + 1), 100);
+                  }
+                };
+                
+                // Start checking after a short delay to allow iframe to render
+                setTimeout(() => tryPlay(), 200);
+              } else {
+                // Video player is already shown, just toggle play/pause
+                handlePlay();
               }
-              handlePlay();
             }}
             disabled={!hasAccess || !video}
             className="flex items-center gap-3 px-8 py-3 bg-primary hover:bg-primary-hover text-white font-bold tracking-wide rounded transition-all shadow-lg hover:shadow-primary/30 w-full md:w-auto justify-center md:justify-start uppercase text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Play className="h-6 w-6" />
-            {t('video.play', 'REPRODUCIR')}
+            {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
+            {isPlaying ? t('video.pause', 'PAUSAR') : t('video.play', 'REPRODUCIR')}
           </Button>
           <div className="flex flex-wrap gap-4 w-full md:w-auto md:ml-auto">
             <Button
@@ -2321,52 +2477,85 @@ const EpisodeDetail = () => {
               </p>
             </div>
             {/* Transcription Content - Only shown when button is pressed */}
+            {/* TED Talks style transcription with clickable timestamps */}
             {activeTab === 'transcription' && (
-                <div data-transcription-section className="py-6 space-y-6 max-w-3xl">
+                <div data-transcription-section className="py-6 max-w-4xl">
                   {transcriptionSegments.length > 0 ? (
-                    transcriptionSegments.map((segment, index) => (
-                      <div
-                        id={`transcript-segment-${index}`}
-                        key={index}
-                        onClick={() => {
-                          // Seek to this segment's start time
-                          if (video && (video.bunny_embed_url || video.bunny_player_url)) {
-                            if (bunnyPlayerRef.current) {
-                              try {
-                                bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                setCurrentTime(segment.startTime);
-                              } catch (error) {
-                                console.error('Error seeking to segment:', error);
+                    <div 
+                      ref={transcriptionScrollRef}
+                      className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                      style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#A05245 #2a2a2a'
+                      }}
+                    >
+                      <div className="space-y-4">
+                      {transcriptionSegments.map((segment, index) => (
+                        <div
+                          id={`transcript-segment-${index}`}
+                          key={index}
+                          onClick={() => {
+                            // Seek to this segment's start time
+                            if (video && (video.bunny_embed_url || video.bunny_player_url)) {
+                              if (bunnyPlayerRef.current) {
+                                try {
+                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                  setCurrentTime(segment.startTime);
+                                } catch (error) {
+                                  console.error('Error seeking to segment:', error);
+                                }
                               }
+                            } else if (videoRef.current) {
+                              videoRef.current.currentTime = segment.startTime;
+                              setCurrentTime(segment.startTime);
                             }
-                          } else if (videoRef.current) {
-                            videoRef.current.currentTime = segment.startTime;
-                            setCurrentTime(segment.startTime);
-                          }
-                        }}
-                        className={`group flex gap-6 transition-all duration-200 ${
-                          segment.isActive
-                            ? 'relative opacity-100'
-                            : 'opacity-60 hover:opacity-90 cursor-pointer'
-                        }`}
-                      >
-                        {segment.isActive && (
-                          <div className="absolute -left-12 top-0 bottom-0 w-1 bg-[#A05245] rounded-r transition-all"></div>
-                        )}
-                        <span className={`font-mono text-xs pt-1 min-w-[3rem] transition-colors ${
-                          segment.isActive ? 'text-[#A05245] font-bold' : 'text-gray-500'
-                        }`}>
-                          {segment.time}
-                        </span>
-                        <p className={`leading-relaxed transition-all ${
-                          segment.isActive
-                            ? 'text-lg text-white font-semibold'
-                            : 'text-base text-gray-300 font-normal'
-                        }`}>
-                          {segment.text}
-                        </p>
+                          }}
+                          className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                            segment.isActive
+                              ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
+                              : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                          }`}
+                        >
+                          {/* Timestamp - TED Talks style */}
+                          <button
+                            className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                              segment.isActive 
+                                ? 'text-[#A05245] font-bold' 
+                                : 'text-gray-400 hover:text-[#A05245]'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Seek to this segment's start time
+                              if (video && (video.bunny_embed_url || video.bunny_player_url)) {
+                                if (bunnyPlayerRef.current) {
+                                  try {
+                                    bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                    setCurrentTime(segment.startTime);
+                                  } catch (error) {
+                                    console.error('Error seeking to segment:', error);
+                                  }
+                                }
+                              } else if (videoRef.current) {
+                                videoRef.current.currentTime = segment.startTime;
+                                setCurrentTime(segment.startTime);
+                              }
+                            }}
+                          >
+                            {segment.time}
+                          </button>
+                          
+                          {/* Text content */}
+                          <p className={`flex-1 leading-relaxed transition-all ${
+                            segment.isActive
+                              ? 'text-white font-medium text-base'
+                              : 'text-gray-300 font-normal text-base'
+                          }`}>
+                            {segment.text}
+                          </p>
+                        </div>
+                      ))}
                       </div>
-                    ))
+                    </div>
                   ) : transcription ? (
                     <div className="prose dark:prose-invert max-w-none">
                       <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">

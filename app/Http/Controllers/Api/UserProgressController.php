@@ -316,13 +316,15 @@ class UserProgressController extends Controller
             'video_ids' => $progressBeforeFilter->pluck('video_id')->toArray(),
         ]);
 
-        // Now filter by published videos
+        // Now filter by published videos and delete orphaned progress records
         $progress = $progressBeforeFilter->filter(function ($item) {
             if ($item->video === null) {
-                \Log::warning('Continue watching: Video is null for progress', [
+                \Log::warning('Continue watching: Video is null for progress, deleting orphaned record', [
                     'progress_id' => $item->id,
                     'video_id' => $item->video_id,
                 ]);
+                // Delete orphaned progress record
+                $item->delete();
                 return false;
             }
             

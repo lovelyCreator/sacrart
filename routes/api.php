@@ -82,6 +82,7 @@ Route::get('/videos/trending-last-7-days', [VideoController::class, 'trendingLas
 Route::get('/videos/featured-process', [VideoController::class, 'featuredProcess']);
 Route::get('/videos/{video}', [VideoController::class, 'show']);
 Route::get('/videos/{video}/stream', [VideoController::class, 'stream']);
+Route::get('/videos/{video}/hls-url', [VideoController::class, 'getHlsUrl']);
 Route::get('/videos/{video}/subtitles/{locale?}', [VideoController::class, 'getSubtitleVtt'])->where('locale', '[a-z]{2}');
 Route::get('/videos/{video}/transcription', [VideoController::class, 'getSubtitles']); // JSON transcription endpoint
 Route::get('/reels/{reel}/transcription', [ReelController::class, 'getSubtitles']); // JSON transcription endpoint for reels
@@ -90,12 +91,14 @@ Route::get('/reels/{reel}/transcription/{locale}.vtt', [ReelController::class, '
 // Public routes for reels and rewinds (authentication optional)
 Route::get('/reels/public', [ReelController::class, 'getPublic']);
 Route::get('/reels/{reel}', [ReelController::class, 'show']);
+Route::get('/reels/{reel}/hls-url', [ReelController::class, 'getHlsUrl']);
 Route::get('/rewinds/public', [RewindController::class, 'getPublic']);
 Route::get('/rewinds/{rewind}', [RewindController::class, 'show']);
 
 // Public routes for live archive videos
 Route::get('/live-archive-videos/public', [LiveArchiveVideoController::class, 'getPublic']);
 Route::get('/live-archive-videos/public/{id}', [LiveArchiveVideoController::class, 'getPublicById']);
+Route::get('/live-archive-videos/{id}/hls-url', [LiveArchiveVideoController::class, 'getHlsUrl']);
 Route::get('/live-archive-videos/{id}/transcription', [LiveArchiveVideoController::class, 'getSubtitles']);
 
 // Protected routes for live archive video progress

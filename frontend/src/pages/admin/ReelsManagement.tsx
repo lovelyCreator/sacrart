@@ -48,6 +48,8 @@ import {
   Folder,
   Subtitles,
   Loader2,
+  Link,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -398,8 +400,8 @@ const ReelsManagement = () => {
       return;
     }
 
-    if (!selectedReel.bunny_embed_url?.trim() && !selectedReel.video_url?.trim()) {
-      toast.error('Bunny Embed URL or Video URL is required');
+    if (!selectedReel.bunny_hls_url?.trim() && !selectedReel.video_url?.trim()) {
+      toast.error('Bunny HLS URL or Video URL is required');
       return;
     }
 
@@ -410,8 +412,22 @@ const ReelsManagement = () => {
         title: reelMultilingual.title.en,
         description: reelMultilingual.description.en || null,
         short_description: reelMultilingual.short_description.en || null,
-        bunny_embed_url: selectedReel.bunny_embed_url || null,
-        bunny_video_id: selectedReel.bunny_video_id || null,
+        bunny_hls_url: selectedReel.bunny_hls_url?.trim() || null,
+        // Extract video ID from HLS URL
+        bunny_video_id: (() => {
+          if (selectedReel.bunny_video_id) return selectedReel.bunny_video_id;
+          if (selectedReel.bunny_hls_url) {
+            const hlsUrl = selectedReel.bunny_hls_url;
+            // Try to extract from token_path parameter first (URL encoded or not)
+            let match = hlsUrl.match(/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/);
+            // If not found, try to extract from path before playlist.m3u8
+            if (!match || !match[1]) {
+              match = hlsUrl.match(/\/([a-f0-9\-]{36})\/playlist\.m3u8/);
+            }
+            if (match && match[1]) return match[1];
+          }
+          return null;
+        })(),
         bunny_video_url: selectedReel.bunny_video_url || null,
         bunny_thumbnail_url: selectedReel.bunny_thumbnail_url || null,
         video_url: selectedReel.video_url || null,
@@ -1093,29 +1109,38 @@ const ReelsManagement = () => {
 
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4">Bunny.net Video Settings</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="bunnyEmbedUrl">
-                      Bunny Embed URL <span className="text-red-500">*</span>
+                      Embed URL (Iframe) <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="bunnyEmbedUrl"
-                      value={selectedReel.bunny_embed_url || ''}
-                      onChange={(e) => setSelectedReel({ ...selectedReel, bunny_embed_url: e.target.value })}
-                      placeholder="https://iframe.mediadelivery.net/embed/{library}/{video}"
+                      value={selectedReel.bunny_embed_url || selectedReel.bunny_player_url || ''}
+                      onChange={(e) => setSelectedReel({ 
+                        ...selectedReel, 
+                        bunny_embed_url: e.target.value,
+                        bunny_player_url: e.target.value,
+                      })}
+                      placeholder="https://iframe.mediadelivery.net/embed/{libraryId}/{videoId}"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Paste the Bunny.net embed URL. Duration will be auto-extracted.
+                      Paste the Bunny.net embed URL (iframe URL). This is the primary method for video playback. Video ID will be auto-extracted.
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bunnyVideoId">Bunny Video ID (optional)</Label>
+                    <Label htmlFor="bunnyHlsUrl">
+                      HLS Video URL <span className="text-xs text-muted-foreground">(Optional)</span>
+                    </Label>
                     <Input
-                      id="bunnyVideoId"
-                      value={selectedReel.bunny_video_id || ''}
-                      onChange={(e) => setSelectedReel({ ...selectedReel, bunny_video_id: e.target.value })}
-                      placeholder="Video GUID from Bunny"
+                      id="bunnyHlsUrl"
+                      value={selectedReel.bunny_hls_url || ''}
+                      onChange={(e) => setSelectedReel({ ...selectedReel, bunny_hls_url: e.target.value })}
+                      placeholder="https://vz-xxxxx.b-cdn.net/{videoId}/playlist.m3u8"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Paste the Bunny.net HLS URL (playlist.m3u8) for advanced use cases. Video ID will be auto-extracted.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="bunnyThumbnailUrl">Thumbnail URL</Label>

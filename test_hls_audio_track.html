@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Audio Track Control Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0A0A0A;
+            color: white;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .info {
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .info-item {
+            margin: 5px 0;
+        }
+        .audio-tracks {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .track-item {
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .track-item:hover {
+            background: #3a3a3a;
+        }
+        .track-item.active {
+            background: #4CAF50;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .section {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HLS Audio Track Control Test</h1>
+        
+        <div class="section">
+            <label for="hls-url">HLS URL (playlist.m3u8):</label>
+            <input type="text" id="hls-url" placeholder="https://vz-0cc8af54-835.b-cdn.net/{videoId}/playlist.m3u8" />
+            <button onclick="loadVideo()">Load Video</button>
+        </div>
+
+        <div class="section">
+            <div class="video-container">
+                <video id="video" controls></video>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Audio Tracks</h3>
+            <div id="audio-tracks" class="audio-tracks">
+                <p>No audio tracks available. Load a video first.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Controls</h3>
+            <div class="controls">
+                <button onclick="playVideo()">Play</button>
+                <button onclick="pauseVideo()">Pause</button>
+                <button onclick="toggleMute()">Toggle Mute</button>
+                <button onclick="getCurrentTime()">Get Current Time</button>
+                <button onclick="getDuration()">Get Duration</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Info</h3>
+            <div id="info" class="info">
+                <div class="info-item">Status: <span id="status">Ready</span></div>
+                <div class="info-item">Current Audio Track: <span id="current-track">None</span></div>
+                <div class="info-item">Available Tracks: <span id="track-count">0</span></div>
+                <div class="info-item">Video URL: <span id="video-url">-</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HLS.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <script>
+        let hls = null;
+        let video = document.getElementById('video');
+        let currentAudioTrack = -1;
+
+        // Initialize HLS player
+        function initHLS(url) {
+            // Clean up existing HLS instance
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 90
+                });
+
+                hls.loadSource(url);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    updateStatus('Manifest parsed');
+                    updateAudioTracks();
+                    video.play().catch(e => {
+                        console.error('Autoplay prevented:', e);
+                        updateStatus('Click play to start video');
+                    });
+                });
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                updateStatus('Network error, trying to recover...');
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                updateStatus('Media error, trying to recover...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                updateStatus('Fatal error, cannot recover');
+                                hls.destroy();
+                                break;
+                        }
+                    } else {
+                        console.warn('HLS error (non-fatal):', data);
+                    }
+                });
+
+                hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, function() {
+                    updateStatus('Audio tracks updated');
+                    updateAudioTracks();
+                });
+
+                hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, function(event, data) {
+                    updateStatus(`Switched to audio track: ${data.id}`);
+                    currentAudioTrack = data.id;
+                    updateCurrentTrack();
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
+                video.src = url;
+                updateStatus('Using native HLS support (Safari)');
+                video.addEventListener('loadedmetadata', function() {
+                    updateStatus('Video loaded (native HLS)');
+                    // Note: Native HLS doesn't expose audio track API
+                    updateInfo('Native HLS - Audio track control may be limited');
+                });
+            } else {
+                updateStatus('HLS is not supported in this browser');
+            }
+        }
+
+        // Update audio tracks list
+        function updateAudioTracks() {
+            const tracksContainer = document.getElementById('audio-tracks');
+            
+            if (!hls || !hls.audioTracks || hls.audioTracks.length === 0) {
+                tracksContainer.innerHTML = '<p>No audio tracks available or using native HLS.</p>';
+                document.getElementById('track-count').textContent = '0';
+                return;
+            }
+
+            const tracks = hls.audioTracks;
+            document.getElementById('track-count').textContent = tracks.length;
+
+            let html = '';
+            tracks.forEach((track, index) => {
+                const isActive = index === currentAudioTrack;
+                const trackName = track.name || `Track ${index + 1}`;
+                const trackLang = track.lang || 'unknown';
+                const trackGroupId = track.groupId || 'default';
+                
+                html += `
+                    <div class="track-item ${isActive ? 'active' : ''}" onclick="switchAudioTrack(${index})">
+                        <strong>${trackName}</strong> (${trackLang})
+                        <br>
+                        <small>Group: ${trackGroupId}, Index: ${index}</small>
+                    </div>
+                `;
+            });
+
+            tracksContainer.innerHTML = html;
+            updateCurrentTrack();
+        }
+
+        // Switch audio track
+        function switchAudioTrack(index) {
+            if (!hls || !hls.audioTracks || index < 0 || index >= hls.audioTracks.length) {
+                updateStatus('Cannot switch track: Invalid index or HLS not initialized');
+                return;
+            }
+
+            try {
+                hls.audioTrack = index;
+                currentAudioTrack = index;
+                updateStatus(`Switched to audio track ${index}: ${hls.audioTracks[index].name || 'Track ' + (index + 1)}`);
+                updateAudioTracks();
+            } catch (error) {
+                updateStatus('Error switching audio track: ' + error.message);
+                console.error('Error switching audio track:', error);
+            }
+        }
+
+        // Update current track display
+        function updateCurrentTrack() {
+            if (!hls || !hls.audioTracks || currentAudioTrack < 0) {
+                document.getElementById('current-track').textContent = 'None';
+                return;
+            }
+
+            const track = hls.audioTracks[currentAudioTrack];
+            const trackName = track.name || `Track ${currentAudioTrack + 1}`;
+            const trackLang = track.lang || 'unknown';
+            document.getElementById('current-track').textContent = `${trackName} (${trackLang})`;
+        }
+
+        // Load video from URL
+        function loadVideo() {
+            const url = document.getElementById('hls-url').value.trim();
+            if (!url) {
+                alert('Please enter an HLS URL');
+                return;
+            }
+
+            if (!url.includes('.m3u8')) {
+                alert('URL must be an HLS playlist (.m3u8)');
+                return;
+            }
+
+            document.getElementById('video-url').textContent = url;
+            updateStatus('Loading video...');
+            initHLS(url);
+        }
+
+        // Video controls
+        function playVideo() {
+            video.play().catch(e => {
+                updateStatus('Play error: ' + e.message);
+            });
+        }
+
+        function pauseVideo() {
+            video.pause();
+        }
+
+        function toggleMute() {
+            video.muted = !video.muted;
+            updateStatus(video.muted ? 'Muted' : 'Unmuted');
+        }
+
+        function getCurrentTime() {
+            updateStatus(`Current time: ${video.currentTime.toFixed(2)}s`);
+        }
+
+        function getDuration() {
+            updateStatus(`Duration: ${video.duration ? video.duration.toFixed(2) + 's' : 'Unknown'}`);
+        }
+
+        // Update status
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            console.log('[Status]', message);
+        }
+
+        // Update info
+        function updateInfo(message) {
+            const infoDiv = document.getElementById('info');
+            const newItem = document.createElement('div');
+            newItem.className = 'info-item';
+            newItem.textContent = message;
+            infoDiv.appendChild(newItem);
+        }
+
+        // Example: Auto-load a test URL if provided in query string
+        window.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const testUrl = params.get('url');
+            if (testUrl) {
+                document.getElementById('hls-url').value = testUrl;
+                loadVideo();
+            }
+        });
+    </script>
+</body>
+</html>

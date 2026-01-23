@@ -282,6 +282,11 @@ class SettingsController extends Controller
                 'youtube_channel_id',
                 'youtube_channel_url',
                 'youtube_live_enabled',
+                // Homepage section thumbnails
+                'homepage_reels_thumbnail',
+                'homepage_rewind_thumbnail',
+                'homepage_challenges_thumbnail',
+                'homepage_live_thumbnail',
             ])
             ->get();
         

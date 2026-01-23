@@ -31,6 +31,7 @@ class Reel extends Model
         'bunny_video_id',
         'bunny_video_url',
         'bunny_embed_url',
+        'bunny_hls_url',
         'bunny_thumbnail_url',
         'bunny_player_url',
         'video_url',
@@ -111,6 +112,14 @@ class Reel extends Model
             if ($reel->isDirty('title') && empty($reel->slug)) {
                 $reel->slug = Str::slug($reel->title);
             }
+        });
+
+        static::deleted(function ($reel) {
+            // Delete all user progress records for this reel (if any)
+            // Note: Reels might not have progress tracking, but we'll clean up just in case
+            \App\Models\UserProgress::where('video_id', $reel->id)
+                ->whereNotNull('video_id')
+                ->delete();
         });
     }
 

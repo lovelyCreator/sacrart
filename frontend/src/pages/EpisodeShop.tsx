@@ -65,6 +65,7 @@ const EpisodeShop = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const bunnyPlayerRef = useRef<any>(null);
+  const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -826,13 +827,49 @@ const EpisodeShop = () => {
   useEffect(() => {
     if (transcriptionSegments.length === 0 || videoCurrentTime === undefined) return;
 
+    // Find the active segment index first (synchronously)
+    const activeIndex = transcriptionSegments.findIndex(
+      segment => videoCurrentTime >= segment.startTime && videoCurrentTime < segment.endTime
+    );
+
+    // Update the active state
     setTranscriptionSegments(prevSegments => {
-      return prevSegments.map(segment => {
-        const isActive = videoCurrentTime >= segment.startTime && videoCurrentTime < segment.endTime;
-        return { ...segment, isActive };
-      });
+      const updated = prevSegments.map((segment, index) => ({
+        ...segment,
+        isActive: index === activeIndex
+      }));
+      return updated;
     });
-  }, [videoCurrentTime]);
+
+    // Auto-scroll within container only (don't scroll the page)
+    if (activeIndex >= 0 && transcriptionScrollRef.current) {
+      setTimeout(() => {
+        const activeElement = document.getElementById(`transcript-segment-${activeIndex}`);
+        if (activeElement && transcriptionScrollRef.current) {
+          const container = transcriptionScrollRef.current;
+          
+          // Get accurate position using getBoundingClientRect
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = activeElement.getBoundingClientRect();
+          
+          // Calculate element's position relative to the container's visible area
+          const elementTopRelative = elementRect.top - containerRect.top;
+          const elementBottomRelative = elementRect.bottom - containerRect.top;
+          const containerHeight = container.clientHeight;
+          
+          // Check if element is outside visible area
+          const isAbove = elementTopRelative < 0;
+          const isBelow = elementBottomRelative > containerHeight;
+          
+          if (isAbove || isBelow) {
+            // Calculate how much to scroll to center the element
+            const scrollOffset = elementTopRelative - (containerHeight / 2) + (elementRect.height / 2);
+            container.scrollTop = container.scrollTop + scrollOffset;
+          }
+        }
+      }, 50);
+    }
+  }, [videoCurrentTime, transcriptionSegments.length]);
 
   if (loading) {
     return (
@@ -1093,55 +1130,92 @@ const EpisodeShop = () => {
               </div>
 
               {/* Transcription Content - Only shown when button is pressed */}
+              {/* TED Talks style transcription with clickable timestamps */}
               {activeTab === 'transcription' && (
-                <div data-transcription-section className="py-6 space-y-6 max-w-3xl">
+                <div data-transcription-section className="py-6 max-w-4xl">
                   {transcriptionSegments.length > 0 ? (
-                    transcriptionSegments.map((segment, index) => (
-                      <div
-                        id={`transcript-segment-${index}`}
-                        key={index}
-                        onClick={() => {
-                          if (video && (video.bunny_embed_url || video.bunny_player_url)) {
-                            if (bunnyPlayerRef.current) {
-                              bunnyPlayerRef.current.seek(segment.startTime);
+                    <div 
+                      ref={transcriptionScrollRef}
+                      className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                      style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#A05245 #2a2a2a'
+                      }}
+                    >
+                      <div className="space-y-4">
+                      {transcriptionSegments.map((segment, index) => (
+                        <div
+                          id={`transcript-segment-${index}`}
+                          key={index}
+                          onClick={() => {
+                            if (video && (video.bunny_embed_url || video.bunny_player_url)) {
+                              if (bunnyPlayerRef.current) {
+                                try {
+                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                  setVideoCurrentTime(segment.startTime);
+                                } catch (error) {
+                                  console.error('Error seeking to segment:', error);
+                                }
+                              }
+                            } else if (videoRef.current) {
+                              videoRef.current.currentTime = segment.startTime;
+                              setVideoCurrentTime(segment.startTime);
                             }
-                          } else if (videoRef.current) {
-                            videoRef.current.currentTime = segment.startTime;
-                          }
-                        }}
-                        className={`cursor-pointer transition-all py-3 px-4 rounded-lg border-l-4 ${
-                          segment.isActive
-                            ? 'bg-[#a15145]/10 border-[#a15145]'
-                            : 'bg-transparent border-transparent hover:bg-white/5'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="text-[#b2a6a4] text-xs font-mono flex-shrink-0 mt-1">
-                            {segment.time}
-                          </span>
-                          <p
-                            className={`text-sm leading-relaxed ${
-                              segment.isActive
-                                ? 'text-white font-bold'
-                                : 'text-[#b2a6a4]'
+                          }}
+                          className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                            segment.isActive
+                              ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
+                              : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                          }`}
+                        >
+                          {/* Timestamp - TED Talks style */}
+                          <button
+                            className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                              segment.isActive 
+                                ? 'text-[#A05245] font-bold' 
+                                : 'text-gray-400 hover:text-[#A05245]'
                             }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (video && (video.bunny_embed_url || video.bunny_player_url)) {
+                                if (bunnyPlayerRef.current) {
+                                  try {
+                                    bunnyPlayerRef.current.setCurrentTime(segment.startTime);
+                                    setVideoCurrentTime(segment.startTime);
+                                  } catch (error) {
+                                    console.error('Error seeking to segment:', error);
+                                  }
+                                }
+                              } else if (videoRef.current) {
+                                videoRef.current.currentTime = segment.startTime;
+                                setVideoCurrentTime(segment.startTime);
+                              }
+                            }}
                           >
+                            {segment.time}
+                          </button>
+                          
+                          {/* Text content */}
+                          <p className={`flex-1 leading-relaxed transition-all ${
+                            segment.isActive
+                              ? 'text-white font-medium text-base'
+                              : 'text-gray-300 font-normal text-base'
+                          }`}>
                             {segment.text}
                           </p>
                         </div>
+                      ))}
                       </div>
-                    ))
+                    </div>
                   ) : transcription ? (
-                    <div className="py-6">
-                      <p className="text-[#b2a6a4] text-base leading-relaxed whitespace-pre-wrap">
+                    <div className="prose dark:prose-invert max-w-none">
+                      <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
                         {transcription}
-                      </p>
+                      </pre>
                     </div>
                   ) : (
-                    <div className="py-6">
-                      <p className="text-[#b2a6a4] text-base">
-                        {t('video.no_transcription_available', 'No hay transcripción disponible para este video.')}
-                      </p>
+                    <div className="text-center text-gray-400 py-8">
+                      <p className="text-base">{t('video.no_transcription_available', 'No hay transcripción disponible para este video.')}</p>
                     </div>
                   )}
                 </div>

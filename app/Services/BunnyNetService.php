@@ -253,6 +253,10 @@ class BunnyNetService
                 'video_id' => $videoId,
                 'duration' => $data['length'] ?? $data['duration'] ?? null,
                 'available_fields' => array_keys($data),
+                'has_captions_field' => isset($data['captions']),
+                'captions_type' => isset($data['captions']) ? gettype($data['captions']) : 'not_set',
+                'captions_count' => isset($data['captions']) && is_array($data['captions']) ? count($data['captions']) : 0,
+                'captions_raw' => isset($data['captions']) ? $data['captions'] : null,
                 'pull_zone_fields' => [
                     'pullZoneUrl' => $data['pullZoneUrl'] ?? 'NOT_FOUND',
                     'pull_zone_url' => $data['pull_zone_url'] ?? 'NOT_FOUND',
@@ -267,26 +271,205 @@ class BunnyNetService
             // Bunny.net API returns captions in a 'captions' array with fields: srclang, label, url
             $captions = [];
             if (isset($data['captions']) && is_array($data['captions'])) {
+                Log::info('Found captions array in Bunny.net response', [
+                    'video_id' => $videoId,
+                    'captions_count' => count($data['captions']),
+                    'captions_structure' => array_map(function($cap) {
+                        return [
+                            'keys' => array_keys($cap),
+                            'srclang' => $cap['srclang'] ?? 'NOT_SET',
+                            'language' => $cap['language'] ?? 'NOT_SET',
+                            'label' => $cap['label'] ?? 'NOT_SET',
+                            'url' => isset($cap['url']) ? 'SET' : 'NOT_SET',
+                            'src' => isset($cap['src']) ? 'SET' : 'NOT_SET',
+                        ];
+                    }, $data['captions']),
+                ]);
                 foreach ($data['captions'] as $caption) {
                     $captionUrl = $caption['url'] ?? $caption['src'] ?? null;
                     $language = $caption['srclang'] ?? $caption['language'] ?? 'en';
                     $label = $caption['label'] ?? $caption['language'] ?? $language;
+                    $transcriptionText = null; // Initialize variable
                     
-                    // Try to fetch transcription text if URL is available
-                    $transcriptionText = null;
-                    if ($captionUrl) {
+                    // If no URL is provided, try to download caption content using Storage API
+                    // Format: https://storage.bunnycdn.com/{storage_zone_name}/{video_id}/captions/{language}.vtt?accessKey={access_key}
+                    if (!$captionUrl) {
+                        // Get storage zone name (extract from CDN URL if needed)
+                        $storageZoneName = $this->storageZoneName;
+                        
+                        // Extract storage zone from CDN URL if not set
+                        if (empty($storageZoneName) && !empty($this->cdnUrl)) {
+                            $cdnHost = str_replace(['https://', 'http://'], '', $this->cdnUrl);
+                            $cdnHost = rtrim($cdnHost, '/');
+                            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                                $storageZoneName = str_replace('.b-cdn.net', '', $cdnHost);
+                            }
+                        }
+                        
+                        // Try to download caption using Storage API
+                        if (!empty($storageZoneName) && !empty($this->storageAccessKey)) {
+                            // Try both uppercase and lowercase language codes
+                            // Files are named EN.vtt, ES.vtt, PT.vtt (uppercase)
+                            $langUpper = strtoupper($language);
+                            $langLower = strtolower($language);
+                            
+                            // Try VTT first (most common), then SRT
+                            $possibleFileNames = [
+                                "{$langUpper}.vtt",
+                                "{$langLower}.vtt",
+                                "{$langUpper}.srt",
+                                "{$langLower}.srt",
+                            ];
+                            
+                            foreach ($possibleFileNames as $fileName) {
+                                $storageUrl = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/captions/{$fileName}";
+                                $storageUrl .= "?accessKey=" . urlencode($this->storageAccessKey);
+                                
+                                try {
+                                    Log::info('Attempting to download caption from Storage API', [
+                                        'video_id' => $videoId,
+                                        'language' => $language,
+                                        'file_name' => $fileName,
+                                        'url' => $storageUrl,
+                                    ]);
+                                    
+                                    $captionResponse = Http::timeout(30)->get($storageUrl);
+                                    
+                                    if ($captionResponse->successful()) {
+                                        $captionContent = $captionResponse->body();
+                                        
+                                        // Check if we got actual content (not HTML error page or JSON)
+                                        // Note: We check for specific error patterns, NOT just '404' 
+                                        // because VTT timestamps can contain '404' (e.g., 00:04:04.000)
+                                        $isValidCaption = !empty($captionContent) && 
+                                            !str_contains($captionContent, '<html') && 
+                                            !str_contains($captionContent, '<!DOCTYPE') &&
+                                            !preg_match('/\b404\s+(Not\s+Found|Error)\b/i', $captionContent) &&
+                                            !str_contains($captionContent, 'File Not Found') &&
+                                            !str_contains($captionContent, 'ObjectNotFound') &&
+                                            !str_starts_with(trim($captionContent), '[') && // Not JSON array
+                                            !str_starts_with(trim($captionContent), '{') && // Not JSON object
+                                            // Positive check: valid VTT/SRT should contain WEBVTT or timestamps
+                                            (str_contains($captionContent, 'WEBVTT') || 
+                                             preg_match('/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/', $captionContent));
+                                        
+                                        if ($isValidCaption) {
+                                            $captionUrl = $storageUrl;
+                                            $transcriptionText = $captionContent;
+                                            
+                                            Log::info('Successfully downloaded caption from Storage API', [
+                                                'video_id' => $videoId,
+                                                'language' => $language,
+                                                'file_name' => $fileName,
+                                                'url' => $captionUrl,
+                                                'content_length' => strlen($captionContent),
+                                                'content_preview' => substr($captionContent, 0, 100),
+                                            ]);
+                                            break;
+                                        } else {
+                                            Log::debug('Caption response is not valid content', [
+                                                'video_id' => $videoId,
+                                                'language' => $language,
+                                                'file_name' => $fileName,
+                                                'response_preview' => substr($captionContent, 0, 200),
+                                            ]);
+                                        }
+                                    } else {
+                                        Log::debug('Caption download failed from Storage API', [
+                                            'video_id' => $videoId,
+                                            'language' => $language,
+                                            'file_name' => $fileName,
+                                            'status' => $captionResponse->status(),
+                                        ]);
+                                    }
+                                } catch (\Exception $e) {
+                                    Log::debug('Caption download exception from Storage API', [
+                                        'video_id' => $videoId,
+                                        'language' => $language,
+                                        'file_name' => $fileName,
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                    continue;
+                                }
+                            }
+                        } else {
+                            Log::warning('Cannot download caption from Storage API - missing configuration', [
+                                'video_id' => $videoId,
+                                'language' => $language,
+                                'storage_zone_name' => $storageZoneName ? 'SET' : 'NOT SET',
+                                'storage_access_key' => $this->storageAccessKey ? 'SET' : 'NOT SET',
+                                'cdn_url' => $this->cdnUrl,
+                            ]);
+                        }
+                    }
+                    
+                    // Try to fetch transcription text if URL is available and content not already downloaded
+                    if ($captionUrl && !isset($transcriptionText)) {
                         try {
-                            // Fetch VTT or SRT file content
-                            $captionResponse = Http::timeout(10)->get($captionUrl);
+                            Log::info('Attempting to fetch caption content from URL', [
+                                'video_id' => $videoId,
+                                'language' => $language,
+                                'url' => $captionUrl,
+                            ]);
+                            
+                            // Fetch VTT or SRT file content with longer timeout
+                            $captionResponse = Http::timeout(30)->get($captionUrl);
+                            
                             if ($captionResponse->successful()) {
                                 $transcriptionText = $captionResponse->body();
+                                
+                                // Check if we got actual content (not HTML error page)
+                                // Note: We check for specific error patterns, NOT just '404' 
+                                // because VTT timestamps can contain '404' (e.g., 00:04:04.000)
+                                $isValidContent = !empty($transcriptionText) && 
+                                    !str_contains($transcriptionText, '<html') && 
+                                    !str_contains($transcriptionText, '<!DOCTYPE') &&
+                                    !preg_match('/\b404\s+(Not\s+Found|Error)\b/i', $transcriptionText) &&
+                                    !str_contains($transcriptionText, 'File Not Found') &&
+                                    !str_contains($transcriptionText, 'ObjectNotFound') &&
+                                    // Positive check: valid VTT/SRT should contain WEBVTT or timestamps
+                                    (str_contains($transcriptionText, 'WEBVTT') || 
+                                     preg_match('/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/', $transcriptionText));
+                                
+                                if ($isValidContent) {
+                                    Log::info('Successfully fetched caption content', [
+                                        'video_id' => $videoId,
+                                        'language' => $language,
+                                        'content_length' => strlen($transcriptionText),
+                                        'content_preview' => substr($transcriptionText, 0, 100),
+                                    ]);
+                                } else {
+                                    Log::warning('Caption URL returned HTML error page', [
+                                        'video_id' => $videoId,
+                                        'language' => $language,
+                                        'url' => $captionUrl,
+                                        'response_preview' => substr($transcriptionText, 0, 200),
+                                    ]);
+                                    $transcriptionText = null;
+                                }
+                            } else {
+                                Log::warning('Failed to fetch caption content - HTTP error', [
+                                    'video_id' => $videoId,
+                                    'language' => $language,
+                                    'url' => $captionUrl,
+                                    'status' => $captionResponse->status(),
+                                    'response' => substr($captionResponse->body(), 0, 200),
+                                ]);
                             }
                         } catch (\Exception $e) {
-                            Log::debug('Failed to fetch caption content', [
+                            Log::warning('Failed to fetch caption content - Exception', [
+                                'video_id' => $videoId,
+                                'language' => $language,
                                 'url' => $captionUrl,
                                 'error' => $e->getMessage(),
                             ]);
                         }
+                    } elseif (!$captionUrl) {
+                        Log::debug('Caption has no URL', [
+                            'video_id' => $videoId,
+                            'language' => $language,
+                            'caption_data' => $caption,
+                        ]);
                     }
                     
                     $captions[] = [
@@ -302,6 +485,10 @@ class BunnyNetService
 
             // Also check for transcriptions in other possible fields
             if (isset($data['transcriptions']) && is_array($data['transcriptions'])) {
+                Log::info('Found transcriptions array in Bunny.net response', [
+                    'video_id' => $videoId,
+                    'transcriptions_count' => count($data['transcriptions']),
+                ]);
                 foreach ($data['transcriptions'] as $transcription) {
                     $captions[] = [
                         'label' => $transcription['label'] ?? $transcription['language'] ?? 'Unknown',
@@ -312,6 +499,59 @@ class BunnyNetService
                     ];
                 }
             }
+
+            // Check for captions in other possible field names
+            $possibleCaptionFields = ['caption', 'subtitles', 'subtitle', 'captionTracks', 'caption_tracks'];
+            foreach ($possibleCaptionFields as $field) {
+                if (isset($data[$field]) && is_array($data[$field])) {
+                    Log::info("Found captions in alternative field: {$field}", [
+                        'video_id' => $videoId,
+                        'field' => $field,
+                        'count' => count($data[$field]),
+                    ]);
+                    foreach ($data[$field] as $caption) {
+                        $captionUrl = $caption['url'] ?? $caption['src'] ?? null;
+                        $language = $caption['srclang'] ?? $caption['language'] ?? 'en';
+                        $label = $caption['label'] ?? $caption['language'] ?? $language;
+                        
+                        $transcriptionText = null;
+                        if ($captionUrl) {
+                            try {
+                                $captionResponse = Http::timeout(10)->get($captionUrl);
+                                if ($captionResponse->successful()) {
+                                    $transcriptionText = $captionResponse->body();
+                                }
+                            } catch (\Exception $e) {
+                                Log::debug('Failed to fetch caption content from alternative field', [
+                                    'url' => $captionUrl,
+                                    'error' => $e->getMessage(),
+                                ]);
+                            }
+                        }
+                        
+                        $captions[] = [
+                            'label' => $label,
+                            'language' => $language,
+                            'srclang' => $language,
+                            'url' => $captionUrl,
+                            'default' => $caption['default'] ?? false,
+                            'text' => $transcriptionText,
+                        ];
+                    }
+                }
+            }
+
+            Log::info('Final captions extracted from Bunny.net', [
+                'video_id' => $videoId,
+                'total_captions' => count($captions),
+                'captions_summary' => array_map(function($cap) {
+                    return [
+                        'language' => $cap['language'] ?? 'unknown',
+                        'has_url' => !empty($cap['url']),
+                        'has_text' => !empty($cap['text']),
+                    ];
+                }, $captions),
+            ]);
 
             return [
                 'success' => true,
@@ -456,7 +696,12 @@ class BunnyNetService
      */
     public function getHlsUrl(string $videoId): string
     {
-        return "https://{$this->streamUrl}/{$videoId}/playlist.m3u8";
+        // Handle streamUrl that may or may not include protocol
+        $streamHost = $this->streamUrl;
+        if (strpos($streamHost, '://') === false) {
+            $streamHost = "https://{$streamHost}";
+        }
+        return "{$streamHost}/{$videoId}/playlist.m3u8";
     }
 
     /**
@@ -868,76 +1113,124 @@ class BunnyNetService
      * @param int $expirationMinutes How many minutes the URL should be valid (default: 60)
      * @return string|null Signed URL or null if can't be generated
      */
-    public function getSignedTranscriptionUrl(string $videoId, int $expirationMinutes = 60): ?string
+    public function getSignedTranscriptionUrl(string $videoId, int $expirationMinutes = 60, ?string $audioLanguage = null): ?string
     {
-        // Check if we have storage zone name and access key
-        if (empty($this->storageZoneName)) {
-            Log::error('Storage Zone Name is not configured');
-            return null;
-        }
-        
-        if (empty($this->storageAccessKey)) {
-            Log::error('Storage Access Key is not configured');
-            return null;
-        }
-        
-        // Try multiple file paths in order of preference
-        // Based on actual Bunny.net storage structure
-        $filePaths = [
-            'play_240p.mp4',      // Lowest quality (most likely to exist)
-            'play_360p.mp4',      // Medium quality
-            'original',           // Original file (no extension)
-        ];
-        
-        Log::info('Attempting to generate transcription URL', [
-            'video_id' => $videoId,
-            'storage_zone' => $this->storageZoneName,
-            'trying_files' => $filePaths,
-        ]);
-        
-        // Try each file path
-        // Note: We don't test with HEAD requests because Bunny.net returns 401 for HEAD
-        // but 200 for GET. Deepgram uses GET requests, so the URLs will work fine.
-        foreach ($filePaths as $filePath) {
-            // Build direct Storage API URL with access key
-            // Format: https://storage.bunnycdn.com/{zone}/{videoId}/{file}?accessKey={key}
-            $url = "https://storage.bunnycdn.com/{$this->storageZoneName}/{$videoId}/{$filePath}";
-            $url .= "?accessKey=" . urlencode($this->storageAccessKey);
+        // Priority 1: Try Stream URL first (most common for Bunny.net Stream videos)
+        // Stream videos are accessible via HLS URLs which work better with Deepgram
+        // Note: Stream HLS URLs don't include library ID in path: /{videoId}/playlist.m3u8
+        if (!empty($this->streamUrl)) {
+            $streamHost = $this->streamUrl;
+            if (strpos($streamHost, '://') === false) {
+                $streamHost = "https://{$streamHost}";
+            }
+            // Stream HLS format: {streamHost}/{videoId}/playlist.m3u8 (no library ID in path)
+            $hlsUrl = "{$streamHost}/{$videoId}/playlist.m3u8";
             
-            Log::info('Generated transcription URL (prioritizing low resolutions)', [
+            // If token authentication is enabled, add token for secure access
+            if ($this->tokenAuthEnabled && !empty($this->tokenAuthKey)) {
+                $expiration = time() + ($expirationMinutes * 60);
+                $token = $this->generateToken($hlsUrl, $expiration, $this->tokenAuthKey);
+                $hlsUrl .= "?token=" . urlencode($token);
+            }
+            
+            Log::info('Using Stream API HLS URL for transcription', [
                 'video_id' => $videoId,
-                'file_path' => $filePath,
-                'url_preview' => substr($url, 0, 100) . '...',
-                'note' => 'Using Storage API with access key - HEAD requests return 401 but GET requests work',
-            ]);
-            
-            // Return the first URL (play_240p.mp4 - most likely to exist)
-            // Deepgram will validate with GET request when transcribing
-            return $url;
-        }
-        
-        // If Storage API fails, try CDN URL as fallback
-        $cdnHost = $this->cdnUrl;
-        if (!empty($cdnHost)) {
-            $cdnHost = str_replace(['https://', 'http://'], '', $cdnHost);
-            $cdnHost = rtrim($cdnHost, '/');
-            
-            // Try HLS playlist (Deepgram supports HLS)
-            $hlsUrl = "https://{$cdnHost}/{$videoId}/playlist.m3u8";
-            
-            Log::info('Trying CDN HLS URL as fallback', [
-                'video_id' => $videoId,
-                'url' => $hlsUrl,
+                'audio_language' => $audioLanguage ?? 'not specified',
+                'stream_host' => $streamHost,
+                'hls_url' => $hlsUrl, // Log full URL for debugging
+                'has_token' => $this->tokenAuthEnabled,
+                'note' => 'Stream HLS URLs use format: {streamHost}/{videoId}/playlist.m3u8 (no library ID)',
             ]);
             
             return $hlsUrl;
         }
         
+        // Priority 2: Try CDN URL (for Storage videos with CDN)
+        // This is the preferred method when using embed URLs
+        if (!empty($this->cdnUrl)) {
+            $cdnHost = $this->cdnUrl;
+            $cdnHost = str_replace(['https://', 'http://'], '', $cdnHost);
+            $cdnHost = rtrim($cdnHost, '/');
+            $hlsUrl = "https://{$cdnHost}/{$videoId}/playlist.m3u8";
+            
+            // If token authentication is enabled, add token for secure access
+            if ($this->tokenAuthEnabled && !empty($this->tokenAuthKey)) {
+                $expiration = time() + ($expirationMinutes * 60);
+                $token = $this->generateToken($hlsUrl, $expiration, $this->tokenAuthKey);
+                $hlsUrl .= "?token=" . urlencode($token);
+                
+                Log::info('Using CDN HLS URL with token authentication for transcription', [
+                    'video_id' => $videoId,
+                    'audio_language' => $audioLanguage ?? 'not specified',
+                    'cdn_host' => $cdnHost,
+                    'hls_url' => $hlsUrl, // Log full URL for debugging
+                    'has_token' => true,
+                ]);
+            } else {
+                Log::info('Using CDN HLS URL for transcription (no token auth)', [
+                    'video_id' => $videoId,
+                    'audio_language' => $audioLanguage ?? 'not specified',
+                    'cdn_host' => $cdnHost,
+                    'hls_url' => $hlsUrl, // Log full URL for debugging
+                    'has_token' => false,
+                    'warning' => 'CDN URL may require authentication - check Bunny.net settings',
+                ]);
+            }
+            
+            return $hlsUrl;
+        }
+        
+        // Priority 3: Use Storage API URLs only if Storage is configured and HLS is not available
+        // This is a fallback for Storage-only videos (not Stream)
+        if (!empty($this->storageZoneName) && !empty($this->storageAccessKey)) {
+            $filePaths = [
+                'play_240p.mp4',      // Lowest quality (most likely to exist)
+                'play_360p.mp4',      // Medium quality
+                'play_720p.mp4',      // Higher quality
+                'original',           // Original file (no extension)
+            ];
+            
+            Log::info('Attempting to generate Storage API transcription URL (fallback)', [
+                'video_id' => $videoId,
+                'storage_zone' => $this->storageZoneName,
+                'trying_files' => $filePaths,
+                'audio_language' => $audioLanguage ?? 'not specified',
+                'warning' => $audioLanguage ? 'Audio language specified but using Storage API - may default to first audio track' : 'Using Storage API as fallback',
+            ]);
+            
+            // Try each file path - use Storage API URLs with proper authentication
+            // Note: We don't test with HEAD requests because Bunny.net returns 401 for HEAD
+            // but 200 for GET. Deepgram uses GET requests, so the URLs will work fine.
+            foreach ($filePaths as $filePath) {
+                // Build direct Storage API URL with access key
+                // Format: https://storage.bunnycdn.com/{zone}/{videoId}/{file}?accessKey={key}
+                $url = "https://storage.bunnycdn.com/{$this->storageZoneName}/{$videoId}/{$filePath}";
+                $url .= "?accessKey=" . urlencode($this->storageAccessKey);
+                
+                Log::info('Generated Storage API transcription URL (with authentication)', [
+                    'video_id' => $videoId,
+                    'file_path' => $filePath,
+                    'url_preview' => substr($url, 0, 100) . '...',
+                    'audio_language' => $audioLanguage ?? 'not specified',
+                    'note' => 'Storage API URLs have proper authentication via accessKey parameter',
+                ]);
+                
+                // Return the first URL (play_240p.mp4 - most likely to exist)
+                // Deepgram will validate with GET request when transcribing
+                return $url;
+            }
+        }
+        
+        // If all methods fail, log error with helpful information
         Log::error('❌ No accessible video file found for transcription', [
             'video_id' => $videoId,
-            'tried_storage_files' => $filePaths,
-            'tried_cdn' => !empty($cdnHost),
-            'note' => 'Storage Access Key might lack file read permissions. Check Bunny.net Dashboard → Storage → FTP & HTTP API → Permissions',
+            'stream_url_configured' => !empty($this->streamUrl),
+            'library_id_configured' => !empty($this->libraryId),
+            'cdn_url_configured' => !empty($this->cdnUrl),
+            'storage_zone_configured' => !empty($this->storageZoneName),
+            'storage_key_configured' => !empty($this->storageAccessKey),
+            'audio_language' => $audioLanguage ?? 'not specified',
+            'note' => 'Please configure BUNNY_STREAM_URL and BUNNY_LIBRARY_ID for Stream videos, or BUNNY_STORAGE_ZONE_NAME and BUNNY_STORAGE_ACCESS_KEY for Storage videos',
         ]);
         
         return null;

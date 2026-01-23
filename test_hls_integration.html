@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Audio Track Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0A0A0A;
+            color: white;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        .section {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        iframe {
+            width: 100%;
+            aspect-ratio: 16/9;
+            border: none;
+            border-radius: 8px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .info {
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+        .info-item {
+            margin: 5px 0;
+        }
+        .audio-tracks {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .track-item {
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .track-item:hover {
+            background: #3a3a3a;
+        }
+        .track-item.active {
+            background: #4CAF50;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .status.success {
+            background: #4CAF50;
+        }
+        .status.error {
+            background: #f44336;
+        }
+        .status.info {
+            background: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <h1>HLS Audio Track Integration Test</h1>
+    <p>Compare iframe player vs HLS.js player for audio track control</p>
+
+    <div class="section">
+        <label for="video-id">Video ID (Bunny.net):</label>
+        <input type="text" id="video-id" placeholder="f70e8def-51c2-4998-84e4-090a30bc3fc6" />
+        
+        <label for="language">Default Language:</label>
+        <select id="language">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="pt">Portuguese</option>
+        </select>
+        
+        <button onclick="loadVideos()">Load Both Players</button>
+    </div>
+
+    <div class="container">
+        <!-- Iframe Player Section -->
+        <div class="section">
+            <h2>Bunny.net Iframe Player</h2>
+            <div id="iframe-status" class="status info">Ready to load</div>
+            <div class="video-container">
+                <iframe id="iframe-player" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowFullScreen></iframe>
+            </div>
+            <div class="controls">
+                <button onclick="switchIframeAudio('en')">Switch to EN</button>
+                <button onclick="switchIframeAudio('es')">Switch to ES</button>
+                <button onclick="switchIframeAudio('pt')">Switch to PT</button>
+            </div>
+            <div class="info">
+                <div class="info-item">Player Type: Bunny.net Iframe</div>
+                <div class="info-item">Audio Control: URL Parameter + Player.js API</div>
+                <div class="info-item">Current Track: <span id="iframe-track">-</span></div>
+            </div>
+        </div>
+
+        <!-- HLS Player Section -->
+        <div class="section">
+            <h2>HLS.js Player</h2>
+            <div id="hls-status" class="status info">Ready to load</div>
+            <div class="video-container">
+                <video id="hls-player" controls></video>
+            </div>
+            <div id="hls-audio-tracks" class="audio-tracks">
+                <p>Load video to see audio tracks</p>
+            </div>
+            <div class="info">
+                <div class="info-item">Player Type: HLS.js</div>
+                <div class="info-item">Audio Control: HLS.js API</div>
+                <div class="info-item">Current Track: <span id="hls-track">-</span></div>
+                <div class="info-item">Available Tracks: <span id="hls-track-count">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player.js for iframe control -->
+    <script src="https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js"></script>
+    <!-- HLS.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <script>
+        let iframePlayer = null;
+        let hls = null;
+        let video = document.getElementById('hls-player');
+        let currentHlsTrack = -1;
+        const libraryId = '550816'; // Your Bunny.net library ID
+        const apiBaseUrl = window.location.origin; // Adjust if needed
+
+        // Load both players
+        async function loadVideos() {
+            const videoId = document.getElementById('video-id').value.trim();
+            const language = document.getElementById('language').value;
+
+            if (!videoId) {
+                alert('Please enter a video ID');
+                return;
+            }
+
+            // Load iframe player
+            loadIframePlayer(videoId, language);
+
+            // Load HLS player
+            await loadHlsPlayer(videoId, language);
+        }
+
+        // Load iframe player
+        function loadIframePlayer(videoId, language) {
+            const iframe = document.getElementById('iframe-player');
+            const embedUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&responsive=true&controls=true&defaultAudioTrack=${language}`;
+            
+            iframe.src = embedUrl;
+            updateStatus('iframe-status', 'Loading iframe player...', 'info');
+
+            // Initialize Player.js
+            setTimeout(() => {
+                try {
+                    iframePlayer = new playerjs.Player(iframe);
+                    iframePlayer.on('ready', () => {
+                        updateStatus('iframe-status', 'Iframe player ready', 'success');
+                        document.getElementById('iframe-track').textContent = language.toUpperCase();
+                    });
+                } catch (error) {
+                    console.error('Error initializing iframe player:', error);
+                    updateStatus('iframe-status', 'Iframe player error: ' + error.message, 'error');
+                }
+            }, 1000);
+        }
+
+        // Switch iframe audio track
+        function switchIframeAudio(language) {
+            if (!iframePlayer) {
+                alert('Iframe player not initialized');
+                return;
+            }
+
+            try {
+                // Try Player.js API methods
+                if (typeof iframePlayer.setAudioTrack === 'function') {
+                    iframePlayer.setAudioTrack(language);
+                } else if (typeof iframePlayer.setAudioTrackByLanguage === 'function') {
+                    iframePlayer.setAudioTrackByLanguage(language);
+                } else {
+                    // Fallback: reload iframe with new URL
+                    const videoId = document.getElementById('video-id').value.trim();
+                    const iframe = document.getElementById('iframe-player');
+                    const embedUrl = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=false&responsive=true&controls=true&defaultAudioTrack=${language}`;
+                    iframe.src = embedUrl;
+                    
+                    // Reinitialize Player.js
+                    setTimeout(() => {
+                        try {
+                            iframePlayer = new playerjs.Player(iframe);
+                        } catch (error) {
+                            console.error('Error reinitializing iframe player:', error);
+                        }
+                    }, 500);
+                }
+                
+                document.getElementById('iframe-track').textContent = language.toUpperCase();
+                updateStatus('iframe-status', `Switched to ${language.toUpperCase()}`, 'success');
+            } catch (error) {
+                console.error('Error switching iframe audio:', error);
+                updateStatus('iframe-status', 'Error switching track: ' + error.message, 'error');
+            }
+        }
+
+        // Load HLS player
+        async function loadHlsPlayer(videoId, language) {
+            updateStatus('hls-status', 'Fetching HLS URL...', 'info');
+
+            try {
+                // Fetch HLS URL from API
+                const response = await fetch(`${apiBaseUrl}/test_hls_audio_track_api.php?video_id=${videoId}&language=${language}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to get HLS URL');
+                }
+
+                const hlsUrl = data.hls_url;
+                updateStatus('hls-status', 'HLS URL received, loading...', 'info');
+
+                // Initialize HLS.js
+                if (hls) {
+                    hls.destroy();
+                    hls = null;
+                }
+
+                if (Hls.isSupported()) {
+                    hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: false,
+                        backBufferLength: 90
+                    });
+
+                    hls.loadSource(hlsUrl);
+                    hls.attachMedia(video);
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        updateStatus('hls-status', 'HLS manifest parsed', 'success');
+                        updateHlsAudioTracks();
+                        video.play().catch(e => {
+                            console.log('Autoplay prevented');
+                        });
+                    });
+
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            updateStatus('hls-status', 'HLS error: ' + data.type, 'error');
+                        }
+                    });
+
+                    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, function() {
+                        updateHlsAudioTracks();
+                    });
+
+                    hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, function(event, data) {
+                        currentHlsTrack = data.id;
+                        updateHlsTrackDisplay();
+                        updateStatus('hls-status', `Switched to track ${data.id}`, 'success');
+                    });
+
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Native HLS support (Safari)
+                    video.src = hlsUrl;
+                    updateStatus('hls-status', 'Using native HLS (Safari)', 'info');
+                } else {
+                    updateStatus('hls-status', 'HLS not supported', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('hls-status', 'Error: ' + error.message, 'error');
+                console.error('Error loading HLS player:', error);
+            }
+        }
+
+        // Update HLS audio tracks
+        function updateHlsAudioTracks() {
+            const tracksContainer = document.getElementById('hls-audio-tracks');
+            
+            if (!hls || !hls.audioTracks || hls.audioTracks.length === 0) {
+                tracksContainer.innerHTML = '<p>No audio tracks available</p>';
+                document.getElementById('hls-track-count').textContent = '0';
+                return;
+            }
+
+            const tracks = hls.audioTracks;
+            document.getElementById('hls-track-count').textContent = tracks.length;
+
+            let html = '';
+            tracks.forEach((track, index) => {
+                const isActive = index === currentHlsTrack;
+                const trackName = track.name || `Track ${index + 1}`;
+                const trackLang = track.lang || 'unknown';
+                
+                html += `
+                    <div class="track-item ${isActive ? 'active' : ''}" onclick="switchHlsTrack(${index})">
+                        <strong>${trackName}</strong> (${trackLang})
+                    </div>
+                `;
+            });
+
+            tracksContainer.innerHTML = html;
+            updateHlsTrackDisplay();
+        }
+
+        // Switch HLS audio track
+        function switchHlsTrack(index) {
+            if (!hls || !hls.audioTracks || index < 0 || index >= hls.audioTracks.length) {
+                return;
+            }
+
+            try {
+                hls.audioTrack = index;
+                currentHlsTrack = index;
+                updateHlsTrackDisplay();
+                updateStatus('hls-status', `Switched to track ${index}`, 'success');
+            } catch (error) {
+                updateStatus('hls-status', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        // Update HLS track display
+        function updateHlsTrackDisplay() {
+            if (!hls || !hls.audioTracks || currentHlsTrack < 0) {
+                document.getElementById('hls-track').textContent = '-';
+                return;
+            }
+
+            const track = hls.audioTracks[currentHlsTrack];
+            const trackName = track.name || `Track ${currentHlsTrack + 1}`;
+            const trackLang = track.lang || 'unknown';
+            document.getElementById('hls-track').textContent = `${trackName} (${trackLang})`;
+        }
+
+        // Update status
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        // Auto-load from query string
+        window.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const videoId = params.get('video_id');
+            const language = params.get('language') || 'en';
+            
+            if (videoId) {
+                document.getElementById('video-id').value = videoId;
+                document.getElementById('language').value = language;
+                loadVideos();
+            }
+        });
+    </script>
+</body>
+</html>

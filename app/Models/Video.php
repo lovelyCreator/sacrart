@@ -37,6 +37,7 @@ class Video extends Model
         'bunny_video_id',
         'bunny_video_url',
         'bunny_embed_url',
+        'bunny_hls_url',
         'bunny_thumbnail_url',
         'bunny_player_url',
         'thumbnail',
@@ -99,7 +100,7 @@ class Video extends Model
         'is_free' => 'boolean',
         'allow_download' => 'boolean',
         'duration' => 'integer',
-        'file_size' => 'integer',
+        'file_size' => 'integer', // Note: Database uses bigInteger, but cast as integer for compatibility
         'views' => 'integer',
         'unique_views' => 'integer',
         'daily_views' => 'array',
@@ -158,6 +159,9 @@ class Video extends Model
             if ($video->series) {
                 $video->series->updateStatistics();
             }
+            
+            // Delete all user progress records for this video
+            \App\Models\UserProgress::where('video_id', $video->id)->delete();
         });
     }
 

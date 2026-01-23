@@ -42,6 +42,8 @@ import {
   Loader2,
   Tag,
   Subtitles,
+  Link,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -94,7 +96,7 @@ const LiveArchiveManagement = () => {
   const [videoStatus, setVideoStatus] = useState<'published' | 'draft' | 'archived'>('published');
   const [videoVisibility, setVideoVisibility] = useState<'freemium' | 'premium' | 'exclusive'>('freemium');
   const [bunnyEmbedUrl, setBunnyEmbedUrl] = useState('');
-  const [bunnyVideoId, setBunnyVideoId] = useState('');
+  const [bunnyHlsUrl, setBunnyHlsUrl] = useState('');
   const [bunnyThumbnailUrl, setBunnyThumbnailUrl] = useState('');
   const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
   const [selectedVideoForTranscription, setSelectedVideoForTranscription] = useState<number | null>(null);
@@ -177,8 +179,7 @@ const LiveArchiveManagement = () => {
     setVideoSection('current_season'); // Default to current season
     setVideoStatus('published');
     setVideoVisibility('freemium');
-    setBunnyEmbedUrl('');
-    setBunnyVideoId('');
+    setBunnyHlsUrl('');
     setBunnyThumbnailUrl('');
     setContentLocale(displayLocale);
     setIsVideoDialogOpen(true);
@@ -207,7 +208,7 @@ const LiveArchiveManagement = () => {
     setVideoStatus(video.status);
     setVideoVisibility(video.visibility);
     setBunnyEmbedUrl(video.bunny_embed_url || '');
-    setBunnyVideoId(video.bunny_video_id || '');
+    setBunnyHlsUrl(video.bunny_hls_url || '');
     setBunnyThumbnailUrl(video.bunny_thumbnail_url || '');
     setContentLocale(displayLocale);
     setIsVideoDialogOpen(true);
@@ -221,7 +222,7 @@ const LiveArchiveManagement = () => {
     }
 
     if (!bunnyEmbedUrl.trim()) {
-      toast.error('Bunny.net embed URL is required');
+      toast.error('Bunny.net Embed URL is required');
       return;
     }
 
@@ -241,6 +242,8 @@ const LiveArchiveManagement = () => {
         status: videoStatus,
         visibility: videoVisibility,
         bunny_embed_url: bunnyEmbedUrl.trim(),
+        bunny_player_url: bunnyEmbedUrl.trim(),
+        bunny_hls_url: bunnyHlsUrl.trim() || null,
         is_free: true,
         // Include multilingual translations
         translations: {
@@ -250,8 +253,34 @@ const LiveArchiveManagement = () => {
       };
 
       // Add optional Bunny.net fields
-      if (bunnyVideoId.trim()) {
-        payload.bunny_video_id = bunnyVideoId.trim();
+      // Extract video ID from embed URL (primary) or HLS URL (fallback)
+      const embedUrl = bunnyEmbedUrl.trim();
+      let videoId = null;
+      
+      // Try to extract from /play/ format
+      const playMatch = embedUrl.match(/\/play\/(\d+)\/([^/?]+)/);
+      if (playMatch) {
+        videoId = playMatch[2];
+      } else {
+        // Try to extract from /embed/ format
+        const embedMatch = embedUrl.match(/\/embed\/(\d+)\/([^/?]+)/);
+        if (embedMatch) {
+          videoId = embedMatch[2];
+        } else if (bunnyHlsUrl.trim()) {
+          // Fallback to HLS URL extraction
+          const hlsUrl = bunnyHlsUrl.trim();
+          let match = hlsUrl.match(/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/);
+          if (!match || !match[1]) {
+            match = hlsUrl.match(/\/([a-f0-9\-]{36})\/playlist\.m3u8/);
+          }
+          if (match && match[1]) {
+            videoId = match[1];
+          }
+        }
+      }
+      
+      if (videoId) {
+        payload.bunny_video_id = videoId;
       }
       if (bunnyThumbnailUrl.trim()) {
         payload.bunny_thumbnail_url = bunnyThumbnailUrl.trim();
@@ -547,8 +576,7 @@ const LiveArchiveManagement = () => {
           });
           setVideoTags([]);
           setVideoSection('current_season');
-          setBunnyEmbedUrl('');
-          setBunnyVideoId('');
+          setBunnyHlsUrl('');
           setBunnyThumbnailUrl('');
         }
       }}>
@@ -628,38 +656,41 @@ const LiveArchiveManagement = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="bunnyEmbedUrl">
-                    {t('admin.live_archive_label_bunny_embed_url')} <span className="text-red-500">*</span>
+                    Embed URL (Iframe) <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="bunnyEmbedUrl"
-                    value={bunnyEmbedUrl}
+                    value={bunnyEmbedUrl || ''}
                     onChange={(e) => setBunnyEmbedUrl(e.target.value)}
-                    placeholder={t('admin.live_archive_placeholder_bunny_embed')}
+                    placeholder="https://iframe.mediadelivery.net/embed/{libraryId}/{videoId}"
                     required
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    {t('admin.live_archive_bunny_embed_help')}
+                    Paste the Bunny.net embed URL (iframe URL). This is the primary method for video playback. Video ID will be auto-extracted.
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="bunnyVideoId">{t('admin.live_archive_label_bunny_video_id')}</Label>
-                    <Input
-                      id="bunnyVideoId"
-                      value={bunnyVideoId}
-                      onChange={(e) => setBunnyVideoId(e.target.value)}
-                      placeholder={t('admin.live_archive_placeholder_bunny_video_id')}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="bunnyThumbnailUrl">{t('admin.live_archive_label_thumbnail_url')}</Label>
-                    <Input
-                      id="bunnyThumbnailUrl"
-                      value={bunnyThumbnailUrl}
-                      onChange={(e) => setBunnyThumbnailUrl(e.target.value)}
-                      placeholder={t('admin.live_archive_placeholder_thumbnail')}
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="bunnyHlsUrl">
+                    HLS Video URL <span className="text-xs text-muted-foreground">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="bunnyHlsUrl"
+                    value={bunnyHlsUrl}
+                    onChange={(e) => setBunnyHlsUrl(e.target.value)}
+                    placeholder="https://vz-xxxxx.b-cdn.net/{videoId}/playlist.m3u8"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Optional: Paste the Bunny.net HLS URL (playlist.m3u8) for advanced use cases. Video ID will be auto-extracted.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="bunnyThumbnailUrl">{t('admin.live_archive_label_thumbnail_url')}</Label>
+                  <Input
+                    id="bunnyThumbnailUrl"
+                    value={bunnyThumbnailUrl}
+                    onChange={(e) => setBunnyThumbnailUrl(e.target.value)}
+                    placeholder={t('admin.live_archive_placeholder_thumbnail')}
+                  />
                 </div>
               </div>
             </div>
@@ -751,6 +782,107 @@ const LiveArchiveManagement = () => {
               ) : (
                 selectedVideo && selectedVideo.id ? t('admin.live_archive_button_save') : t('admin.live_archive_button_create')
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transcription Processing Dialog */}
+      <Dialog open={transcriptionDialogOpen} onOpenChange={setTranscriptionDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>🎙️ Select Video Source Language</DialogTitle>
+            <DialogDescription>
+              Choose the original language of this video. This is important for audio dubbing:<br/><br/>
+              <strong>• Source language:</strong> Will use the video's original audio<br/>
+              <strong>• Other languages:</strong> Will generate TTS (text-to-speech) dubbed audio
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-3">
+              <Label>Original Video Language</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'en' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('en')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇬🇧</span>
+                  <span className="font-semibold">English</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'es' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('es')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇪🇸</span>
+                  <span className="font-semibold">Español</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedSourceLanguage === 'pt' ? 'default' : 'outline'}
+                  onClick={() => setSelectedSourceLanguage('pt')}
+                  className="flex items-center justify-center h-20 flex-col gap-2"
+                >
+                  <span className="text-2xl">🇵🇹</span>
+                  <span className="font-semibold">Português</span>
+                </Button>
+              </div>
+              <div className="mt-4 p-4 bg-muted rounded-lg space-y-2 text-sm">
+                <div className="font-semibold mb-2">What will be generated:</div>
+                {selectedSourceLanguage === 'en' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>EN:</strong> Original video audio (best quality)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
+                    </div>
+                  </>
+                )}
+                {selectedSourceLanguage === 'es' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>ES:</strong> Original video audio (best quality)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
+                    </div>
+                  </>
+                )}
+                {selectedSourceLanguage === 'pt' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>🎬</span> <strong>PT:</strong> Original video audio (best quality)
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
+                  <span>📝</span> All languages will have captions uploaded to Bunny.net
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTranscriptionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmProcessTranscription}>
+              Process Transcription
             </Button>
           </DialogFooter>
         </DialogContent>
