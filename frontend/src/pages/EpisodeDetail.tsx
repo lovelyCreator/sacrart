@@ -210,9 +210,9 @@ const EpisodeDetail = () => {
     }
 
     const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
-    console.log('🌐 Locale changed, switching audio track to:', currentLocale);
-
-    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+    const hls = hlsRef.current;
+    
+    const trackIndex = hls.audioTracks.findIndex((track: any) => {
       const trackLang = (track.lang || '').toLowerCase();
       const trackName = (track.name || '').toLowerCase();
       return trackLang === currentLocale || 
@@ -223,9 +223,53 @@ const EpisodeDetail = () => {
              (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
     });
 
-    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
-      console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
-      hlsRef.current.audioTrack = trackIndex;
+    if (trackIndex !== -1 && trackIndex !== hls.audioTrack) {
+      // Save current playback state before switching
+      const wasPlaying = videoRef.current && !videoRef.current.paused;
+      const currentPosition = videoRef.current?.currentTime || 0;
+      
+      console.log(`🔊 EpisodeDetail: Switching audio track to index ${trackIndex} for locale "${currentLocale}", wasPlaying: ${wasPlaying}, position: ${currentPosition}`);
+      
+      // Set up one-time listener for track switch completion
+      const onTrackSwitched = () => {
+        console.log('🔊 EpisodeDetail: Audio track switched, restoring playback state');
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        
+        // Restore playback position and state
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = currentPosition;
+            if (wasPlaying) {
+              videoRef.current.play().catch((e) => {
+                console.log('🔊 EpisodeDetail: Auto-resume failed, will retry:', e);
+                // Retry after a short delay
+                setTimeout(() => {
+                  if (videoRef.current && wasPlaying) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }, 200);
+              });
+            }
+          }
+        }, 50);
+      };
+      
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+      
+      // Switch audio track
+      hls.audioTrack = trackIndex;
+      
+      // Fallback: If track switch event doesn't fire within 500ms, restore anyway
+      setTimeout(() => {
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        if (videoRef.current) {
+          videoRef.current.currentTime = currentPosition;
+          if (wasPlaying && videoRef.current.paused) {
+            console.log('🔊 EpisodeDetail: Fallback - resuming playback');
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      }, 500);
     }
   }, [locale]);
 

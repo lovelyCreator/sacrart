@@ -99,9 +99,6 @@ const LiveArchiveManagement = () => {
   const [bunnyHlsUrl, setBunnyHlsUrl] = useState('');
   const [bunnyThumbnailUrl, setBunnyThumbnailUrl] = useState('');
   const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
-  const [selectedVideoForTranscription, setSelectedVideoForTranscription] = useState<number | null>(null);
-  const [transcriptionDialogOpen, setTranscriptionDialogOpen] = useState(false);
-  const [selectedSourceLanguage, setSelectedSourceLanguage] = useState<'en' | 'es' | 'pt'>('en');
 
 
   // Helper function to get image URL
@@ -348,33 +345,28 @@ const LiveArchiveManagement = () => {
     }
   };
 
+  // Handle transcription processing - directly process without modal
   const handleProcessTranscription = async (videoId: number) => {
-    setSelectedVideoForTranscription(videoId);
-    setSelectedSourceLanguage('en');
-    setTranscriptionDialogOpen(true);
-  };
-
-  const handleConfirmProcessTranscription = async () => {
-    if (!selectedVideoForTranscription) return;
-
-    setTranscriptionDialogOpen(false);
-    setProcessingTranscription(prev => ({ ...prev, [selectedVideoForTranscription]: true }));
+    setProcessingTranscription(prev => ({ ...prev, [videoId]: true }));
 
     try {
-      const video = archiveVideos.find(v => v.id === selectedVideoForTranscription);
+      const video = archiveVideos.find(v => v.id === videoId);
       if (!video || (!video.bunny_video_id && !video.bunny_embed_url)) {
         toast.error('Video does not have a Bunny.net video ID or embed URL');
+        setProcessingTranscription(prev => ({ ...prev, [videoId]: false }));
         return;
       }
 
+      // Use 'en' as default source language
       const result = await liveArchiveVideoApi.processTranscription(
-        selectedVideoForTranscription,
+        videoId,
         ['en', 'es', 'pt'],
-        selectedSourceLanguage
+        'en'
       );
       
       if (result.success) {
         toast.success(result.message || 'Transcription processing completed successfully!');
+        // Refresh videos list to show updated transcription status
         fetchVideos();
       } else {
         toast.error(result.message || 'Failed to process transcription');
@@ -383,9 +375,13 @@ const LiveArchiveManagement = () => {
       console.error('Transcription processing error:', error);
       toast.error(error.message || 'An error occurred while processing transcription');
     } finally {
-      setProcessingTranscription(prev => ({ ...prev, [selectedVideoForTranscription]: false }));
-      setSelectedVideoForTranscription(null);
+      setProcessingTranscription(prev => ({ ...prev, [videoId]: false }));
     }
+  };
+
+  // This function is kept for backward compatibility but is no longer used
+  const handleConfirmProcessTranscription = async () => {
+    // The modal is no longer shown, so this function won't be called
   };
 
   if (isLoading) {
@@ -787,106 +783,6 @@ const LiveArchiveManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Transcription Processing Dialog */}
-      <Dialog open={transcriptionDialogOpen} onOpenChange={setTranscriptionDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>🎙️ Select Video Source Language</DialogTitle>
-            <DialogDescription>
-              Choose the original language of this video. This is important for audio dubbing:<br/><br/>
-              <strong>• Source language:</strong> Will use the video's original audio<br/>
-              <strong>• Other languages:</strong> Will generate TTS (text-to-speech) dubbed audio
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-3">
-              <Label>Original Video Language</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  type="button"
-                  variant={selectedSourceLanguage === 'en' ? 'default' : 'outline'}
-                  onClick={() => setSelectedSourceLanguage('en')}
-                  className="flex items-center justify-center h-20 flex-col gap-2"
-                >
-                  <span className="text-2xl">🇬🇧</span>
-                  <span className="font-semibold">English</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={selectedSourceLanguage === 'es' ? 'default' : 'outline'}
-                  onClick={() => setSelectedSourceLanguage('es')}
-                  className="flex items-center justify-center h-20 flex-col gap-2"
-                >
-                  <span className="text-2xl">🇪🇸</span>
-                  <span className="font-semibold">Español</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={selectedSourceLanguage === 'pt' ? 'default' : 'outline'}
-                  onClick={() => setSelectedSourceLanguage('pt')}
-                  className="flex items-center justify-center h-20 flex-col gap-2"
-                >
-                  <span className="text-2xl">🇵🇹</span>
-                  <span className="font-semibold">Português</span>
-                </Button>
-              </div>
-              <div className="mt-4 p-4 bg-muted rounded-lg space-y-2 text-sm">
-                <div className="font-semibold mb-2">What will be generated:</div>
-                {selectedSourceLanguage === 'en' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span>🎬</span> <strong>EN:</strong> Original video audio (best quality)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
-                    </div>
-                  </>
-                )}
-                {selectedSourceLanguage === 'es' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🎬</span> <strong>ES:</strong> Original video audio (best quality)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>PT:</strong> TTS dubbed audio
-                    </div>
-                  </>
-                )}
-                {selectedSourceLanguage === 'pt' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>EN:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🔊</span> <strong>ES:</strong> TTS dubbed audio
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>🎬</span> <strong>PT:</strong> Original video audio (best quality)
-                    </div>
-                  </>
-                )}
-                <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
-                  <span>📝</span> All languages will have captions uploaded to Bunny.net
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTranscriptionDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmProcessTranscription}>
-              Process Transcription
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

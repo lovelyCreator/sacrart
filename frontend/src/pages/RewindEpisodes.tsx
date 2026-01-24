@@ -39,51 +39,34 @@ const RewindEpisodes = () => {
   const bunnyPlayerRef = useRef<any>(null);
   const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
 
-  // Helper function to construct HLS URL from video data
+  // Get HLS URL directly from database (already contains token)
   const getHlsUrl = (videoData: any): string | null => {
     if (!videoData) return null;
     
-    // Priority 1: Use bunny_hls_url if available
+    // Use bunny_hls_url directly from database
     if (videoData.bunny_hls_url) {
-      console.log('✅ Using bunny_hls_url:', videoData.bunny_hls_url);
+      console.log('✅ Using bunny_hls_url from database:', videoData.bunny_hls_url);
       return videoData.bunny_hls_url;
-    }
-    
-    // Priority 2: Construct from bunny_embed_url or bunny_player_url
-    const embedUrl = videoData.bunny_embed_url || videoData.bunny_player_url || '';
-    if (embedUrl) {
-      const embedMatch = embedUrl.match(/\/(embed|play)\/(\d+)\/([a-f0-9-]+)/i);
-      if (embedMatch) {
-        const videoId = embedMatch[3];
-        const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
-        const constructedUrl = `https://${cdnHost}/${videoId}/playlist.m3u8`;
-        console.log('✅ Constructed HLS URL from embed URL:', constructedUrl);
-        return constructedUrl;
-      }
-    }
-    
-    // Priority 3: Construct from bunny_video_id if available
-    if (videoData.bunny_video_id) {
-      const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
-      const constructedUrl = `https://${cdnHost}/${videoData.bunny_video_id}/playlist.m3u8`;
-      console.log('✅ Constructed HLS URL from bunny_video_id:', constructedUrl);
-      return constructedUrl;
     }
     
     return null;
   };
 
-  // Initialize HLS.js player
+  // Initialize HLS.js player using database URL
   useEffect(() => {
     if (!currentVideo) return;
     
     const hlsUrl = getHlsUrl(currentVideo);
     if (!hlsUrl) {
-      console.log('❌ HLS Init: No HLS URL available');
+      console.log('❌ HLS Init: No HLS URL available in database');
       return;
     }
 
-    console.log('🔗 Using HLS URL:', hlsUrl);
+    console.log('🔗 Using HLS URL from database:', hlsUrl);
+
+    // Clear state immediately when video changes
+    setActiveCaptionText('');
+    setCurrentTime(0);
 
     const initHls = () => {
       if (!videoRef.current) {
@@ -91,10 +74,15 @@ const RewindEpisodes = () => {
         return;
       }
 
+      // Destroy previous HLS instance
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      
+      // Reset video element
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
 
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -177,15 +165,16 @@ const RewindEpisodes = () => {
         hlsRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentVideo?.id]);
+  }, [currentVideo?.id, currentVideo?.bunny_hls_url]);
 
   // Effect to switch audio track when locale changes
   useEffect(() => {
     if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) return;
 
-    const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
-    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+    const currentLocale = (i18n.language || locale || 'en').substring(0, 2).toLowerCase();
+    const hls = hlsRef.current;
+    
+    const trackIndex = hls.audioTracks.findIndex((track: any) => {
       const trackLang = (track.lang || '').toLowerCase();
       const trackName = (track.name || '').toLowerCase();
       return trackLang === currentLocale || 
@@ -196,10 +185,55 @@ const RewindEpisodes = () => {
              (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
     });
 
-    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
-      hlsRef.current.audioTrack = trackIndex;
+    if (trackIndex !== -1 && trackIndex !== hls.audioTrack) {
+      // Save current playback state before switching
+      const wasPlaying = videoRef.current && !videoRef.current.paused;
+      const currentPosition = videoRef.current?.currentTime || 0;
+      
+      console.log(`🔊 RewindEpisodes: Switching audio track to index ${trackIndex} for locale "${currentLocale}", wasPlaying: ${wasPlaying}, position: ${currentPosition}`);
+      
+      // Set up one-time listener for track switch completion
+      const onTrackSwitched = () => {
+        console.log('🔊 RewindEpisodes: Audio track switched, restoring playback state');
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        
+        // Restore playback position and state
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = currentPosition;
+            if (wasPlaying) {
+              videoRef.current.play().catch((e) => {
+                console.log('🔊 RewindEpisodes: Auto-resume failed, will retry:', e);
+                // Retry after a short delay
+                setTimeout(() => {
+                  if (videoRef.current && wasPlaying) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }, 200);
+              });
+            }
+          }
+        }, 50);
+      };
+      
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+      
+      // Switch audio track
+      hls.audioTrack = trackIndex;
+      
+      // Fallback: If track switch event doesn't fire within 500ms, restore anyway
+      setTimeout(() => {
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        if (videoRef.current) {
+          videoRef.current.currentTime = currentPosition;
+          if (wasPlaying && videoRef.current.paused) {
+            console.log('🔊 RewindEpisodes: Fallback - resuming playback');
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      }, 500);
     }
-  }, [locale]);
+  }, [i18n.language, locale]);
 
   // Load Player.js library for Bunny.net iframe control
   useEffect(() => {
@@ -250,7 +284,7 @@ const RewindEpisodes = () => {
     return (rewind as any)[`${field}_${currentLocale}`] || (rewind as any)[field] || '';
   };
 
-  // Load rewind and videos from API
+  // Load rewind and videos from API - only when id changes, NOT when language changes
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
@@ -304,7 +338,7 @@ const RewindEpisodes = () => {
     };
 
     fetchData();
-  }, [id, t, i18n.language, locale]);
+  }, [id]); // Only depend on id - language changes are handled by separate effects
 
   // Reload transcription when language or current video changes
   useEffect(() => {
@@ -441,8 +475,10 @@ const RewindEpisodes = () => {
       });
       
       let transcriptionText: string | null = null;
+      let vttContent: string | null = null;
       
       // First, try to get transcription from video data (if available)
+      // Prefer VTT format for proper timestamp parsing (like TED Talks)
       if (video && video.transcriptions && typeof video.transcriptions === 'object') {
         const transcriptions = video.transcriptions;
         console.log('📝 Transcriptions object:', transcriptions);
@@ -450,26 +486,54 @@ const RewindEpisodes = () => {
         
         if (transcriptions[finalLocale]) {
           console.log(`✅ Found transcription for locale "${finalLocale}":`, transcriptions[finalLocale]);
-          if (typeof transcriptions[finalLocale] === 'string') {
+          
+          // Prefer VTT content for proper timestamp parsing
+          if (transcriptions[finalLocale]?.vtt) {
+            vttContent = String(transcriptions[finalLocale].vtt).trim();
+            console.log('📄 Found VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions[finalLocale] === 'string') {
             const text = transcriptions[finalLocale].trim();
-            if (text) {
+            // Check if it's VTT format
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription string is VTT format, length:', vttContent.length);
+            } else {
               transcriptionText = text;
-              console.log('📄 Transcription is string, length:', transcriptionText.length);
+              console.log('📄 Transcription is plain text, length:', transcriptionText.length);
             }
           } else if (transcriptions[finalLocale]?.text) {
             const text = String(transcriptions[finalLocale].text).trim();
-            if (text) {
+            // Check if it's VTT format
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription .text field is VTT format, length:', vttContent.length);
+            } else {
               transcriptionText = text;
-              console.log('📄 Transcription from .text field, length:', transcriptionText.length);
+              console.log('📄 Transcription .text field is plain text, length:', transcriptionText.length);
             }
           }
         } else if (transcriptions.en) {
           // Fallback to English
           console.log('🔄 Falling back to English transcription:', transcriptions.en);
-          if (typeof transcriptions.en === 'string') {
-            transcriptionText = transcriptions.en;
+          
+          // Prefer VTT content
+          if (transcriptions.en?.vtt) {
+            vttContent = String(transcriptions.en.vtt).trim();
+            console.log('📄 Found English VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions.en === 'string') {
+            const text = transcriptions.en.trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           } else if (transcriptions.en?.text) {
-            transcriptionText = transcriptions.en.text;
+            const text = String(transcriptions.en.text).trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           }
         }
       } else if (video) {
@@ -487,11 +551,16 @@ const RewindEpisodes = () => {
         }
         if (transcriptionText) {
           console.log('📄 Found transcription in old fields, length:', transcriptionText.length);
+          // Check if it's VTT format
+          if (transcriptionText.includes('WEBVTT') || transcriptionText.includes('-->')) {
+            vttContent = transcriptionText;
+            transcriptionText = null;
+          }
         }
       }
       
       // If not found in video data, try API endpoint
-      if (!transcriptionText) {
+      if (!transcriptionText && !vttContent) {
         console.log('🌐 Transcription not in video data, trying API endpoint...');
         try {
           const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
@@ -509,8 +578,15 @@ const RewindEpisodes = () => {
             const data = await response.json();
             console.log('📡 API Response:', data);
             if (data.success && data.transcription) {
-              transcriptionText = data.transcription;
-              console.log('✅ Got transcription from API, length:', transcriptionText.length);
+              const apiText = data.transcription;
+              // Check if API returned VTT content
+              if (apiText.includes('WEBVTT') || apiText.includes('-->')) {
+                vttContent = apiText;
+                console.log('✅ Got VTT from API, length:', vttContent.length);
+              } else {
+                transcriptionText = apiText;
+                console.log('✅ Got transcription from API, length:', transcriptionText.length);
+              }
             } else {
               console.warn('⚠️ API response unsuccessful or no transcription:', data);
             }
@@ -520,7 +596,19 @@ const RewindEpisodes = () => {
         }
       }
       
-      if (transcriptionText) {
+      // If we have VTT content, parse it directly (best option - has timestamps)
+      if (vttContent) {
+        console.log('📊 Parsing VTT content for segments...');
+        const segments = parseWebVTT(vttContent);
+        console.log('✅ Parsed VTT segments:', {
+          segmentCount: segments.length,
+          firstSegment: segments[0],
+          sampleSegments: segments.slice(0, 3),
+        });
+        setTranscription(segments);
+        // Store VTT as transcription text for fallback
+        setTranscriptionText(vttContent);
+      } else if (transcriptionText) {
         // Handle if transcription is an array of words instead of string
         if (Array.isArray(transcriptionText)) {
           console.log('🔄 Converting array to string, array length:', transcriptionText.length);
@@ -553,7 +641,7 @@ const RewindEpisodes = () => {
         });
         setTranscription(segments);
       } else {
-        console.warn('❌ No transcription text found, setting empty');
+        console.warn('❌ No transcription text or VTT found, setting empty');
         setTranscription([]);
         setTranscriptionText(null);
       }
@@ -585,6 +673,18 @@ const RewindEpisodes = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Helper function to clean text - remove trailing numbers and clean up
+  const cleanTranscriptionText = (text: string): string => {
+    let cleanedText = text.trim();
+    // Remove trailing numbers (like "2", "3" at end of sentences)
+    cleanedText = cleanedText.replace(/\s*[,\s]*\d+\s*$/g, '');
+    // Remove standalone numbers in the middle
+    cleanedText = cleanedText.replace(/\s+\d+(\s|$)/g, ' ');
+    // Clean up multiple spaces
+    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    return cleanedText;
+  };
+
   // Parse WebVTT format with proper time ranges
   const parseWebVTT = (vtt: string): TranscriptionSegment[] => {
     const segments: TranscriptionSegment[] = [];
@@ -596,8 +696,8 @@ const RewindEpisodes = () => {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      // Skip WEBVTT header and empty lines
-      if (line === 'WEBVTT' || line === '' || line.startsWith('NOTE')) continue;
+      // Skip WEBVTT header, empty lines, and cue identifiers (numbers)
+      if (line === 'WEBVTT' || line === '' || line.startsWith('NOTE') || /^\d+$/.test(line)) continue;
       
       // Check for timestamp line (format: 00:00:00.000 --> 00:00:05.000)
       const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
@@ -606,13 +706,16 @@ const RewindEpisodes = () => {
         if (currentStartTime && currentText) {
           const startSeconds = vttTimeToSeconds(currentStartTime);
           const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
-          segments.push({
-            time: formatDisplayTime(startSeconds),
-            startTime: startSeconds,
-            endTime: endSeconds,
-            text: currentText.trim(),
-            isActive: false,
-          });
+          const cleanedText = cleanTranscriptionText(currentText);
+          if (cleanedText) {
+            segments.push({
+              time: formatDisplayTime(startSeconds),
+              startTime: startSeconds,
+              endTime: endSeconds,
+              text: cleanedText,
+              isActive: false,
+            });
+          }
         }
         currentStartTime = timeMatch[1];
         currentEndTime = timeMatch[2];
@@ -630,13 +733,16 @@ const RewindEpisodes = () => {
     if (currentStartTime && currentText) {
       const startSeconds = vttTimeToSeconds(currentStartTime);
       const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
-      segments.push({
-        time: formatDisplayTime(startSeconds),
-        startTime: startSeconds,
-        endTime: endSeconds,
-        text: currentText.trim(),
-        isActive: false,
-      });
+      const cleanedText = cleanTranscriptionText(currentText);
+      if (cleanedText) {
+        segments.push({
+          time: formatDisplayTime(startSeconds),
+          startTime: startSeconds,
+          endTime: endSeconds,
+          text: cleanedText,
+          isActive: false,
+        });
+      }
     }
     
     return segments;
@@ -735,9 +841,28 @@ const RewindEpisodes = () => {
   };
 
   const handleVideoClick = (video: Video, index: number) => {
+    // Destroy current HLS instance first
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    
+    // Reset video element
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    
+    // Clear previous video state
+    setActiveCaptionText('');
+    setTranscription([]);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    
+    // Set new video
     setCurrentVideo(video);
     setCurrentVideoIndex(index);
-    setIsPlaying(true);
+    
     // Load transcription for the selected video
     loadTranscription(video);
   };
@@ -817,28 +942,26 @@ const RewindEpisodes = () => {
           <div className="relative aspect-[9/16] bg-stone-900 rounded-lg overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.7)] border border-white/10 group ring-1 ring-white/5">
             {currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url || currentVideo.bunny_hls_url || currentVideo.bunny_video_id) ? (
               <>
-                {/* CC Toggle Button - Top Position */}
-                {transcription.length > 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCaptionOverlayEnabled(!captionOverlayEnabled);
-                    }}
-                    className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
-                      captionOverlayEnabled 
-                        ? 'bg-primary text-white border border-primary' 
-                        : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
-                    }`}
-                    title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
-                  >
-                    CC
-                  </button>
-                )}
+                {/* CC Toggle Button - Always show when video is available */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCaptionOverlayEnabled(!captionOverlayEnabled);
+                  }}
+                  className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                    captionOverlayEnabled 
+                      ? 'bg-primary text-white border border-primary' 
+                      : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                  }`}
+                  title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                >
+                  CC
+                </button>
                 {/* HLS Video Player */}
                 <video
                   ref={videoRef}
                   key={`hls-video-${currentVideo.id}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-black"
                   controls
                   playsInline
                   onPlay={() => setIsPlaying(true)}
@@ -981,60 +1104,64 @@ const RewindEpisodes = () => {
           </div>
 
           {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto relative">
+          <div className="flex-1 relative">
             {activeTab === 'transcripcion' ? (
-              <div className="py-6 max-w-4xl">
+              <div data-transcription-section className="py-4">
                 {/* TED Talks style transcription with clickable timestamps */}
                 {transcription.length > 0 ? (
                   <div 
                     ref={transcriptionScrollRef}
-                    className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                    className="h-[400px] overflow-y-auto pr-4 scroll-smooth rounded-lg bg-black/20 border border-white/5"
                     style={{
                       scrollbarWidth: 'thin',
-                      scrollbarColor: '#A05245 #2a2a2a'
+                      scrollbarColor: '#A05245 #1a1a1a'
                     }}
                   >
-                    <div className="space-y-4">
+                    <div className="space-y-2 p-4">
                     {transcription.map((segment, index) => (
                       <div
                         id={`transcript-segment-${index}`}
                         key={index}
                         onClick={() => {
-                          // Seek to this segment's start time
-                          if (currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url)) {
-                            if (bunnyPlayerRef.current) {
-                              try {
-                                bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                setCurrentTime(segment.startTime);
-                              } catch (error) {
-                                console.error('Error seeking to segment:', error);
+                          // Seek to this segment's start time using HLS video element
+                          if (videoRef.current) {
+                            try {
+                              videoRef.current.currentTime = segment.startTime;
+                              setCurrentTime(segment.startTime);
+                              // Also try to play if paused
+                              if (videoRef.current.paused) {
+                                videoRef.current.play().catch(() => {});
                               }
+                            } catch (error) {
+                              console.error('Error seeking to segment:', error);
                             }
                           }
                         }}
-                        className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                        className={`group relative flex items-start gap-3 p-3 rounded-lg transition-all duration-200 cursor-pointer ${
                           segment.isActive
-                            ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
-                            : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                            ? 'bg-[#A05245]/20 border-l-4 border-[#A05245] shadow-md'
+                            : 'hover:bg-white/5 border-l-4 border-transparent'
                         }`}
                       >
                         {/* Timestamp - TED Talks style */}
                         <button
-                          className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                          className={`font-mono text-xs font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[3.5rem] text-left ${
                             segment.isActive 
                               ? 'text-[#A05245] font-bold' 
-                              : 'text-gray-400 hover:text-[#A05245]'
+                              : 'text-gray-500 hover:text-[#A05245]'
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (currentVideo && (currentVideo.bunny_embed_url || currentVideo.bunny_player_url)) {
-                              if (bunnyPlayerRef.current) {
-                                try {
-                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                  setCurrentTime(segment.startTime);
-                                } catch (error) {
-                                  console.error('Error seeking to segment:', error);
+                            // Seek using HLS video element
+                            if (videoRef.current) {
+                              try {
+                                videoRef.current.currentTime = segment.startTime;
+                                setCurrentTime(segment.startTime);
+                                if (videoRef.current.paused) {
+                                  videoRef.current.play().catch(() => {});
                                 }
+                              } catch (error) {
+                                console.error('Error seeking to segment:', error);
                               }
                             }
                           }}
@@ -1043,10 +1170,10 @@ const RewindEpisodes = () => {
                         </button>
                         
                         {/* Text content */}
-                        <p className={`flex-1 leading-relaxed transition-all ${
+                        <p className={`flex-1 leading-relaxed transition-all text-sm ${
                           segment.isActive
-                            ? 'text-white font-medium text-base'
-                            : 'text-gray-300 font-normal text-base'
+                            ? 'text-white font-medium'
+                            : 'text-gray-400 font-normal'
                         }`}>
                           {segment.text}
                         </p>
@@ -1055,14 +1182,14 @@ const RewindEpisodes = () => {
                     </div>
                   </div>
                 ) : transcriptionText ? (
-                  <div className="prose dark:prose-invert max-w-none">
-                    <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
+                  <div className="h-[400px] overflow-y-auto pr-4 rounded-lg bg-black/20 border border-white/5 p-4">
+                    <pre className="text-sm leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
                       {transcriptionText}
                     </pre>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-400 py-8">
-                    <p className="text-base">{t('rewind.no_transcription', 'No transcription available for this video')}</p>
+                  <div className="text-center text-gray-500 py-12 bg-black/20 rounded-lg border border-white/5">
+                    <p className="text-sm">{t('rewind.no_transcription', 'No transcription available for this video')}</p>
                   </div>
                 )}
               </div>

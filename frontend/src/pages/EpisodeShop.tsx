@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Play, 
+  Pause,
   Lock,
   ThumbsUp,
   ThumbsDown,
@@ -72,54 +73,37 @@ const EpisodeShop = () => {
   const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { navigateWithLocale, getPathWithLocale, locale } = useLocale();
 
-  // Helper function to construct HLS URL from video data
+  // Get HLS URL directly from database (already contains token)
   const getHlsUrl = (videoData: any): string | null => {
     if (!videoData) return null;
     
-    // Priority 1: Use bunny_hls_url if available
+    // Use bunny_hls_url directly from database
     if (videoData.bunny_hls_url) {
-      console.log('✅ Using bunny_hls_url:', videoData.bunny_hls_url);
+      console.log('✅ Using bunny_hls_url from database:', videoData.bunny_hls_url);
       return videoData.bunny_hls_url;
-    }
-    
-    // Priority 2: Construct from bunny_embed_url or bunny_player_url
-    const embedUrl = videoData.bunny_embed_url || videoData.bunny_player_url || '';
-    if (embedUrl) {
-      const embedMatch = embedUrl.match(/\/(embed|play)\/(\d+)\/([a-f0-9-]+)/i);
-      if (embedMatch) {
-        const videoId = embedMatch[3];
-        const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
-        const constructedUrl = `https://${cdnHost}/${videoId}/playlist.m3u8`;
-        console.log('✅ Constructed HLS URL from embed URL:', constructedUrl);
-        return constructedUrl;
-      }
-    }
-    
-    // Priority 3: Construct from bunny_video_id if available
-    if (videoData.bunny_video_id) {
-      const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
-      const constructedUrl = `https://${cdnHost}/${videoData.bunny_video_id}/playlist.m3u8`;
-      console.log('✅ Constructed HLS URL from bunny_video_id:', constructedUrl);
-      return constructedUrl;
     }
     
     return null;
   };
 
-  // Initialize HLS.js player
+  // Initialize HLS.js player using database URL
   useEffect(() => {
     if (!video || !showVideoPlayer) return;
     
     const hlsUrl = getHlsUrl(video);
     if (!hlsUrl) {
-      console.log('❌ HLS Init: No HLS URL available');
+      console.log('❌ HLS Init: No HLS URL available in database');
       return;
     }
 
-    console.log('🔗 Using HLS URL:', hlsUrl);
+    console.log('🔗 Using HLS URL from database:', hlsUrl);
+
+    // Clear state immediately when video changes
+    setActiveCaptionText('');
+    setVideoCurrentTime(0);
 
     const initHls = () => {
       if (!videoRef.current) {
@@ -127,10 +111,15 @@ const EpisodeShop = () => {
         return;
       }
 
+      // Destroy previous HLS instance
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      
+      // Reset video element
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
 
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -216,8 +205,10 @@ const EpisodeShop = () => {
   useEffect(() => {
     if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) return;
 
-    const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
-    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+    const currentLocale = (i18n.language || locale || 'en').substring(0, 2).toLowerCase();
+    const hls = hlsRef.current;
+    
+    const trackIndex = hls.audioTracks.findIndex((track: any) => {
       const trackLang = (track.lang || '').toLowerCase();
       const trackName = (track.name || '').toLowerCase();
       return trackLang === currentLocale || 
@@ -228,10 +219,55 @@ const EpisodeShop = () => {
              (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
     });
 
-    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
-      hlsRef.current.audioTrack = trackIndex;
+    if (trackIndex !== -1 && trackIndex !== hls.audioTrack) {
+      // Save current playback state before switching
+      const wasPlaying = videoRef.current && !videoRef.current.paused;
+      const currentPosition = videoRef.current?.currentTime || 0;
+      
+      console.log(`🔊 EpisodeShop: Switching audio track to index ${trackIndex} for locale "${currentLocale}", wasPlaying: ${wasPlaying}, position: ${currentPosition}`);
+      
+      // Set up one-time listener for track switch completion
+      const onTrackSwitched = () => {
+        console.log('🔊 EpisodeShop: Audio track switched, restoring playback state');
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        
+        // Restore playback position and state
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = currentPosition;
+            if (wasPlaying) {
+              videoRef.current.play().catch((e) => {
+                console.log('🔊 EpisodeShop: Auto-resume failed, will retry:', e);
+                // Retry after a short delay
+                setTimeout(() => {
+                  if (videoRef.current && wasPlaying) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }, 200);
+              });
+            }
+          }
+        }, 50);
+      };
+      
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+      
+      // Switch audio track
+      hls.audioTrack = trackIndex;
+      
+      // Fallback: If track switch event doesn't fire within 500ms, restore anyway
+      setTimeout(() => {
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        if (videoRef.current) {
+          videoRef.current.currentTime = currentPosition;
+          if (wasPlaying && videoRef.current.paused) {
+            console.log('🔊 EpisodeShop: Fallback - resuming playback');
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      }, 500);
     }
-  }, [locale]);
+  }, [i18n.language, locale]);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -425,6 +461,18 @@ const EpisodeShop = () => {
       toast.error(t('video.premium_content'));
       return;
     }
+    
+    // If video player is already showing, toggle play/pause
+    if (showVideoPlayer && videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+      return;
+    }
+    
+    // Show video player for the first time
     setShowVideoPlayer(true);
     setIsPlaying(true);
   };
@@ -561,6 +609,18 @@ const EpisodeShop = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Helper function to clean text - remove trailing numbers and clean up
+  const cleanTranscriptionText = (text: string): string => {
+    let cleanedText = text.trim();
+    // Remove trailing numbers (like "2", "3" at end of sentences)
+    cleanedText = cleanedText.replace(/\s*[,\s]*\d+\s*$/g, '');
+    // Remove standalone numbers in the middle
+    cleanedText = cleanedText.replace(/\s+\d+(\s|$)/g, ' ');
+    // Clean up multiple spaces
+    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    return cleanedText;
+  };
+
   // Parse WebVTT format with proper time ranges
   const parseWebVTT = (vtt: string): TranscriptionSegment[] => {
     const segments: TranscriptionSegment[] = [];
@@ -572,7 +632,8 @@ const EpisodeShop = () => {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '') {
+      // Skip WEBVTT header, empty lines, and cue identifiers (numbers)
+      if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '' || line.startsWith('NOTE') || /^\d+$/.test(line)) {
         continue;
       }
       
@@ -581,13 +642,16 @@ const EpisodeShop = () => {
         if (currentStartTime && currentText) {
           const startSeconds = vttTimeToSeconds(currentStartTime);
           const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
-          segments.push({
-            time: formatDisplayTime(startSeconds),
-            startTime: startSeconds,
-            endTime: endSeconds,
-            text: currentText.trim(),
-            isActive: false,
-          });
+          const cleanedText = cleanTranscriptionText(currentText);
+          if (cleanedText) {
+            segments.push({
+              time: formatDisplayTime(startSeconds),
+              startTime: startSeconds,
+              endTime: endSeconds,
+              text: cleanedText,
+              isActive: false,
+            });
+          }
         }
         currentStartTime = timeMatch[1];
         currentEndTime = timeMatch[2];
@@ -603,13 +667,16 @@ const EpisodeShop = () => {
     if (currentStartTime && currentText) {
       const startSeconds = vttTimeToSeconds(currentStartTime);
       const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
-      segments.push({
-        time: formatDisplayTime(startSeconds),
-        startTime: startSeconds,
-        endTime: endSeconds,
-        text: currentText.trim(),
-        isActive: false,
-      });
+      const cleanedText = cleanTranscriptionText(currentText);
+      if (cleanedText) {
+        segments.push({
+          time: formatDisplayTime(startSeconds),
+          startTime: startSeconds,
+          endTime: endSeconds,
+          text: cleanedText,
+          isActive: false,
+        });
+      }
     }
     
     return segments;
@@ -690,30 +757,71 @@ const EpisodeShop = () => {
     return segments;
   };
 
-  // Load transcription from video data or API
+  // Load transcription from video data or API (with VTT support)
   const loadTranscription = async (videoId: number, videoData?: any) => {
     try {
-      const currentLocale = (locale || 'en').substring(0, 2);
+      const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
       const finalLocale = ['en', 'es', 'pt'].includes(currentLocale) ? currentLocale : 'en';
       
-      let transcriptionText: string | null = null;
+      console.log('🔍 Loading transcription for video:', { videoId, locale: finalLocale, i18nLanguage: i18n.language });
       
+      let transcriptionText: string | null = null;
+      let vttContent: string | null = null;
+      
+      // First, try to get transcription from video data (if available)
+      // Prefer VTT format for proper timestamp parsing
       if (videoData && videoData.transcriptions && typeof videoData.transcriptions === 'object') {
         const transcriptions = videoData.transcriptions;
+        console.log('📝 Transcriptions object:', transcriptions);
+        
         if (transcriptions[finalLocale]) {
-          if (typeof transcriptions[finalLocale] === 'string') {
-            transcriptionText = transcriptions[finalLocale].trim();
+          // Prefer VTT content for proper timestamp parsing
+          if (transcriptions[finalLocale]?.vtt) {
+            vttContent = String(transcriptions[finalLocale].vtt).trim();
+            console.log('📄 Found VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions[finalLocale] === 'string') {
+            const text = transcriptions[finalLocale].trim();
+            // Check if it's VTT format
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription string is VTT format, length:', vttContent.length);
+            } else {
+              transcriptionText = text;
+              console.log('📄 Transcription is plain text, length:', transcriptionText.length);
+            }
           } else if (transcriptions[finalLocale]?.text) {
-            transcriptionText = String(transcriptions[finalLocale].text).trim();
+            const text = String(transcriptions[finalLocale].text).trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription .text field is VTT format, length:', vttContent.length);
+            } else {
+              transcriptionText = text;
+              console.log('📄 Transcription .text field is plain text, length:', transcriptionText.length);
+            }
           }
         } else if (transcriptions.en) {
-          if (typeof transcriptions.en === 'string') {
-            transcriptionText = transcriptions.en;
+          // Fallback to English - prefer VTT content
+          if (transcriptions.en?.vtt) {
+            vttContent = String(transcriptions.en.vtt).trim();
+            console.log('📄 Found English VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions.en === 'string') {
+            const text = transcriptions.en.trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           } else if (transcriptions.en?.text) {
-            transcriptionText = transcriptions.en.text;
+            const text = String(transcriptions.en.text).trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           }
         }
       } else if (videoData) {
+        // Try old transcription fields
         switch (finalLocale) {
           case 'es':
             transcriptionText = videoData.transcription_es || videoData.transcription || null;
@@ -725,9 +833,18 @@ const EpisodeShop = () => {
             transcriptionText = videoData.transcription_en || videoData.transcription || null;
             break;
         }
+        if (transcriptionText) {
+          // Check if it's VTT format
+          if (transcriptionText.includes('WEBVTT') || transcriptionText.includes('-->')) {
+            vttContent = transcriptionText;
+            transcriptionText = null;
+          }
+        }
       }
       
-      if (!transcriptionText) {
+      // If not found in video data, try API endpoint
+      if (!transcriptionText && !vttContent) {
+        console.log('🌐 Transcription not in video data, trying API endpoint...');
         try {
           const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
           const response = await fetch(
@@ -743,15 +860,34 @@ const EpisodeShop = () => {
           if (response.ok) {
             const data = await response.json();
             if (data.success && data.transcription) {
-              transcriptionText = data.transcription;
+              const apiText = data.transcription;
+              // Check if API returned VTT content
+              if (apiText.includes('WEBVTT') || apiText.includes('-->')) {
+                vttContent = apiText;
+                console.log('✅ Got VTT from API, length:', vttContent.length);
+              } else {
+                transcriptionText = apiText;
+                console.log('✅ Got transcription from API, length:', transcriptionText.length);
+              }
             }
           }
         } catch (apiError) {
-          console.error('Transcription API error:', apiError);
+          console.error('❌ Transcription API error:', apiError);
         }
       }
       
-      if (transcriptionText) {
+      // If we have VTT content, parse it directly (best option - has timestamps)
+      if (vttContent) {
+        console.log('📊 Parsing VTT content for segments...');
+        const segments = parseWebVTT(vttContent);
+        console.log('✅ Parsed VTT segments:', {
+          segmentCount: segments.length,
+          firstSegment: segments[0],
+        });
+        setTranscriptionSegments(segments);
+        setTranscription(vttContent);
+      } else if (transcriptionText) {
+        // Handle if transcription is an array of words instead of string
         if (Array.isArray(transcriptionText)) {
           transcriptionText = transcriptionText.map(item => {
             if (typeof item === 'string') {
@@ -769,13 +905,15 @@ const EpisodeShop = () => {
         
         setTranscription(transcriptionText);
         const segments = parseTranscription(transcriptionText, video?.duration || videoData?.duration || 0);
+        console.log('📊 Parsed transcription segments:', { segmentCount: segments.length });
         setTranscriptionSegments(segments);
       } else {
+        console.warn('❌ No transcription text or VTT found');
         setTranscription(null);
         setTranscriptionSegments([]);
       }
     } catch (error) {
-      console.error('Error loading transcription:', error);
+      console.error('❌ Error loading transcription:', error);
       setTranscription(null);
       setTranscriptionSegments([]);
     }
@@ -983,7 +1121,7 @@ const EpisodeShop = () => {
     if (video && video.id) {
       loadTranscription(video.id, video);
     }
-  }, [locale, video?.id]);
+  }, [i18n.language, locale, video?.id]);
 
   // Update active transcription segment based on current playback time
   useEffect(() => {
@@ -1107,23 +1245,21 @@ const EpisodeShop = () => {
                 </>
               ) : (video.bunny_embed_url || video.bunny_player_url || video.bunny_hls_url || video.bunny_video_id) ? (
                 <div className="w-full h-full relative">
-                  {/* CC Toggle Button - Top Position */}
-                  {transcriptionSegments.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCaptionOverlayEnabled(!captionOverlayEnabled);
-                      }}
-                      className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
-                        captionOverlayEnabled 
-                          ? 'bg-primary text-white border border-primary' 
-                          : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
-                      }`}
-                      title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
-                    >
-                      CC
-                    </button>
-                  )}
+                  {/* CC Toggle Button - Always show when video is available */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCaptionOverlayEnabled(!captionOverlayEnabled);
+                    }}
+                    className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                      captionOverlayEnabled 
+                        ? 'bg-primary text-white border border-primary' 
+                        : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                    }`}
+                    title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                  >
+                    CC
+                  </button>
                   {/* HLS Video Player */}
                   <video
                     ref={videoRef}
@@ -1171,23 +1307,21 @@ const EpisodeShop = () => {
                       {activeCaptionText}
                     </div>
                   )}
-                  {/* CC Toggle Button for native video - Top Position */}
-                  {transcriptionSegments.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCaptionOverlayEnabled(!captionOverlayEnabled);
-                      }}
-                      className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
-                        captionOverlayEnabled 
-                          ? 'bg-primary text-white border border-primary' 
-                          : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
-                      }`}
-                      title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
-                    >
-                      CC
-                    </button>
-                  )}
+                  {/* CC Toggle Button for native video - Always show */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCaptionOverlayEnabled(!captionOverlayEnabled);
+                    }}
+                    className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                      captionOverlayEnabled 
+                        ? 'bg-primary text-white border border-primary' 
+                        : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                    }`}
+                    title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                  >
+                    CC
+                  </button>
                 </div>
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
@@ -1243,16 +1377,22 @@ const EpisodeShop = () => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!showVideoPlayer) {
-                  setShowVideoPlayer(true);
-                }
                 handlePlay();
               }}
               disabled={!hasAccess || !video}
               className="flex items-center justify-center rounded bg-[#a15145] text-white hover:bg-[#b56053] hover:scale-105 transition-all duration-300 shadow-lg shadow-black/50 px-8 py-3 gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play className="h-7 w-7 fill-current" />
-              <span className="font-bold text-sm tracking-widest uppercase">{t('video.play', 'Reproducir')}</span>
+              {showVideoPlayer && isPlaying ? (
+                <>
+                  <Pause className="h-7 w-7 fill-current" />
+                  <span className="font-bold text-sm tracking-widest uppercase">{t('video.pause', 'Pausar')}</span>
+                </>
+              ) : (
+                <>
+                  <Play className="h-7 w-7 fill-current" />
+                  <span className="font-bold text-sm tracking-widest uppercase">{t('video.play', 'Reproducir')}</span>
+                </>
+              )}
             </Button>
             <Button
               onClick={handleDownloadMaterials}
@@ -1338,63 +1478,62 @@ const EpisodeShop = () => {
               {/* Transcription Content - Only shown when button is pressed */}
               {/* TED Talks style transcription with clickable timestamps */}
               {activeTab === 'transcription' && (
-                <div data-transcription-section className="py-6 max-w-4xl">
+                <div data-transcription-section className="py-4">
                   {transcriptionSegments.length > 0 ? (
                     <div 
                       ref={transcriptionScrollRef}
-                      className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                      className="h-[400px] overflow-y-auto pr-4 scroll-smooth rounded-lg bg-black/20 border border-white/5"
                       style={{
                         scrollbarWidth: 'thin',
-                        scrollbarColor: '#A05245 #2a2a2a'
+                        scrollbarColor: '#A05245 #1a1a1a'
                       }}
                     >
-                      <div className="space-y-4">
+                      <div className="space-y-2 p-4">
                       {transcriptionSegments.map((segment, index) => (
                         <div
                           id={`transcript-segment-${index}`}
                           key={index}
                           onClick={() => {
-                            if (video && (video.bunny_embed_url || video.bunny_player_url)) {
-                              if (bunnyPlayerRef.current) {
-                                try {
-                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                  setVideoCurrentTime(segment.startTime);
-                                } catch (error) {
-                                  console.error('Error seeking to segment:', error);
+                            // Seek to this segment's start time using HLS video element
+                            if (videoRef.current) {
+                              try {
+                                videoRef.current.currentTime = segment.startTime;
+                                setVideoCurrentTime(segment.startTime);
+                                // Also try to play if paused
+                                if (videoRef.current.paused) {
+                                  videoRef.current.play().catch(() => {});
                                 }
+                              } catch (error) {
+                                console.error('Error seeking to segment:', error);
                               }
-                            } else if (videoRef.current) {
-                              videoRef.current.currentTime = segment.startTime;
-                              setVideoCurrentTime(segment.startTime);
                             }
                           }}
-                          className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                          className={`group relative flex items-start gap-3 p-3 rounded-lg transition-all duration-200 cursor-pointer ${
                             segment.isActive
-                              ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
-                              : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                              ? 'bg-[#A05245]/20 border-l-4 border-[#A05245] shadow-md'
+                              : 'hover:bg-white/5 border-l-4 border-transparent'
                           }`}
                         >
                           {/* Timestamp - TED Talks style */}
                           <button
-                            className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                            className={`font-mono text-xs font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[3.5rem] text-left ${
                               segment.isActive 
                                 ? 'text-[#A05245] font-bold' 
-                                : 'text-gray-400 hover:text-[#A05245]'
+                                : 'text-gray-500 hover:text-[#A05245]'
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (video && (video.bunny_embed_url || video.bunny_player_url)) {
-                                if (bunnyPlayerRef.current) {
-                                  try {
-                                    bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                    setVideoCurrentTime(segment.startTime);
-                                  } catch (error) {
-                                    console.error('Error seeking to segment:', error);
+                              // Seek using HLS video element
+                              if (videoRef.current) {
+                                try {
+                                  videoRef.current.currentTime = segment.startTime;
+                                  setVideoCurrentTime(segment.startTime);
+                                  if (videoRef.current.paused) {
+                                    videoRef.current.play().catch(() => {});
                                   }
+                                } catch (error) {
+                                  console.error('Error seeking to segment:', error);
                                 }
-                              } else if (videoRef.current) {
-                                videoRef.current.currentTime = segment.startTime;
-                                setVideoCurrentTime(segment.startTime);
                               }
                             }}
                           >
@@ -1402,10 +1541,10 @@ const EpisodeShop = () => {
                           </button>
                           
                           {/* Text content */}
-                          <p className={`flex-1 leading-relaxed transition-all ${
+                          <p className={`flex-1 leading-relaxed transition-all text-sm ${
                             segment.isActive
-                              ? 'text-white font-medium text-base'
-                              : 'text-gray-300 font-normal text-base'
+                              ? 'text-white font-medium'
+                              : 'text-gray-400 font-normal'
                           }`}>
                             {segment.text}
                           </p>
@@ -1414,14 +1553,14 @@ const EpisodeShop = () => {
                       </div>
                     </div>
                   ) : transcription ? (
-                    <div className="prose dark:prose-invert max-w-none">
-                      <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
+                    <div className="h-[400px] overflow-y-auto pr-4 rounded-lg bg-black/20 border border-white/5 p-4">
+                      <pre className="text-sm leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
                         {transcription}
                       </pre>
                     </div>
                   ) : (
-                    <div className="text-center text-gray-400 py-8">
-                      <p className="text-base">{t('video.no_transcription_available', 'No hay transcripción disponible para este video.')}</p>
+                    <div className="text-center text-gray-500 py-12 bg-black/20 rounded-lg border border-white/5">
+                      <p className="text-sm">{t('video.no_transcription_available', 'No hay transcripción disponible para este video.')}</p>
                     </div>
                   )}
                 </div>

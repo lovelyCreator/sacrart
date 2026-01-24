@@ -522,6 +522,7 @@ class ReelController extends Controller
             'bunny_video_id' => 'nullable|string|max:255',
             'bunny_video_url' => 'nullable|url|max:500',
             'bunny_embed_url' => 'nullable|url|max:500',
+            'bunny_hls_url' => 'nullable|string|max:1000', // HLS URL for video playback
             'bunny_thumbnail_url' => 'nullable|url|max:500',
             'video_url' => 'nullable|url|max:255',
             'video_file_path' => 'nullable|string|max:255',

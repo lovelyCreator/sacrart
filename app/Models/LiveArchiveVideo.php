@@ -49,6 +49,14 @@ class LiveArchiveVideo extends Model
         'meta_keywords',
         'published_at',
         'archived_at',
+        // Transcription fields
+        'transcriptions',
+        'caption_urls',
+        'audio_urls',
+        'source_language',
+        'transcription_status',
+        'transcription_error',
+        'transcription_processed_at',
     ];
 
     protected $casts = [
@@ -59,6 +67,11 @@ class LiveArchiveVideo extends Model
         'unique_views' => 'integer',
         'published_at' => 'datetime',
         'archived_at' => 'datetime',
+        // Transcription casts
+        'transcriptions' => 'array',
+        'caption_urls' => 'array',
+        'audio_urls' => 'array',
+        'transcription_processed_at' => 'datetime',
     ];
 
     /**

@@ -54,30 +54,17 @@ const LiveArchiveDetail = () => {
   const transcriptionScrollRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling transcription
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { navigateWithLocale, locale } = useLocale();
 
-  // Helper function to construct HLS URL from video data
+  // Get HLS URL directly from database (already contains token)
   const getHlsUrl = useCallback((videoData: any): string | null => {
     if (!videoData) return null;
     
-    // Priority 1: Use bunny_hls_url if available
+    // Use bunny_hls_url directly from database
     if (videoData.bunny_hls_url) {
-      console.log('✅ Using bunny_hls_url:', videoData.bunny_hls_url);
+      console.log('✅ Using bunny_hls_url from database:', videoData.bunny_hls_url);
       return videoData.bunny_hls_url;
-    }
-    
-    // Priority 2: Construct from bunny_embed_url or bunny_player_url
-    const embedUrl = videoData.bunny_embed_url || videoData.bunny_player_url || '';
-    if (embedUrl) {
-      const embedMatch = embedUrl.match(/\/(embed|play)\/(\d+)\/([a-f0-9-]+)/i);
-      if (embedMatch) {
-        const videoId = embedMatch[3];
-        const cdnHost = import.meta.env.VITE_BUNNY_CDN_HOST || 'vz-0cc8af54-835.b-cdn.net';
-        const constructedUrl = `https://${cdnHost}/${videoId}/playlist.m3u8`;
-        console.log('✅ Constructed HLS URL from embed URL:', constructedUrl);
-        return constructedUrl;
-      }
     }
     
     return null;
@@ -100,6 +87,10 @@ const LiveArchiveDetail = () => {
       hlsRef.current = null;
     }
 
+    // Clear state immediately when video changes
+    setActiveCaptionText('');
+    setCurrentTime(0);
+
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -113,7 +104,7 @@ const LiveArchiveDetail = () => {
       // Function to switch audio track based on locale
       const switchAudioToLocale = () => {
         const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
-        console.log('🔊 Audio tracks available:', hls.audioTracks);
+        console.log('🔊 LiveArchive audio tracks available:', hls.audioTracks);
         console.log('🌐 Current locale:', currentLocale);
         
         if (!hls.audioTracks || hls.audioTracks.length === 0) {
@@ -141,7 +132,7 @@ const LiveArchiveDetail = () => {
       };
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('✅ HLS manifest parsed');
+        console.log('✅ LiveArchive HLS manifest parsed');
         switchAudioToLocale();
       });
 
@@ -191,14 +182,12 @@ const LiveArchiveDetail = () => {
 
   // Effect to switch audio track when locale changes (if HLS is already initialized)
   useEffect(() => {
-    if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) {
-      return;
-    }
+    if (!hlsRef.current || !hlsRef.current.audioTracks || hlsRef.current.audioTracks.length === 0) return;
 
-    const currentLocale = (locale || 'en').substring(0, 2).toLowerCase();
-    console.log('🌐 Locale changed, switching audio track to:', currentLocale);
-
-    const trackIndex = hlsRef.current.audioTracks.findIndex((track: any) => {
+    const currentLocale = (i18n.language || locale || 'en').substring(0, 2).toLowerCase();
+    const hls = hlsRef.current;
+    
+    const trackIndex = hls.audioTracks.findIndex((track: any) => {
       const trackLang = (track.lang || '').toLowerCase();
       const trackName = (track.name || '').toLowerCase();
       return trackLang === currentLocale || 
@@ -209,11 +198,55 @@ const LiveArchiveDetail = () => {
              (currentLocale === 'pt' && (trackLang === 'por' || trackName.includes('portuguese') || trackName.includes('portugués')));
     });
 
-    if (trackIndex !== -1 && trackIndex !== hlsRef.current.audioTrack) {
-      console.log(`🔊 Switching audio track to index ${trackIndex} for locale "${currentLocale}"`);
-      hlsRef.current.audioTrack = trackIndex;
+    if (trackIndex !== -1 && trackIndex !== hls.audioTrack) {
+      // Save current playback state before switching
+      const wasPlaying = videoRef.current && !videoRef.current.paused;
+      const currentPosition = videoRef.current?.currentTime || 0;
+      
+      console.log(`🔊 LiveArchiveDetail: Switching audio track to index ${trackIndex} for locale "${currentLocale}", wasPlaying: ${wasPlaying}, position: ${currentPosition}`);
+      
+      // Set up one-time listener for track switch completion
+      const onTrackSwitched = () => {
+        console.log('🔊 LiveArchiveDetail: Audio track switched, restoring playback state');
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        
+        // Restore playback position and state
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = currentPosition;
+            if (wasPlaying) {
+              videoRef.current.play().catch((e) => {
+                console.log('🔊 LiveArchiveDetail: Auto-resume failed, will retry:', e);
+                // Retry after a short delay
+                setTimeout(() => {
+                  if (videoRef.current && wasPlaying) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }, 200);
+              });
+            }
+          }
+        }, 50);
+      };
+      
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+      
+      // Switch audio track
+      hls.audioTrack = trackIndex;
+      
+      // Fallback: If track switch event doesn't fire within 500ms, restore anyway
+      setTimeout(() => {
+        hls.off(Hls.Events.AUDIO_TRACK_SWITCHED, onTrackSwitched);
+        if (videoRef.current) {
+          videoRef.current.currentTime = currentPosition;
+          if (wasPlaying && videoRef.current.paused) {
+            console.log('🔊 LiveArchiveDetail: Fallback - resuming playback');
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      }, 500);
     }
-  }, [locale]);
+  }, [i18n.language, locale]);
 
   // Load Player.js library for Bunny.net iframe control (kept for backward compatibility)
   useEffect(() => {
@@ -605,7 +638,7 @@ const LiveArchiveDetail = () => {
       fetchVideoData();
       hasSeekedToSavedPosition.current = false;
     }
-  }, [id, user, t]);
+  }, [id]);
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -636,10 +669,10 @@ const LiveArchiveDetail = () => {
     return new Date(dateString).getFullYear().toString();
   };
 
-  // Load transcription
+  // Load transcription from video data or API (with VTT support)
   const loadTranscription = async (videoId: number, videoData?: any) => {
     try {
-      const currentLocale = (locale || 'en').substring(0, 2);
+      const currentLocale = (i18n.language || locale || 'en').substring(0, 2);
       const finalLocale = ['en', 'es', 'pt'].includes(currentLocale) ? currentLocale : 'en';
       
       console.log('🔍 Loading transcription for live archive video:', {
@@ -649,28 +682,64 @@ const LiveArchiveDetail = () => {
       });
       
       let transcriptionText: string | null = null;
+      let vttContent: string | null = null;
       
-      // First, try to get transcription from video data
+      // First, try to get transcription from video data (if available)
+      // Prefer VTT format for proper timestamp parsing
       if (videoData && videoData.transcriptions && typeof videoData.transcriptions === 'object') {
         const transcriptions = videoData.transcriptions;
+        console.log('📝 Transcriptions object:', transcriptions);
         
         if (transcriptions[finalLocale]) {
-          if (typeof transcriptions[finalLocale] === 'string') {
-            transcriptionText = transcriptions[finalLocale].trim();
+          // Prefer VTT content for proper timestamp parsing
+          if (transcriptions[finalLocale]?.vtt) {
+            vttContent = String(transcriptions[finalLocale].vtt).trim();
+            console.log('📄 Found VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions[finalLocale] === 'string') {
+            const text = transcriptions[finalLocale].trim();
+            // Check if it's VTT format
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription string is VTT format, length:', vttContent.length);
+            } else {
+              transcriptionText = text;
+              console.log('📄 Transcription is plain text, length:', transcriptionText.length);
+            }
           } else if (transcriptions[finalLocale]?.text) {
-            transcriptionText = String(transcriptions[finalLocale].text).trim();
+            const text = String(transcriptions[finalLocale].text).trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+              console.log('📄 Transcription .text field is VTT format, length:', vttContent.length);
+            } else {
+              transcriptionText = text;
+              console.log('📄 Transcription .text field is plain text, length:', transcriptionText.length);
+            }
           }
         } else if (transcriptions.en) {
-          if (typeof transcriptions.en === 'string') {
-            transcriptionText = transcriptions.en;
+          // Fallback to English - prefer VTT content
+          if (transcriptions.en?.vtt) {
+            vttContent = String(transcriptions.en.vtt).trim();
+            console.log('📄 Found English VTT content, length:', vttContent.length);
+          } else if (typeof transcriptions.en === 'string') {
+            const text = transcriptions.en.trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           } else if (transcriptions.en?.text) {
-            transcriptionText = transcriptions.en.text;
+            const text = String(transcriptions.en.text).trim();
+            if (text.includes('WEBVTT') || text.includes('-->')) {
+              vttContent = text;
+            } else {
+              transcriptionText = text;
+            }
           }
         }
       }
       
       // If not found in video data, try API endpoint
-      if (!transcriptionText) {
+      if (!transcriptionText && !vttContent) {
         console.log('🌐 Transcription not in video data, trying API endpoint...');
         try {
           const baseUrl = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8000/api';
@@ -692,8 +761,15 @@ const LiveArchiveDetail = () => {
             const data = await response.json();
             console.log('📡 API Response:', data);
             if (data.success && data.transcription) {
-              transcriptionText = data.transcription;
-              console.log('✅ Got transcription from API, length:', transcriptionText.length);
+              const apiText = data.transcription;
+              // Check if API returned VTT content
+              if (apiText.includes('WEBVTT') || apiText.includes('-->')) {
+                vttContent = apiText;
+                console.log('✅ Got VTT from API, length:', vttContent.length);
+              } else {
+                transcriptionText = apiText;
+                console.log('✅ Got transcription from API, length:', transcriptionText.length);
+              }
             } else {
               console.warn('⚠️ API response unsuccessful or no transcription:', data);
             }
@@ -703,7 +779,18 @@ const LiveArchiveDetail = () => {
         }
       }
       
-      if (transcriptionText) {
+      // If we have VTT content, parse it directly (best option - has timestamps)
+      if (vttContent) {
+        console.log('📊 Parsing VTT content for segments...');
+        const segments = parseWebVTT(vttContent);
+        console.log('✅ Parsed VTT segments:', {
+          segmentCount: segments.length,
+          firstSegment: segments[0],
+        });
+        setTranscriptionSegments(segments);
+        setTranscription(vttContent);
+      } else if (transcriptionText) {
+        // Handle if transcription is an array of words instead of string
         if (Array.isArray(transcriptionText)) {
           transcriptionText = transcriptionText.map(item => {
             if (typeof item === 'string') {
@@ -727,7 +814,7 @@ const LiveArchiveDetail = () => {
         });
         setTranscriptionSegments(segments);
       } else {
-        console.warn('❌ No transcription text found, setting empty');
+        console.warn('❌ No transcription text or VTT found, setting empty');
         setTranscription(null);
         setTranscriptionSegments([]);
       }
@@ -759,7 +846,19 @@ const LiveArchiveDetail = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Parse WebVTT format
+  // Helper function to clean text - remove trailing numbers and clean up
+  const cleanTranscriptionText = (text: string): string => {
+    let cleanedText = text.trim();
+    // Remove trailing numbers (like "2", "3" at end of sentences)
+    cleanedText = cleanedText.replace(/\s*[,\s]*\d+\s*$/g, '');
+    // Remove standalone numbers in the middle
+    cleanedText = cleanedText.replace(/\s+\d+(\s|$)/g, ' ');
+    // Clean up multiple spaces
+    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    return cleanedText;
+  };
+
+  // Parse WebVTT format with proper time ranges
   const parseWebVTT = (vtt: string): TranscriptionSegment[] => {
     const segments: TranscriptionSegment[] = [];
     const lines = vtt.split('\n');
@@ -770,7 +869,8 @@ const LiveArchiveDetail = () => {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '') {
+      // Skip WEBVTT header, empty lines, and cue identifiers (numbers)
+      if (line === 'WEBVTT' || line.startsWith('WEBVTT') || line === '' || line.startsWith('NOTE') || /^\d+$/.test(line)) {
         continue;
       }
       
@@ -779,13 +879,16 @@ const LiveArchiveDetail = () => {
         if (currentStartTime && currentText) {
           const startSeconds = vttTimeToSeconds(currentStartTime);
           const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
-          segments.push({
-            time: formatDisplayTime(startSeconds),
-            startTime: startSeconds,
-            endTime: endSeconds,
-            text: currentText.trim(),
-            isActive: false,
-          });
+          const cleanedText = cleanTranscriptionText(currentText);
+          if (cleanedText) {
+            segments.push({
+              time: formatDisplayTime(startSeconds),
+              startTime: startSeconds,
+              endTime: endSeconds,
+              text: cleanedText,
+              isActive: false,
+            });
+          }
         }
         currentStartTime = timeMatch[1];
         currentEndTime = timeMatch[2];
@@ -801,13 +904,16 @@ const LiveArchiveDetail = () => {
     if (currentStartTime && currentText) {
       const startSeconds = vttTimeToSeconds(currentStartTime);
       const endSeconds = vttTimeToSeconds(currentEndTime || currentStartTime);
-      segments.push({
-        time: formatDisplayTime(startSeconds),
-        startTime: startSeconds,
-        endTime: endSeconds,
-        text: currentText.trim(),
-        isActive: false,
-      });
+      const cleanedText = cleanTranscriptionText(currentText);
+      if (cleanedText) {
+        segments.push({
+          time: formatDisplayTime(startSeconds),
+          startTime: startSeconds,
+          endTime: endSeconds,
+          text: cleanedText,
+          isActive: false,
+        });
+      }
     }
     
     return segments;
@@ -893,7 +999,7 @@ const LiveArchiveDetail = () => {
     if (video && video.id) {
       loadTranscription(video.id, video);
     }
-  }, [locale, video?.id]);
+  }, [i18n.language, locale, video?.id]);
 
   // Update active transcription segment based on current playback time
   useEffect(() => {
@@ -1094,23 +1200,21 @@ const LiveArchiveDetail = () => {
                       </div>
                     </div>
                   )}
-                  {/* CC Toggle Button - Top Position */}
-                  {transcriptionSegments.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCaptionOverlayEnabled(!captionOverlayEnabled);
-                      }}
-                      className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
-                        captionOverlayEnabled 
-                          ? 'bg-primary text-white border border-primary' 
-                          : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
-                      }`}
-                      title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
-                    >
-                      CC
-                    </button>
-                  )}
+                  {/* CC Toggle Button - Always show when video is available */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCaptionOverlayEnabled(!captionOverlayEnabled);
+                    }}
+                    className={`absolute top-3 right-3 px-3 py-1.5 rounded text-xs font-medium z-20 transition-all ${
+                      captionOverlayEnabled 
+                        ? 'bg-primary text-white border border-primary' 
+                        : 'bg-black/70 text-white/80 border border-white/30 hover:bg-black/90'
+                    }`}
+                    title={captionOverlayEnabled ? t('video.hide_captions', 'Hide Captions') : t('video.show_captions', 'Show Captions')}
+                  >
+                    CC
+                  </button>
                   {/* HLS Video Player */}
                   <video
                     ref={videoRef}
@@ -1368,59 +1472,63 @@ const LiveArchiveDetail = () => {
                 {video.description || ''}
               </p>
             </div>
-            {/* Transcription Content */}
             {/* Transcription Content - TED Talks style with clickable timestamps */}
             {activeTab === 'transcription' && (
-                <div data-transcription-section className="py-6 max-w-4xl">
+                <div data-transcription-section className="py-4">
                   {transcriptionSegments.length > 0 ? (
                     <div 
                       ref={transcriptionScrollRef}
-                      className="max-h-[500px] overflow-y-auto pr-4 scroll-smooth"
+                      className="h-[400px] overflow-y-auto pr-4 scroll-smooth rounded-lg bg-black/20 border border-white/5"
                       style={{
                         scrollbarWidth: 'thin',
-                        scrollbarColor: '#A05245 #2a2a2a'
+                        scrollbarColor: '#A05245 #1a1a1a'
                       }}
                     >
-                      <div className="space-y-4">
+                      <div className="space-y-2 p-4">
                       {transcriptionSegments.map((segment, index) => (
                         <div
                           id={`transcript-segment-${index}`}
                           key={index}
                           onClick={() => {
-                            if (video && video.bunny_embed_url) {
-                              if (bunnyPlayerRef.current) {
-                                try {
-                                  bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                  setCurrentTime(segment.startTime);
-                                } catch (error) {
-                                  console.error('Error seeking to segment:', error);
+                            // Seek to this segment's start time using HLS video element
+                            if (videoRef.current) {
+                              try {
+                                videoRef.current.currentTime = segment.startTime;
+                                setCurrentTime(segment.startTime);
+                                // Also try to play if paused
+                                if (videoRef.current.paused) {
+                                  videoRef.current.play().catch(() => {});
                                 }
+                              } catch (error) {
+                                console.error('Error seeking to segment:', error);
                               }
                             }
                           }}
-                          className={`group relative flex items-start gap-4 p-4 rounded-lg transition-all duration-200 ${
+                          className={`group relative flex items-start gap-3 p-3 rounded-lg transition-all duration-200 cursor-pointer ${
                             segment.isActive
-                              ? 'bg-[#A05245]/10 border-l-4 border-[#A05245] shadow-sm'
-                              : 'hover:bg-white/5 border-l-4 border-transparent cursor-pointer'
+                              ? 'bg-[#A05245]/20 border-l-4 border-[#A05245] shadow-md'
+                              : 'hover:bg-white/5 border-l-4 border-transparent'
                           }`}
                         >
                           {/* Timestamp - TED Talks style */}
                           <button
-                            className={`font-mono text-sm font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[4rem] text-left ${
+                            className={`font-mono text-xs font-medium flex-shrink-0 mt-0.5 transition-colors min-w-[3.5rem] text-left ${
                               segment.isActive 
                                 ? 'text-[#A05245] font-bold' 
-                                : 'text-gray-400 hover:text-[#A05245]'
+                                : 'text-gray-500 hover:text-[#A05245]'
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (video && video.bunny_embed_url) {
-                                if (bunnyPlayerRef.current) {
-                                  try {
-                                    bunnyPlayerRef.current.setCurrentTime(segment.startTime);
-                                    setCurrentTime(segment.startTime);
-                                  } catch (error) {
-                                    console.error('Error seeking to segment:', error);
+                              // Seek using HLS video element
+                              if (videoRef.current) {
+                                try {
+                                  videoRef.current.currentTime = segment.startTime;
+                                  setCurrentTime(segment.startTime);
+                                  if (videoRef.current.paused) {
+                                    videoRef.current.play().catch(() => {});
                                   }
+                                } catch (error) {
+                                  console.error('Error seeking to segment:', error);
                                 }
                               }
                             }}
@@ -1429,10 +1537,10 @@ const LiveArchiveDetail = () => {
                           </button>
                           
                           {/* Text content */}
-                          <p className={`flex-1 leading-relaxed transition-all ${
+                          <p className={`flex-1 leading-relaxed transition-all text-sm ${
                             segment.isActive
-                              ? 'text-white font-medium text-base'
-                              : 'text-gray-300 font-normal text-base'
+                              ? 'text-white font-medium'
+                              : 'text-gray-400 font-normal'
                           }`}>
                             {segment.text}
                           </p>
@@ -1441,14 +1549,14 @@ const LiveArchiveDetail = () => {
                       </div>
                     </div>
                   ) : transcription ? (
-                    <div className="prose dark:prose-invert max-w-none">
-                      <pre className="text-base leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
+                    <div className="h-[400px] overflow-y-auto pr-4 rounded-lg bg-black/20 border border-white/5 p-4">
+                      <pre className="text-sm leading-relaxed text-gray-300 font-light whitespace-pre-wrap">
                         {transcription}
                       </pre>
                     </div>
                   ) : (
-                    <div className="text-center text-gray-400 py-8">
-                      <p className="text-base">{t('video.no_transcription', 'No hay transcripción disponible')}</p>
+                    <div className="text-center text-gray-500 py-12 bg-black/20 rounded-lg border border-white/5">
+                      <p className="text-sm">{t('video.no_transcription', 'No hay transcripción disponible')}</p>
                     </div>
                   )}
                 </div>
