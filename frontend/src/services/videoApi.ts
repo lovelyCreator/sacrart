@@ -841,37 +841,51 @@ export const reelApi = {
   },
 
   update: async (id: number, data: Partial<Reel>) => {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (key === 'tags' && Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value));
-        } else if (key === 'translations' && typeof value === 'object') {
-          formData.append(key, JSON.stringify(value));
-        } else if (key === 'intro_image_file' && value instanceof File) {
-          formData.append(key, value);
-        } else if (typeof value === 'boolean') {
-          // Convert boolean to "1" or "0" for Laravel validation
-          formData.append(key, value ? '1' : '0');
-        } else {
-          formData.append(key, String(value));
+    // Check if we have file uploads
+    const hasFileUploads = Object.values(data).some(value => value instanceof File);
+    
+    if (hasFileUploads) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (key === 'tags' && Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else if (key === 'translations' && typeof value === 'object') {
+            formData.append(key, JSON.stringify(value));
+          } else if (key === 'intro_image_file' && value instanceof File) {
+            formData.append(key, value);
+          } else if (typeof value === 'boolean') {
+            // Convert boolean to "1" or "0" for Laravel validation
+            formData.append(key, value ? '1' : '0');
+          } else {
+            formData.append(key, String(value));
+          }
         }
-      }
-    });
-    
-    // Laravel needs POST with _method=PUT for FormData to parse correctly
-    formData.append('_method', 'PUT');
-    
-    const headers = getAuthHeaders();
-    delete (headers as any)['Content-Type'];
-    
-    // Use POST with method spoofing instead of PUT for FormData
-    const response = await fetch(`${API_BASE_URL}/admin/reels/${id}`, {
-      method: 'POST',
-      headers: headers,
-      body: formData,
-    });
-    return handleResponse<{ success: boolean; data: Reel; message: string }>(response);
+      });
+      
+      // Laravel needs POST with _method=PUT for FormData to parse correctly
+      formData.append('_method', 'PUT');
+      
+      const headers = getAuthHeaders();
+      delete (headers as any)['Content-Type'];
+      
+      // Use POST with method spoofing instead of PUT for FormData
+      const response = await fetch(`${API_BASE_URL}/admin/reels/${id}`, {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+      return handleResponse<{ success: boolean; data: Reel; message: string }>(response);
+    } else {
+      // Use JSON for regular updates without files
+      const response = await fetch(`${API_BASE_URL}/admin/reels/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return handleResponse<{ success: boolean; data: Reel; message: string }>(response);
+    }
   },
 
   delete: async (id: number) => {
@@ -896,6 +910,28 @@ export const reelApi = {
         transcriptions: Record<string, any>;
         caption_urls: Record<string, string>;
         languages_processed: string[];
+      };
+    }>(response);
+  },
+
+  // Get caption download URLs for a reel
+  async getCaptionDownloadUrls(id: number) {
+    const response = await fetch(`${API_BASE_URL}/admin/reels/${id}/caption-urls`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{
+      success: boolean;
+      data: {
+        reel_id: number;
+        bunny_video_id: string;
+        caption_urls: Record<string, {
+          url: string;
+          filename: string;
+          format: string;
+          language: string;
+          language_code: string;
+          exists?: boolean;
+        }>;
       };
     }>(response);
   },

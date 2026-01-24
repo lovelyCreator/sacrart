@@ -189,20 +189,8 @@ class VideoTranscriptionService
                 ]);
                 
                 // Try to download from Storage API using BunnyNetService logic
-                $storageZoneName = config('services.bunny.storage_zone_name');
+                $storageZoneName = $this->getStorageZoneName();
                 $storageAccessKey = config('services.bunny.storage_access_key');
-                
-                // Extract storage zone from CDN URL if not set
-                if (empty($storageZoneName)) {
-                    $cdnUrl = config('services.bunny.cdn_url');
-                    if (!empty($cdnUrl)) {
-                        $cdnHost = str_replace(['https://', 'http://'], '', $cdnUrl);
-                        $cdnHost = rtrim($cdnHost, '/');
-                        if (strpos($cdnHost, '.b-cdn.net') !== false) {
-                            $storageZoneName = str_replace('.b-cdn.net', '', $cdnHost);
-                        }
-                    }
-                }
                 
                 if (!empty($storageZoneName) && !empty($storageAccessKey)) {
                     $langUpper = strtoupper($requestedLanguage);
@@ -235,19 +223,25 @@ class VideoTranscriptionService
                                 $captionContent = $captionResponse->body();
                                 
                                 // Check if we got actual content (not HTML error page or JSON)
-                                // Note: We check for specific error patterns, NOT just '404' 
-                                // because VTT timestamps can contain '404' (e.g., 00:04:04.000)
+                                // Improved validation to avoid false positives with VTT timestamps like "00:04:04.000"
                                 $isValidContent = !empty($captionContent) && 
                                     !str_contains($captionContent, '<html') && 
                                     !str_contains($captionContent, '<!DOCTYPE') &&
-                                    !preg_match('/\b404\s+(Not\s+Found|Error)\b/i', $captionContent) &&
+                                    !str_contains($captionContent, '<title>404') &&
+                                    !str_contains($captionContent, 'HTTP/1.1 404') &&
+                                    !preg_match('/^HTTP\/\d\.\d\s+404/i', $captionContent) &&
+                                    !preg_match('/\b404\s+(Not\s+Found|Error|Page)\b/i', $captionContent) &&
                                     !str_contains($captionContent, 'File Not Found') &&
                                     !str_contains($captionContent, 'ObjectNotFound') &&
+                                    !str_contains($captionContent, 'NoSuchKey') &&
+                                    !str_contains($captionContent, 'AccessDenied') &&
                                     !str_starts_with(trim($captionContent), '[') && // Not JSON array
                                     !str_starts_with(trim($captionContent), '{') && // Not JSON object
+                                    !str_starts_with(trim($captionContent), '<?xml') && // Not XML
                                     // Positive check: valid VTT/SRT should contain WEBVTT or timestamps
                                     (str_contains($captionContent, 'WEBVTT') || 
-                                     preg_match('/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/', $captionContent));
+                                     preg_match('/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/', $captionContent) ||
+                                     preg_match('/^\d+\s*$/m', $captionContent)); // SRT sequence numbers
                                 
                                 if ($isValidContent) {
                                     
@@ -791,6 +785,46 @@ class VideoTranscriptionService
             'languages' => array_keys($model->transcriptions ?? []),
             'caption_urls' => $model->caption_urls ?? [],
         ];
+    }
+
+    /**
+     * Get the correct storage zone name for the current library
+     * 
+     * @return string|null
+     */
+    protected function getStorageZoneName(): ?string
+    {
+        // First try the configured storage zone name
+        $storageZoneName = config('services.bunny.storage_zone_name');
+        if (!empty($storageZoneName)) {
+            return $storageZoneName;
+        }
+        
+        // If not configured, try to derive from library ID
+        // Bunny.net storage zones are typically named vz-{libraryId}
+        $libraryId = config('services.bunny.library_id');
+        if (!empty($libraryId)) {
+            $derivedZoneName = "vz-{$libraryId}";
+            
+            Log::info('Derived storage zone name from library ID in VideoTranscriptionService', [
+                'library_id' => $libraryId,
+                'derived_zone_name' => $derivedZoneName,
+            ]);
+            
+            return $derivedZoneName;
+        }
+        
+        // Last resort: try to extract from CDN URL
+        $cdnUrl = config('services.bunny.cdn_url');
+        if (!empty($cdnUrl)) {
+            $cdnHost = str_replace(['https://', 'http://'], '', $cdnUrl);
+            $cdnHost = rtrim($cdnHost, '/');
+            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                return str_replace('.b-cdn.net', '', $cdnHost);
+            }
+        }
+        
+        return null;
     }
 }
 

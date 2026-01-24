@@ -470,6 +470,13 @@ class ReelController extends Controller
      */
     public function update(Request $request, Reel $reel): JsonResponse
     {
+        \Log::info('🔵 [Backend] Reel update request received', [
+            'reel_id' => $reel->id,
+            'request_data' => $request->all(),
+            'content_type' => $request->header('Content-Type'),
+            'method' => $request->method(),
+        ]);
+
         $requestData = $request->all();
         
         // Handle tags
@@ -516,7 +523,7 @@ class ReelController extends Controller
         $request->merge($requestData);
 
         $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255|unique:reels,title,' . $reel->id,
+            'title' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'short_description' => 'nullable|string|max:500',
             'bunny_video_id' => 'nullable|string|max:255',
@@ -532,7 +539,7 @@ class ReelController extends Controller
             'file_size' => 'nullable|integer|min:0',
             'video_format' => 'nullable|string|max:50',
             'video_quality' => 'nullable|string|max:50',
-            'visibility' => 'sometimes|required|in:freemium,basic,premium',
+            'visibility' => 'nullable|in:freemium,basic,premium',
             'status' => 'nullable|in:draft,published,archived',
             'is_free' => 'nullable|boolean',
             'price' => 'nullable|numeric|min:0',
@@ -636,6 +643,11 @@ class ReelController extends Controller
         
         // Load all translations for the response
         $reel->translations = $reel->getAllTranslations();
+
+        \Log::info('🔵 [Backend] Reel updated successfully', [
+            'reel_id' => $reel->id,
+            'updated_reel' => $reel->toArray(),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -761,6 +773,61 @@ class ReelController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to process transcription: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get caption download URLs for a reel
+     * 
+     * @param Request $request
+     * @param Reel $reel
+     * @return JsonResponse
+     */
+    public function getCaptionDownloadUrls(Request $request, Reel $reel): JsonResponse
+    {
+        try {
+            // Get Bunny.net video ID
+            $bunnyVideoId = $reel->bunny_video_id;
+            
+            if (!$bunnyVideoId && $reel->bunny_embed_url) {
+                // Extract video ID from embed URL
+                $embedUrl = $reel->bunny_embed_url;
+                if (preg_match('/\/embed\/[^\/]+\/([^\/\?]+)/', $embedUrl, $matches)) {
+                    $bunnyVideoId = $matches[1];
+                } elseif (preg_match('/([a-f0-9\-]{36})/', $embedUrl, $matches)) {
+                    $bunnyVideoId = $matches[1];
+                }
+            }
+
+            if (!$bunnyVideoId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Bunny.net video ID found for this reel.',
+                ], 404);
+            }
+
+            // Generate caption download URLs
+            $captionUrls = $this->bunnyNetService->generateCaptionDownloadUrls($bunnyVideoId);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'reel_id' => $reel->id,
+                    'bunny_video_id' => $bunnyVideoId,
+                    'caption_urls' => $captionUrls,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error getting caption download URLs', [
+                'reel_id' => $reel->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get caption download URLs: ' . $e->getMessage(),
             ], 500);
         }
     }

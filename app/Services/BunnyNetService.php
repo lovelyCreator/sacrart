@@ -339,19 +339,25 @@ class BunnyNetService
                                         $captionContent = $captionResponse->body();
                                         
                                         // Check if we got actual content (not HTML error page or JSON)
-                                        // Note: We check for specific error patterns, NOT just '404' 
-                                        // because VTT timestamps can contain '404' (e.g., 00:04:04.000)
+                                        // Improved validation to avoid false positives with VTT timestamps like "00:04:04.000"
                                         $isValidCaption = !empty($captionContent) && 
                                             !str_contains($captionContent, '<html') && 
                                             !str_contains($captionContent, '<!DOCTYPE') &&
-                                            !preg_match('/\b404\s+(Not\s+Found|Error)\b/i', $captionContent) &&
+                                            !str_contains($captionContent, '<title>404') &&
+                                            !str_contains($captionContent, 'HTTP/1.1 404') &&
+                                            !preg_match('/^HTTP\/\d\.\d\s+404/i', $captionContent) &&
+                                            !preg_match('/\b404\s+(Not\s+Found|Error|Page)\b/i', $captionContent) &&
                                             !str_contains($captionContent, 'File Not Found') &&
                                             !str_contains($captionContent, 'ObjectNotFound') &&
+                                            !str_contains($captionContent, 'NoSuchKey') &&
+                                            !str_contains($captionContent, 'AccessDenied') &&
                                             !str_starts_with(trim($captionContent), '[') && // Not JSON array
                                             !str_starts_with(trim($captionContent), '{') && // Not JSON object
+                                            !str_starts_with(trim($captionContent), '<?xml') && // Not XML
                                             // Positive check: valid VTT/SRT should contain WEBVTT or timestamps
                                             (str_contains($captionContent, 'WEBVTT') || 
-                                             preg_match('/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/', $captionContent));
+                                             preg_match('/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/', $captionContent) ||
+                                             preg_match('/^\d+\s*$/m', $captionContent)); // SRT sequence numbers
                                         
                                         if ($isValidCaption) {
                                             $captionUrl = $storageUrl;
@@ -1646,6 +1652,198 @@ class BunnyNetService
                 'message' => 'Exception during audio track upload: ' . $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Generate caption download URLs for all available languages
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @param array $languages Languages to generate URLs for (default: ['en', 'es', 'pt'])
+     * @return array Array of caption download URLs by language
+     */
+    public function generateCaptionDownloadUrls(string $videoId, array $languages = ['en', 'es', 'pt']): array
+    {
+        $captionUrls = [];
+        
+        // Get storage zone name - prioritize library-based zone name
+        $storageZoneName = $this->getStorageZoneName();
+        
+        if (empty($storageZoneName) || empty($this->storageAccessKey)) {
+            Log::warning('Cannot generate caption URLs - missing configuration', [
+                'video_id' => $videoId,
+                'storage_zone_name' => $storageZoneName ? 'SET' : 'NOT SET',
+                'storage_access_key' => $this->storageAccessKey ? 'SET' : 'NOT SET',
+                'library_id' => $this->libraryId,
+            ]);
+            return [];
+        }
+        
+        foreach ($languages as $language) {
+            $langUpper = strtoupper($language);
+            $langLower = strtolower($language);
+            
+            // Try both VTT and SRT formats, uppercase and lowercase
+            $possibleFiles = [
+                "{$langUpper}.vtt",
+                "{$langLower}.vtt", 
+                "{$langUpper}.srt",
+                "{$langLower}.srt",
+            ];
+            
+            foreach ($possibleFiles as $fileName) {
+                $storageUrl = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/captions/{$fileName}";
+                $storageUrl .= "?accessKey=" . urlencode($this->storageAccessKey);
+                
+                // Test if the file exists by making a HEAD request
+                try {
+                    $response = Http::timeout(10)->head($storageUrl);
+                    
+                    if ($response->successful()) {
+                        $captionUrls[$language] = [
+                            'url' => $storageUrl,
+                            'filename' => $fileName,
+                            'format' => pathinfo($fileName, PATHINFO_EXTENSION),
+                            'language' => $language,
+                            'language_code' => $langUpper,
+                        ];
+                        
+                        Log::info('Found caption file for language', [
+                            'video_id' => $videoId,
+                            'language' => $language,
+                            'filename' => $fileName,
+                            'url' => $storageUrl,
+                        ]);
+                        break; // Found the file, no need to try other formats
+                    }
+                } catch (\Exception $e) {
+                    Log::debug('Caption file check failed', [
+                        'video_id' => $videoId,
+                        'language' => $language,
+                        'filename' => $fileName,
+                        'error' => $e->getMessage(),
+                    ]);
+                    continue;
+                }
+            }
+            
+            // If no file found, still provide the most likely URL (VTT uppercase)
+            if (!isset($captionUrls[$language])) {
+                $defaultFileName = "{$langUpper}.vtt";
+                $defaultUrl = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/captions/{$defaultFileName}";
+                $defaultUrl .= "?accessKey=" . urlencode($this->storageAccessKey);
+                
+                $captionUrls[$language] = [
+                    'url' => $defaultUrl,
+                    'filename' => $defaultFileName,
+                    'format' => 'vtt',
+                    'language' => $language,
+                    'language_code' => $langUpper,
+                    'exists' => false, // Mark as potentially non-existent
+                ];
+                
+                Log::debug('Generated default caption URL for language', [
+                    'video_id' => $videoId,
+                    'language' => $language,
+                    'filename' => $defaultFileName,
+                    'url' => $defaultUrl,
+                ]);
+            }
+        }
+        
+        return $captionUrls;
+    }
+
+    /**
+     * Get the correct storage zone name for the current library
+     * 
+     * @return string|null
+     */
+    protected function getStorageZoneName(): ?string
+    {
+        // First try the configured storage zone name
+        if (!empty($this->storageZoneName)) {
+            return $this->storageZoneName;
+        }
+        
+        // If not configured, try to derive from library ID
+        // Bunny.net storage zones are typically named vz-{libraryId}
+        if (!empty($this->libraryId)) {
+            $derivedZoneName = "vz-{$this->libraryId}";
+            
+            Log::info('Derived storage zone name from library ID', [
+                'library_id' => $this->libraryId,
+                'derived_zone_name' => $derivedZoneName,
+            ]);
+            
+            return $derivedZoneName;
+        }
+        
+        // Last resort: try to extract from CDN URL
+        if (!empty($this->cdnUrl)) {
+            $cdnHost = str_replace(['https://', 'http://'], '', $this->cdnUrl);
+            $cdnHost = rtrim($cdnHost, '/');
+            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                return str_replace('.b-cdn.net', '', $cdnHost);
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Check if a caption file exists for a specific language
+     * 
+     * @param string $videoId Bunny.net video ID
+     * @param string $language Language code (en, es, pt, etc.)
+     * @return array ['exists' => bool, 'url' => string|null, 'format' => string|null]
+     */
+    public function checkCaptionExists(string $videoId, string $language): array
+    {
+        $storageZoneName = $this->storageZoneName;
+        
+        if (empty($storageZoneName) && !empty($this->cdnUrl)) {
+            $cdnHost = str_replace(['https://', 'http://'], '', $this->cdnUrl);
+            $cdnHost = rtrim($cdnHost, '/');
+            if (strpos($cdnHost, '.b-cdn.net') !== false) {
+                $storageZoneName = str_replace('.b-cdn.net', '', $cdnHost);
+            }
+        }
+        
+        if (empty($storageZoneName) || empty($this->storageAccessKey)) {
+            return ['exists' => false, 'url' => null, 'format' => null];
+        }
+        
+        $langUpper = strtoupper($language);
+        $langLower = strtolower($language);
+        
+        $possibleFiles = [
+            "{$langUpper}.vtt",
+            "{$langLower}.vtt",
+            "{$langUpper}.srt", 
+            "{$langLower}.srt",
+        ];
+        
+        foreach ($possibleFiles as $fileName) {
+            $storageUrl = "https://storage.bunnycdn.com/{$storageZoneName}/{$videoId}/captions/{$fileName}";
+            $storageUrl .= "?accessKey=" . urlencode($this->storageAccessKey);
+            
+            try {
+                $response = Http::timeout(10)->head($storageUrl);
+                
+                if ($response->successful()) {
+                    return [
+                        'exists' => true,
+                        'url' => $storageUrl,
+                        'format' => pathinfo($fileName, PATHINFO_EXTENSION),
+                        'filename' => $fileName,
+                    ];
+                }
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        
+        return ['exists' => false, 'url' => null, 'format' => null];
     }
 }
 

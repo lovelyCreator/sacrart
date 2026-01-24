@@ -1129,4 +1129,69 @@ class LiveArchiveVideoController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get caption download URLs for a live archive video
+     * 
+     * @param Request $request
+     * @param LiveArchiveVideo $video
+     * @return JsonResponse
+     */
+    public function getCaptionDownloadUrls(Request $request, $id)
+    {
+        try {
+            // Only admins can access caption URLs
+            if (!Auth::user() || !Auth::user()->isAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Admin access required.',
+                ], 403);
+            }
+
+            $video = LiveArchiveVideo::findOrFail($id);
+
+            // Get Bunny.net video ID
+            $bunnyVideoId = $video->bunny_video_id;
+            
+            if (!$bunnyVideoId && $video->bunny_embed_url) {
+                // Extract video ID from embed URL
+                $bunnyVideoId = $this->extractBunnyVideoId($video->bunny_embed_url, $video->bunny_hls_url);
+            }
+
+            if (!$bunnyVideoId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Bunny.net video ID found for this live archive video.',
+                ], 404);
+            }
+
+            // Generate caption download URLs
+            $captionUrls = $this->bunnyNetService->generateCaptionDownloadUrls($bunnyVideoId);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'video_id' => $video->id,
+                    'bunny_video_id' => $bunnyVideoId,
+                    'caption_urls' => $captionUrls,
+                ],
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Live archive video not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error getting caption download URLs for live archive video', [
+                'video_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get caption download URLs: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

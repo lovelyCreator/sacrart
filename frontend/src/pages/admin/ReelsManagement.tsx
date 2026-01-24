@@ -87,6 +87,8 @@ const ReelsManagement = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [processingTranscription, setProcessingTranscription] = useState<Record<number, boolean>>({});
+  const [captionUrls, setCaptionUrls] = useState<Record<number, any>>({});
+  const [loadingCaptions, setLoadingCaptions] = useState<Record<number, boolean>>({});
 
   // Multilingual state for reels
   const [reelMultilingual, setReelMultilingual] = useState<{
@@ -397,52 +399,73 @@ const ReelsManagement = () => {
       return;
     }
 
-    if (!selectedReel.bunny_hls_url?.trim() && !selectedReel.video_url?.trim()) {
-      toast.error('Bunny HLS URL or Video URL is required');
+    // Check if at least one video source is provided
+    if (!selectedReel.bunny_embed_url?.trim() && 
+        !selectedReel.bunny_hls_url?.trim() && 
+        !selectedReel.video_url?.trim()) {
+      toast.error('At least one video source is required (Embed URL, HLS URL, or Video URL)');
       return;
     }
+
+    // Prepare payload outside try block so it's available in catch block for debugging
+    const payload: any = {
+      title: reelMultilingual.title.en,
+      description: reelMultilingual.description.en || null,
+      short_description: reelMultilingual.short_description.en || null,
+      bunny_embed_url: selectedReel.bunny_embed_url?.trim() || null,
+      bunny_hls_url: selectedReel.bunny_hls_url?.trim() || null,
+      // Extract video ID from embed URL or HLS URL
+      bunny_video_id: (() => {
+        if (selectedReel.bunny_video_id) return selectedReel.bunny_video_id;
+        
+        // Try to extract from embed URL first
+        if (selectedReel.bunny_embed_url) {
+          const embedUrl = selectedReel.bunny_embed_url;
+          // Format: https://iframe.mediadelivery.net/embed/{libraryId}/{videoId}
+          let match = embedUrl.match(/mediadelivery\.net\/embed\/\d+\/([a-f0-9\-]{36})/);
+          if (match && match[1]) return match[1];
+          
+          // Format: https://iframe.mediadelivery.net/embed/{videoId}
+          match = embedUrl.match(/mediadelivery\.net\/embed\/([a-f0-9\-]{36})/);
+          if (match && match[1]) return match[1];
+        }
+        
+        // Try to extract from HLS URL
+        if (selectedReel.bunny_hls_url) {
+          const hlsUrl = selectedReel.bunny_hls_url;
+          // Try to extract from token_path parameter first (URL encoded or not)
+          let match = hlsUrl.match(/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/);
+          // If not found, try to extract from path before playlist.m3u8
+          if (!match || !match[1]) {
+            match = hlsUrl.match(/\/([a-f0-9\-]{36})\/playlist\.m3u8/);
+          }
+          if (match && match[1]) return match[1];
+        }
+        return null;
+      })(),
+      bunny_video_url: selectedReel.bunny_video_url || null,
+      bunny_thumbnail_url: selectedReel.bunny_thumbnail_url || null,
+      video_url: selectedReel.video_url || null,
+      thumbnail: selectedReel.thumbnail || null,
+      intro_image: selectedReel.intro_image || null,
+      visibility: selectedReel.visibility,
+      status: selectedReel.status,
+      is_free: selectedReel.is_free ?? true,
+      price: selectedReel.price || null,
+      category_id: selectedReel.category_id || null,
+      category_tag: selectedReel.category_tag || null,
+      tags: selectedReel.tags || [],
+      sort_order: selectedReel.sort_order || 0,
+      meta_title: selectedReel.meta_title || null,
+      meta_description: selectedReel.meta_description || null,
+      meta_keywords: selectedReel.meta_keywords || null,
+      translations: reelMultilingual,
+    };
 
     try {
       setIsSubmitting(true);
 
-      const payload: any = {
-        title: reelMultilingual.title.en,
-        description: reelMultilingual.description.en || null,
-        short_description: reelMultilingual.short_description.en || null,
-        bunny_hls_url: selectedReel.bunny_hls_url?.trim() || null,
-        // Extract video ID from HLS URL
-        bunny_video_id: (() => {
-          if (selectedReel.bunny_video_id) return selectedReel.bunny_video_id;
-          if (selectedReel.bunny_hls_url) {
-            const hlsUrl = selectedReel.bunny_hls_url;
-            // Try to extract from token_path parameter first (URL encoded or not)
-            let match = hlsUrl.match(/token_path=(?:%2F|%252F)?([a-f0-9\-]{36})(?:%2F|%252F)?/);
-            // If not found, try to extract from path before playlist.m3u8
-            if (!match || !match[1]) {
-              match = hlsUrl.match(/\/([a-f0-9\-]{36})\/playlist\.m3u8/);
-            }
-            if (match && match[1]) return match[1];
-          }
-          return null;
-        })(),
-        bunny_video_url: selectedReel.bunny_video_url || null,
-        bunny_thumbnail_url: selectedReel.bunny_thumbnail_url || null,
-        video_url: selectedReel.video_url || null,
-        thumbnail: selectedReel.thumbnail || null,
-        intro_image: selectedReel.intro_image || null,
-        visibility: selectedReel.visibility,
-        status: selectedReel.status,
-        is_free: selectedReel.is_free ?? true,
-        price: selectedReel.price || null,
-        category_id: selectedReel.category_id || null,
-        category_tag: selectedReel.category_tag || null,
-        tags: selectedReel.tags || [],
-        sort_order: selectedReel.sort_order || 0,
-        meta_title: selectedReel.meta_title || null,
-        meta_description: selectedReel.meta_description || null,
-        meta_keywords: selectedReel.meta_keywords || null,
-        translations: reelMultilingual,
-      };
+      console.log('🔵 [Frontend] Saving reel with payload:', payload);
 
       let response;
       if (selectedReel.id) {
@@ -450,6 +473,8 @@ const ReelsManagement = () => {
       } else {
         response = await reelApi.create(payload);
       }
+
+      console.log('🔵 [Frontend] Reel save response:', response);
 
       if (response.success) {
         const savedReel = response.data;
@@ -552,7 +577,22 @@ const ReelsManagement = () => {
       }
     } catch (error: any) {
       console.error('Error saving reel:', error);
-      toast.error(error.message || 'Failed to save reel');
+      
+      // Try to extract more detailed error information
+      let errorMessage = 'Failed to save reel';
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Log the full error for debugging
+      console.error('Full error details:', {
+        error,
+        selectedReel,
+        payload,
+        reelMultilingual
+      });
+      
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -581,6 +621,8 @@ const ReelsManagement = () => {
         toast.success(result.message || 'Transcription processing completed successfully!');
         // Refresh reels list to show updated transcription status
         fetchReels();
+        // Fetch caption download URLs
+        await fetchCaptionUrls(reelId);
       } else {
         toast.error(result.message || 'Failed to process transcription');
       }
@@ -590,6 +632,41 @@ const ReelsManagement = () => {
     } finally {
       setProcessingTranscription(prev => ({ ...prev, [reelId]: false }));
     }
+  };
+
+  // Fetch caption download URLs for a reel
+  const fetchCaptionUrls = async (reelId: number) => {
+    setLoadingCaptions(prev => ({ ...prev, [reelId]: true }));
+    
+    try {
+      const result = await reelApi.getCaptionDownloadUrls(reelId);
+      
+      if (result.success) {
+        setCaptionUrls(prev => ({ ...prev, [reelId]: result.data.caption_urls }));
+        toast.success('Caption download URLs generated successfully!');
+      } else {
+        toast.error('Failed to get caption download URLs');
+      }
+    } catch (error: any) {
+      console.error('Error fetching caption URLs:', error);
+      toast.error('Failed to fetch caption URLs');
+    } finally {
+      setLoadingCaptions(prev => ({ ...prev, [reelId]: false }));
+    }
+  };
+
+  // Handle caption download
+  const handleDownloadCaption = (url: string, filename: string) => {
+    // Create a temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`Downloading ${filename}...`);
   };
 
   // This function is kept for backward compatibility but is no longer used
@@ -812,13 +889,14 @@ const ReelsManagement = () => {
                   <TableHead>Visibility</TableHead>
                   <TableHead>Views</TableHead>
                   <TableHead>Duration</TableHead>
+                  <TableHead>Captions</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody key={`reels-${displayLocale}`}>
                 {filteredReels.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No reels found
                     </TableCell>
                   </TableRow>
@@ -844,6 +922,24 @@ const ReelsManagement = () => {
                       <TableCell>{reel.views || 0}</TableCell>
                       <TableCell>
                         {reel.duration ? `${Math.floor(reel.duration / 60)}:${String(reel.duration % 60).padStart(2, '0')}` : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {captionUrls[reel.id] ? (
+                          <div className="flex gap-1">
+                            {Object.keys(captionUrls[reel.id]).map(lang => (
+                              <Badge key={lang} variant="secondary" className="text-xs">
+                                {lang.toUpperCase()}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : reel.caption_urls ? (
+                          <Badge variant="outline" className="text-xs">
+                            <Subtitles className="w-3 h-3 mr-1" />
+                            Available
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -872,17 +968,48 @@ const ReelsManagement = () => {
                               )}
                             </DropdownMenuItem>
                             {reel.bunny_video_id && (
-                              <DropdownMenuItem 
-                                onClick={() => handleProcessTranscription(reel.id)}
-                                disabled={processingTranscription[reel.id]}
-                              >
-                                {processingTranscription[reel.id] ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Subtitles className="mr-2 h-4 w-4" />
+                              <>
+                                <DropdownMenuItem 
+                                  onClick={() => handleProcessTranscription(reel.id)}
+                                  disabled={processingTranscription[reel.id]}
+                                >
+                                  {processingTranscription[reel.id] ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Subtitles className="mr-2 h-4 w-4" />
+                                  )}
+                                  Process Captions (AI)
+                                </DropdownMenuItem>
+                                
+                                <DropdownMenuItem 
+                                  onClick={() => fetchCaptionUrls(reel.id)}
+                                  disabled={loadingCaptions[reel.id]}
+                                >
+                                  {loadingCaptions[reel.id] ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Link className="mr-2 h-4 w-4" />
+                                  )}
+                                  Get Caption URLs
+                                </DropdownMenuItem>
+                                
+                                {captionUrls[reel.id] && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel>Download Captions</DropdownMenuLabel>
+                                    {Object.entries(captionUrls[reel.id]).map(([lang, caption]: [string, any]) => (
+                                      <DropdownMenuItem
+                                        key={lang}
+                                        onClick={() => handleDownloadCaption(caption.url, caption.filename)}
+                                        className="text-blue-600"
+                                      >
+                                        <Check className="mr-2 h-4 w-4" />
+                                        {caption.language_code} ({caption.format.toUpperCase()})
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </>
                                 )}
-                                Process Captions (AI)
-                              </DropdownMenuItem>
+                              </>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

@@ -210,6 +210,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'update']);
         Route::delete('/admin/live-archive-videos/{id}', [LiveArchiveVideoController::class, 'destroy']);
         Route::post('/admin/live-archive-videos/{id}/process-transcription', [LiveArchiveVideoController::class, 'processTranscription']);
+        Route::get('/admin/live-archive-videos/{id}/caption-urls', [LiveArchiveVideoController::class, 'getCaptionDownloadUrls']);
 
         // Reels (Admin CRUD)
         Route::get('/admin/reels', [ReelController::class, 'index']);
@@ -220,6 +221,7 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Reel transcription processing routes
         Route::post('/admin/reels/{id}/process-transcription', [ReelController::class, 'processTranscription']);
+        Route::get('/admin/reels/{reel}/caption-urls', [ReelController::class, 'getCaptionDownloadUrls']);
 
         // Reel Categories (Admin CRUD)
         Route::get('/admin/reel-categories', [ReelCategoryController::class, 'index']);
