@@ -375,6 +375,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/products/{product}', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'deleteProduct']);
             Route::post('/products/reorder', [\App\Http\Controllers\Api\Admin\KidsManagementController::class, 'reorderProducts']);
         });
+
+        // HLS URL Management (Admin only)
+        Route::prefix('admin/hls')->group(function () {
+            Route::get('/status', [\App\Http\Controllers\Api\Admin\HlsUpdateController::class, 'status']);
+            Route::post('/update', [\App\Http\Controllers\Api\Admin\HlsUpdateController::class, 'update']);
+            Route::post('/force-update', [\App\Http\Controllers\Api\Admin\HlsUpdateController::class, 'forceUpdate']);
+        });
     });
 
     // Public read access to categories
