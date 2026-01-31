@@ -12,17 +12,13 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Update HLS URLs every 12 hours to prevent expiration
+        // Update HLS URLs every 5 minutes to prevent token expiration
+        // Runs independently when triggered by: * * * * * php artisan schedule:run
         $schedule->command('hls:update')
-                 ->twiceDaily(1, 13) // Run at 1:00 AM and 1:00 PM
-                 ->withoutOverlapping()
-                 ->runInBackground();
-        
-        // Alternative: Run every 6 hours for more frequent updates
-        // $schedule->command('hls:update')->everySixHours()->withoutOverlapping()->runInBackground();
-        
-        // Alternative: Run every 8 hours
-        // $schedule->command('hls:update')->cron('0 */8 * * *')->withoutOverlapping()->runInBackground();
+                 ->everyFiveMinutes()
+                 ->withoutOverlapping(10) // Prevent overlap if previous run takes > 10 min
+                 ->runInBackground()
+                 ->appendOutputTo(storage_path('logs/hls-update.log'));
     }
 
     /**
